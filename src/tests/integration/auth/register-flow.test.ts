@@ -21,7 +21,7 @@ describe('Registration Flow Integration Tests', () => {
   afterAll(async () => {
     // Clean up all test data
     await tracker.cleanup();
-  });
+  }, 30000); // Increase timeout for cleanup (psql can take time)
 
   describe('POST /api/auth/register', () => {
     const validRegistrationData = {

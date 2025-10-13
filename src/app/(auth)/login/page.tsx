@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { CreateForm } from '@/components/auth/create-form';
 import { LoginForm } from '@/components/auth/login-form';
+import { JoinForm } from '@/components/auth/join-form';
 import { initializeFamilyKey } from '@/lib/e2ee/key-management';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -71,10 +72,22 @@ export default function LoginPage() {
     }
   };
 
+  const getSecondaryToggleText = () => {
+    if (authMode === 'create' || authMode === 'login') {
+      return 'Have an invite code? Join Family';
+    }
+    return 'Already have an account? Login';
+  };
+
   const handleToggle = () => {
     if (authMode === 'login') setAuthMode('create');
     else if (authMode === 'create') setAuthMode('login');
     else setAuthMode('create');
+  };
+
+  const handleSecondaryToggle = () => {
+    if (authMode === 'join') setAuthMode('login');
+    else setAuthMode('join');
   };
 
   return (
@@ -95,9 +108,9 @@ export default function LoginPage() {
           <div className="space-y-4">
             {authMode === 'create' && <CreateForm onSuccess={handleSuccess} />}
 
-            {(authMode === 'login' || authMode === 'join') && (
-              <LoginForm onSuccess={handleSuccess} />
-            )}
+            {authMode === 'login' && <LoginForm onSuccess={handleSuccess} />}
+
+            {authMode === 'join' && <JoinForm onSuccess={handleSuccess} />}
 
             {/* Divider */}
             <div className="relative">
@@ -121,14 +134,21 @@ export default function LoginPage() {
               {isAuthenticating ? 'Authenticating...' : 'Login with Face ID'}
             </Button>
 
-            {/* Toggle Link */}
-            <div className="text-center">
+            {/* Toggle Links */}
+            <div className="text-center space-y-2">
               <button
                 type="button"
                 onClick={handleToggle}
-                className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+                className="text-sm text-muted-foreground hover:text-foreground transition-colors block w-full"
               >
                 {getToggleText()}
+              </button>
+              <button
+                type="button"
+                onClick={handleSecondaryToggle}
+                className="text-sm text-muted-foreground hover:text-foreground transition-colors block w-full"
+              >
+                {getSecondaryToggleText()}
               </button>
             </div>
           </div>

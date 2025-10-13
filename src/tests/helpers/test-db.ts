@@ -55,28 +55,21 @@ export class TestDataTracker {
 
   /**
    * Clean up all tracked test data using admin client.
+   *
+   * Note: auth.users cleanup is skipped as it requires special admin permissions.
+   * Auth users will be cleaned up during periodic `supabase db reset`.
+   * This is acceptable as orphaned auth users don't affect test functionality.
    */
   async cleanup() {
     const admin = createAdminClient();
 
-    // Delete auth users first (by user ID, not email)
-    if (this.userIds.length > 0) {
-      for (const userId of this.userIds) {
-        try {
-          await admin.auth.admin.deleteUser(userId);
-        } catch (error: any) {
-          // Silently ignore - auth users might not exist or we might not have permission
-          if (error?.message && !error.message.includes('not found')) {
-            console.warn(`Could not delete auth user ${userId}:`, error.message);
-          }
-        }
-      }
-    }
-
-    // Delete users from users table (CASCADE will handle related records)
+    // Delete users from users table first (CASCADE will handle related records)
     if (this.userIds.length > 0) {
       try {
-        await admin.from('users').delete().in('id', this.userIds);
+        const { error } = await admin.from('users').delete().in('id', this.userIds);
+        if (error && !error.message.includes('foreign key')) {
+          console.warn('Could not delete users from database:', error.message);
+        }
       } catch (error: any) {
         console.warn('Could not delete users:', error.message);
       }
@@ -85,7 +78,10 @@ export class TestDataTracker {
     // Delete families (CASCADE will handle channels, etc.)
     if (this.familyIds.length > 0) {
       try {
-        await admin.from('families').delete().in('id', this.familyIds);
+        const { error } = await admin.from('families').delete().in('id', this.familyIds);
+        if (error) {
+          console.warn('Could not delete families:', error.message);
+        }
       } catch (error: any) {
         console.warn('Could not delete families:', error.message);
       }

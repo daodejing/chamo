@@ -1,0 +1,247 @@
+<story-context id="bmad/bmm/workflows/4-implementation/story-context/template" v="1.0">
+  <metadata>
+    <epicId>1</epicId>
+    <storyId>2</storyId>
+    <title>Join Family via Invite Code</title>
+    <status>Draft</status>
+    <generatedAt>2025-10-13</generatedAt>
+    <generator>BMAD Story Context Workflow</generator>
+    <sourceStoryPath>/Users/usr0101345/projects/ourchat/docs/stories/story-1.2.md</sourceStoryPath>
+  </metadata>
+
+  <story>
+    <asA>family member</asA>
+    <iWant>join using an invite code</iWant>
+    <soThat>I can access my family's chat</soThat>
+    <tasks>
+      <task id="1" status="pending">Implement POST /api/auth/join API route (AC: #2, #3, #4)</task>
+      <task id="2" status="pending">Implement JoinForm component (AC: #1, #6)</task>
+      <task id="3" status="pending">Integrate JoinForm into Login screen (AC: #5)</task>
+      <task id="4" status="pending">Write unit tests for join logic (AC: All)</task>
+      <task id="5" status="pending">Write integration tests for join flow (AC: All)</task>
+      <task id="6" status="pending">Write E2E tests for join user experience (AC: #1, #5, #6)</task>
+    </tasks>
+  </story>
+
+  <acceptanceCriteria>
+    <criterion id="AC1">Member enters email, password, invite code, and their name via join form</criterion>
+    <criterion id="AC2">System validates invite code format and existence in database</criterion>
+    <criterion id="AC3">System checks family not full (current members &lt; max_members)</criterion>
+    <criterion id="AC4">Member account is created with role='member' and encrypted family key stored</criterion>
+    <criterion id="AC5">Member is automatically logged in and redirected to chat screen</criterion>
+    <criterion id="AC6">Family key is extracted from invite code and stored in IndexedDB</criterion>
+  </acceptanceCriteria>
+
+  <artifacts>
+    <docs>
+      <doc id="doc-1">
+        <path>/Users/usr0101345/projects/ourchat/docs/tech-spec-epic-1.md</path>
+        <title>Tech Spec: Epic 1 - User Onboarding &amp; Authentication</title>
+        <section>3.2 API Contracts - POST /api/auth/join</section>
+        <snippet>Defines join API endpoint schema, validation rules, error responses, rate limiting, and implementation logic for family member onboarding</snippet>
+      </doc>
+      <doc id="doc-2">
+        <path>/Users/usr0101345/projects/ourchat/docs/tech-spec-epic-1.md</path>
+        <title>Tech Spec: Epic 1 - User Onboarding &amp; Authentication</title>
+        <section>3.3 Component Implementation Guide - Join Family Form</section>
+        <snippet>Details JoinForm component implementation with React Hook Form, Zod validation, form fields, and error handling</snippet>
+      </doc>
+      <doc id="doc-3">
+        <path>/Users/usr0101345/projects/ourchat/docs/solution-architecture.md</path>
+        <title>Solution Architecture - Database Schema</title>
+        <section>3 Database Schema - users and families tables</section>
+        <snippet>Database schema for users and families tables with RLS policies and indexes</snippet>
+      </doc>
+      <doc id="doc-4">
+        <path>/Users/usr0101345/projects/ourchat/docs/solution-architecture.md</path>
+        <title>Solution Architecture - E2EE Implementation</title>
+        <section>5 End-to-End Encryption Implementation - Family Key Distribution</section>
+        <snippet>Shared Family Key model: invite code format (FAMILY-XXXX:BASE64KEY), key extraction, and IndexedDB storage</snippet>
+      </doc>
+      <doc id="doc-5">
+        <path>/Users/usr0101345/projects/ourchat/docs/PRD.md</path>
+        <title>Product Requirements Document</title>
+        <section>6 Epics &amp; User Stories - Epic 1: US-1.2</section>
+        <snippet>User Story 1.2: Join via invite code acceptance criteria and business requirements</snippet>
+      </doc>
+      <doc id="doc-6">
+        <path>/Users/usr0101345/projects/ourchat/docs/tech-spec-epic-1.md</path>
+        <title>Tech Spec: Epic 1 - Security Considerations</title>
+        <section>6 Security Considerations</section>
+        <snippet>Password hashing (bcrypt 10 rounds), rate limiting (10 req/hour), input validation, and session management</snippet>
+      </doc>
+    </docs>
+    <code>
+      <artifact id="code-1">
+        <path>/Users/usr0101345/projects/ourchat/src/lib/auth/invite-codes.ts</path>
+        <kind>utility</kind>
+        <symbol>generateInviteCode, validateInviteCodeFormat</symbol>
+        <lines>1-30</lines>
+        <reason>Invite code generation and validation utilities that are reused for parsing invite codes in join flow</reason>
+      </artifact>
+      <artifact id="code-2">
+        <path>/Users/usr0101345/projects/ourchat/src/lib/validators/auth.ts</path>
+        <kind>validator</kind>
+        <symbol>registerSchema, joinSchema (to be added)</symbol>
+        <lines>1-50</lines>
+        <reason>Zod validation schemas for auth endpoints; joinSchema will define validation rules for join API</reason>
+      </artifact>
+      <artifact id="code-3">
+        <path>/Users/usr0101345/projects/ourchat/src/app/api/auth/register/route.ts</path>
+        <kind>api-route</kind>
+        <symbol>POST handler</symbol>
+        <lines>1-100</lines>
+        <reason>Reference implementation for registration API showing pattern for auth endpoints, error handling, and Supabase integration</reason>
+      </artifact>
+      <artifact id="code-4">
+        <path>/Users/usr0101345/projects/ourchat/src/components/auth/create-form.tsx</path>
+        <kind>component</kind>
+        <symbol>CreateForm</symbol>
+        <lines>1-100</lines>
+        <reason>Similar form component pattern to follow for JoinForm implementation (React Hook Form + Zod + toast notifications)</reason>
+      </artifact>
+      <artifact id="code-5">
+        <path>/Users/usr0101345/projects/ourchat/src/app/(auth)/login/page.tsx</path>
+        <kind>page</kind>
+        <symbol>LoginPage</symbol>
+        <lines>1-150</lines>
+        <reason>Existing login page with tabs; JoinForm will be integrated into the "Join Family" tab</reason>
+      </artifact>
+      <artifact id="code-6">
+        <path>/Users/usr0101345/projects/ourchat/src/lib/e2ee/key-management.ts</path>
+        <kind>utility</kind>
+        <symbol>initializeFamilyKey</symbol>
+        <lines>N/A</lines>
+        <reason>Epic 7 function to store family key in IndexedDB after successful join; must be called after join API response</reason>
+      </artifact>
+      <artifact id="code-7">
+        <path>/Users/usr0101345/projects/ourchat/src/lib/supabase/server.ts</path>
+        <kind>utility</kind>
+        <symbol>createSupabaseServerClient</symbol>
+        <lines>1-50</lines>
+        <reason>Supabase server client for database operations in join API route</reason>
+      </artifact>
+    </code>
+    <dependencies>
+      <ecosystem name="Node">
+        <package name="react-hook-form" version="^7.55.0">Form state management for JoinForm</package>
+        <package name="zod" version="^3.x">Input validation schemas</package>
+        <package name="sonner" version="^2.0.3">Toast notifications for success/error messages</package>
+        <package name="bcrypt" version="5.1.x">Password hashing (server-side)</package>
+        <package name="@supabase/supabase-js" version="latest">Supabase client for database operations</package>
+        <package name="next" version="15.x">Next.js API routes and App Router</package>
+        <package name="react" version="^18.3.1">UI component library</package>
+        <package name="@radix-ui/react-tabs" version="^1.1.3">Tabs component (already in use for login screen)</package>
+        <package name="@radix-ui/react-label" version="^2.1.2">Form labels</package>
+        <package name="nanoid" version="latest">Invite code generation utility</package>
+        <package name="idb" version="8.x">IndexedDB wrapper for family key storage</package>
+      </ecosystem>
+    </dependencies>
+  </artifacts>
+
+  <constraints>
+    <constraint id="constraint-1">API endpoint must use Zod validation schemas on server-side (client-side validation is UX only)</constraint>
+    <constraint id="constraint-2">Rate limiting: 10 requests/hour per IP for join endpoint to prevent abuse</constraint>
+    <constraint id="constraint-3">Password must be hashed with bcrypt (10 rounds) before storage</constraint>
+    <constraint id="constraint-4">Invite code format must match: FAMILY-[A-Z0-9]{4,8}:[A-Za-z0-9+/=]+ (code + base64 key)</constraint>
+    <constraint id="constraint-5">Family capacity check required: COUNT(users WHERE family_id) &lt; families.max_members</constraint>
+    <constraint id="constraint-6">Error responses must follow standard format: { success: false, error: { code, message, details } }</constraint>
+    <constraint id="constraint-7">Family key must be stored in users.encrypted_family_key as base64 string</constraint>
+    <constraint id="constraint-8">Client must store family key in IndexedDB via initializeFamilyKey() from Epic 7</constraint>
+    <constraint id="constraint-9">Supabase Auth session must be initialized after successful join</constraint>
+    <constraint id="constraint-10">Component follows existing CreateForm pattern (React Hook Form + inline validation + toast)</constraint>
+    <constraint id="constraint-11">Row Level Security (RLS) policies must enforce family-scoped data access</constraint>
+  </constraints>
+
+  <interfaces>
+    <interface id="interface-1">
+      <name>POST /api/auth/join</name>
+      <kind>REST API</kind>
+      <signature>
+        Request: { email: string, password: string, inviteCode: string, userName: string }
+        Response: { success: true, user: User, family: Family, session: Session }
+        Errors: 400 (validation), 404 (code not found), 403 (family full), 409 (email exists), 500 (server)
+      </signature>
+      <path>/Users/usr0101345/projects/ourchat/docs/tech-spec-epic-1.md#3.2</path>
+    </interface>
+    <interface id="interface-2">
+      <name>initializeFamilyKey</name>
+      <kind>Function</kind>
+      <signature>
+        async initializeFamilyKey(base64Key: string): Promise&lt;void&gt;
+        Purpose: Store family encryption key in IndexedDB for client-side E2EE operations
+      </signature>
+      <path>/Users/usr0101345/projects/ourchat/src/lib/e2ee/key-management.ts</path>
+    </interface>
+    <interface id="interface-3">
+      <name>validateInviteCodeFormat</name>
+      <kind>Function</kind>
+      <signature>
+        validateInviteCodeFormat(code: string): boolean
+        Purpose: Regex validation of invite code format (FAMILY-XXXX:BASE64KEY)
+      </signature>
+      <path>/Users/usr0101345/projects/ourchat/src/lib/auth/invite-codes.ts</path>
+    </interface>
+    <interface id="interface-4">
+      <name>joinSchema</name>
+      <kind>Zod Schema</kind>
+      <signature>
+        z.object({ email: z.string().email(), password: z.string().min(8), inviteCode: z.string().regex(/^FAMILY-.../), userName: z.string().min(2).max(50) })
+        Purpose: Input validation for join API and form
+      </signature>
+      <path>/Users/usr0101345/projects/ourchat/src/lib/validators/auth.ts</path>
+    </interface>
+    <interface id="interface-5">
+      <name>Supabase Database - families table</name>
+      <kind>Database Table</kind>
+      <signature>
+        Table: families (id, name, invite_code, max_members, created_by, created_at, updated_at)
+        Query: SELECT * FROM families WHERE invite_code = $1
+      </signature>
+      <path>/Users/usr0101345/projects/ourchat/docs/solution-architecture.md#3</path>
+    </interface>
+    <interface id="interface-6">
+      <name>Supabase Database - users table</name>
+      <kind>Database Table</kind>
+      <signature>
+        Table: users (id, email, name, role, family_id, encrypted_family_key, preferences, joined_at, created_at)
+        Insert: INSERT INTO users (email, name, role, family_id, encrypted_family_key) VALUES (...)
+      </signature>
+      <path>/Users/usr0101345/projects/ourchat/docs/solution-architecture.md#3</path>
+    </interface>
+  </interfaces>
+
+  <tests>
+    <standards>
+      Testing framework: Vitest for unit/integration tests, Playwright for E2E tests.
+      Unit tests: src/tests/unit/ directory, 95% code coverage target.
+      Integration tests: src/tests/integration/ directory, test full API flows.
+      E2E tests: tests/e2e/ directory, test user journeys end-to-end.
+      Test naming: [module].test.ts for unit, [flow].test.ts for integration, [feature].spec.ts for E2E.
+      All tests must validate acceptance criteria explicitly.
+    </standards>
+    <locations>
+      <location>tests/unit/auth/</location>
+      <location>tests/integration/auth/</location>
+      <location>tests/e2e/auth/</location>
+      <location>src/tests/unit/auth/</location>
+      <location>src/tests/integration/auth/</location>
+    </locations>
+    <ideas>
+      <idea ac="AC1">E2E test: Fill join form with email, password, invite code, userName and verify submission</idea>
+      <idea ac="AC2">Unit test: validateInviteCodeFormat() with valid and invalid code formats</idea>
+      <idea ac="AC2">Integration test: Join API with invalid invite code returns 404 error</idea>
+      <idea ac="AC3">Integration test: Join API when family full returns 403 error</idea>
+      <idea ac="AC3">Unit test: Family capacity check logic (COUNT users &lt; max_members)</idea>
+      <idea ac="AC4">Integration test: Verify member user record created with role='member' and encrypted_family_key</idea>
+      <idea ac="AC4">Integration test: Password is hashed with bcrypt before database storage</idea>
+      <idea ac="AC5">E2E test: After successful join, verify redirect to /chat screen</idea>
+      <idea ac="AC5">Integration test: Supabase Auth session is initialized after join</idea>
+      <idea ac="AC6">Unit test: Parse invite code to extract base64 family key</idea>
+      <idea ac="AC6">Integration test: Verify initializeFamilyKey() is called with extracted key</idea>
+      <idea ac="All">E2E test: Complete join flow from form submission to chat screen with family name visible</idea>
+      <idea ac="All">Integration test: Duplicate email during join returns 409 error</idea>
+      <idea ac="All">Unit test: Zod joinSchema validation with various invalid inputs</idea>
+    </ideas>
+  </tests>
+</story-context>
