@@ -181,6 +181,9 @@ pnpm format                  # Format code with Prettier
 pnpm test                    # Run unit tests (Vitest)
 pnpm test:ui                 # Run tests with UI
 pnpm test:coverage           # Run tests with coverage
+pnpm test:e2e                # Run E2E tests (Playwright)
+pnpm test:e2e:ui             # Run E2E tests with UI mode
+pnpm test:e2e:debug          # Debug E2E tests
 
 # Supabase
 pnpm dlx supabase start      # Start local Supabase
@@ -222,6 +225,44 @@ pnpm dlx shadcn@latest add dialog
 pnpm dlx shadcn@latest add input
 # etc.
 ```
+
+### Running E2E Tests
+
+**Option 1: Automatic (uses dedicated test server on port 4000)**
+```bash
+# Run all E2E tests
+pnpm test:e2e
+
+# Run specific browser
+pnpm test:e2e --project=firefox
+pnpm test:e2e --project=chromium
+
+# Run in headed mode (see browser)
+pnpm test:e2e --project=firefox --headed
+
+# Debug mode (step through tests)
+pnpm test:e2e:debug
+```
+
+**Option 2: Manual (recommended for development)**
+```bash
+# Terminal 1: Start dev server
+pnpm dev
+
+# Terminal 2: Run E2E tests
+pnpm test:e2e --project=firefox --headed
+```
+
+**E2E Test Harness Page:**
+Visit http://localhost:3000/test-e2ee to manually test E2EE functions in the browser.
+
+**E2E Tests Location:** `tests/e2e/epic-7-e2ee.spec.ts`
+- Message encryption (US-7.1)
+- File encryption (US-7.2)
+- Performance < 20ms (US-7.3)
+- Key storage in IndexedDB
+- Invite code distribution
+- Zero-knowledge verification
 
 ## Architecture Overview
 
