@@ -112,7 +112,14 @@ export function parseInviteCode(inviteCodeWithKey: string): {
   code: string;
   base64Key: string;
 } {
-  const [code, base64Key] = inviteCodeWithKey.split(':');
+  const parts = inviteCodeWithKey.split(':');
+
+  // Must have exactly 2 parts (code and key)
+  if (parts.length !== 2) {
+    throw new Error('Invalid invite code format. Expected CODE:KEY');
+  }
+
+  const [code, base64Key] = parts;
 
   if (!code || !base64Key) {
     throw new Error('Invalid invite code format. Expected CODE:KEY');
