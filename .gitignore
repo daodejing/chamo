@@ -1,0 +1,52 @@
+# Dependencies
+node_modules
+.pnp
+.pnp.js
+
+# Testing
+coverage
+*.log
+
+# Next.js
+.next
+out
+build
+dist
+
+# Production
+*.tsbuildinfo
+next-env.d.ts
+
+# Environment variables
+.env
+.env*.local
+
+# Debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Supabase
+.branches
+.temp
+.vercel
+
+# Misc
+*.pem
+*.zip
+*.pdf
+
+# Prototype (reference only, has own git repo)
+frontend-proto/
