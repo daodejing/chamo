@@ -35,7 +35,32 @@ cd ourchat
 pnpm install
 ```
 
-### 3. Start Supabase Local Development
+### 3. Configure Colima Docker Socket (macOS with Colima only)
+
+If you're using Colima instead of Docker Desktop, you need to set the `DOCKER_HOST` environment variable:
+
+**Option 1: Using direnv (recommended)**
+```bash
+# Install direnv if not already installed
+brew install direnv
+
+# Add direnv hook to your shell (once per machine)
+# For bash: echo 'eval "$(direnv hook bash)"' >> ~/.bashrc
+# For zsh: echo 'eval "$(direnv hook zsh)"' >> ~/.zshrc
+
+# Allow the .envrc file in the project directory
+cd ourchat
+direnv allow
+
+# Now DOCKER_HOST will be automatically set when you cd into the project
+```
+
+**Option 2: Manual export (alternative)**
+```bash
+export DOCKER_HOST=unix:///Users/$USER/.colima/default/docker.sock
+```
+
+### 4. Start Supabase Local Development
 
 This command starts a local Supabase instance using Docker Compose (may take 5-10 minutes on first run):
 
@@ -60,7 +85,7 @@ service_role key: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 
 **Save these values!** You'll need them for the next step.
 
-### 4. Configure Environment Variables
+### 5. Configure Environment Variables
 
 Copy the example environment file:
 
@@ -91,7 +116,7 @@ NEXTAUTH_SECRET=your-nextauth-secret-here
 NODE_ENV=development
 ```
 
-### 5. Apply Database Migrations
+### 6. Apply Database Migrations
 
 ```bash
 pnpm dlx supabase db reset
@@ -99,7 +124,7 @@ pnpm dlx supabase db reset
 
 This creates all tables, indexes, and RLS policies defined in `supabase/migrations/`.
 
-### 6. Start Next.js Development Server
+### 7. Start Next.js Development Server
 
 ```bash
 pnpm dev

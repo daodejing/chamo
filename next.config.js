@@ -2,15 +2,12 @@
 const nextConfig = {
   reactStrictMode: true,
 
-  // Enable experimental features
-  experimental: {
-    // Turbopack for faster dev builds (Next.js 15.5)
-    turbo: {
-      rules: {
-        '*.svg': {
-          loaders: ['@svgr/webpack'],
-          as: '*.js',
-        },
+  // Turbopack configuration (Next.js 15.5)
+  turbopack: {
+    rules: {
+      '*.svg': {
+        loaders: ['@svgr/webpack'],
+        as: '*.js',
       },
     },
   },

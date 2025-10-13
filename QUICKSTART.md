@@ -6,7 +6,19 @@ Get your development environment running in 5 minutes!
 
 ✅ **Node.js 20+** installed
 ✅ **pnpm 9+** installed (`npm install -g pnpm`)
-✅ **Docker Host** running
+✅ **Docker Host** running (Docker Desktop or Colima)
+
+**macOS with Colima:** If using Colima, set up the Docker socket:
+```bash
+# Install direnv (once per machine)
+brew install direnv
+echo 'eval "$(direnv hook zsh)"' >> ~/.zshrc  # or ~/.bashrc for bash
+source ~/.zshrc  # or source ~/.bashrc
+
+# Allow .envrc in project directory
+cd ourchat
+direnv allow
+```
 
 ## 1. Install Dependencies
 

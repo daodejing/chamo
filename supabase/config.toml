@@ -314,7 +314,9 @@ authorization_url_path = "/oauth/consent"
 allow_dynamic_registration = false
 
 [edge_runtime]
-enabled = true
+# Disabled temporarily due to Colima Docker socket compatibility issues
+# Re-enable when using Docker Desktop or when edge functions are needed
+enabled = false
 # Supported request policies: `oneshot`, `per_worker`.
 # `per_worker` (default) — enables hot reload during local development.
 # `oneshot` — fallback mode if hot reload causes issues (e.g. in large repos or with symlinks).
@@ -328,7 +330,8 @@ deno_version = 2
 # secret_key = "env(SECRET_VALUE)"
 
 [analytics]
-enabled = true
+# Disabled for MVP - analytics not needed during development
+enabled = false
 port = 54327
 # Configure one of the supported backends: `postgres`, `bigquery`.
 backend = "postgres"
