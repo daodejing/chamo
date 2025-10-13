@@ -19,45 +19,45 @@ so that I can invite my family members.
 
 ## Tasks / Subtasks
 
-- [ ] Implement database migration for users and families tables (AC: #5, #6)
-  - [ ] Create families table with invite_code column
-  - [ ] Create users table with role and encrypted_family_key columns
-  - [ ] Implement RLS policies for both tables
-  - [ ] Create database indexes for performance
+- [x] Implement database migration for users and families tables (AC: #5, #6)
+  - [x] Create families table with invite_code column
+  - [x] Create users table with role and encrypted_family_key columns
+  - [x] Implement RLS policies for both tables
+  - [x] Create database indexes for performance
 
-- [ ] Implement POST /api/auth/register API route (AC: #1, #2, #5, #6)
-  - [ ] Create Zod validation schema (registerSchema)
-  - [ ] Validate input (email, password min 8 chars, family name, user name)
-  - [ ] Check email not already registered (return 409 if duplicate)
-  - [ ] Generate family encryption key using Epic 7 `generateFamilyKey()`
-  - [ ] Generate unique invite code (format: FAMILY-XXXX using nanoid)
-  - [ ] Hash password with bcrypt (10 rounds)
-  - [ ] Create family record in database
-  - [ ] Create admin user record with encrypted_family_key
-  - [ ] Initialize Supabase Auth session
-  - [ ] Return response with user, family, and invite code
-  - [ ] Implement rate limiting (5 requests/hour per IP)
+- [x] Implement POST /api/auth/register API route (AC: #1, #2, #5, #6)
+  - [x] Create Zod validation schema (registerSchema)
+  - [x] Validate input (email, password min 8 chars, family name, user name)
+  - [x] Check email not already registered (return 409 if duplicate)
+  - [x] Generate family encryption key using Epic 7 `generateFamilyKey()`
+  - [x] Generate unique invite code (format: FAMILY-XXXX using nanoid)
+  - [x] Hash password with bcrypt (10 rounds)
+  - [x] Create family record in database
+  - [x] Create admin user record with encrypted_family_key
+  - [x] Initialize Supabase Auth session
+  - [x] Return response with user, family, and invite code
+  - [x] Implement rate limiting (5 requests/hour per IP)
 
-- [ ] Implement CreateForm component (AC: #1, #3)
-  - [ ] Create `components/auth/create-form.tsx`
-  - [ ] Implement React Hook Form with Zod validation
-  - [ ] Add form fields: userName, email, password, familyName
-  - [ ] Add inline validation error messages
-  - [ ] Call POST /api/auth/register on submit
-  - [ ] Display success toast with invite code on completion
-  - [ ] Handle error states (network failures, validation errors, server errors)
+- [x] Implement CreateForm component (AC: #1, #3)
+  - [x] Create `components/auth/create-form.tsx`
+  - [x] Implement React Hook Form with Zod validation
+  - [x] Add form fields: userName, email, password, familyName
+  - [x] Add inline validation error messages
+  - [x] Call POST /api/auth/register on submit
+  - [x] Display success toast with invite code on completion
+  - [x] Handle error states (network failures, validation errors, server errors)
 
-- [ ] Implement Login screen with tabs (AC: #4)
-  - [ ] Create `app/(auth)/login/page.tsx`
-  - [ ] Implement tabbed interface (Login, Create Family, Join Family)
-  - [ ] Integrate CreateForm component in "Create Family" tab
-  - [ ] Handle successful registration: store family key, redirect to /chat
-  - [ ] Call `initializeFamilyKey()` from Epic 7 to store key in IndexedDB
+- [x] Implement Login screen with tabs (AC: #4)
+  - [x] Create `app/(auth)/login/page.tsx`
+  - [x] Implement tabbed interface (Login, Create Family, Join Family)
+  - [x] Integrate CreateForm component in "Create Family" tab
+  - [x] Handle successful registration: store family key, redirect to /chat
+  - [x] Call `initializeFamilyKey()` from Epic 7 to store key in IndexedDB
 
-- [ ] Implement invite code generation utilities (AC: #2)
-  - [ ] Create `lib/auth/invite-codes.ts`
-  - [ ] Implement `generateInviteCode()` using nanoid
-  - [ ] Implement `validateInviteCodeFormat()` regex checker
+- [x] Implement invite code generation utilities (AC: #2)
+  - [x] Create `lib/auth/invite-codes.ts`
+  - [x] Implement `generateInviteCode()` using nanoid
+  - [x] Implement `validateInviteCodeFormat()` regex checker
   - [ ] Write unit tests for invite code generation and validation
 
 - [ ] Write unit tests for registration logic (AC: All)
@@ -160,4 +160,28 @@ claude-sonnet-4-5-20250929
 
 ### Completion Notes List
 
+**2025-10-13**: Successfully implemented core registration functionality matching prototype design:
+- Database schema verified (families + users tables with RLS policies)
+- POST /api/auth/register API endpoint with full validation, E2EE key generation, and rate limiting
+- CreateForm component with React Hook Form + Zod validation
+- Login page with dark theme, mode toggle (login/create/join), Face ID button, and bottom toggle link
+- UI faithfully adapted from frontend-proto design
+- All form fields, error handling, and success toasts implemented
+- Family key storage in IndexedDB via Epic 7 functions
+
+**Remaining**: Unit tests, integration tests, and E2E tests for full story completion
+
 ### File List
+
+**Created:**
+- `src/lib/auth/invite-codes.ts` - Invite code generation and validation utilities
+- `src/lib/validators/auth.ts` - Zod validation schemas (registerSchema, joinSchema, loginSchema)
+- `src/lib/supabase/client.ts` - Supabase browser client
+- `src/lib/supabase/server.ts` - Supabase server client with admin support
+- `src/app/api/auth/register/route.ts` - Registration API endpoint
+- `src/components/auth/create-form.tsx` - Family creation form component
+- `src/app/(auth)/login/page.tsx` - Login page with tabbed interface
+- `src/components/ui/*` - Shadcn UI components (copied from frontend-proto)
+
+**Modified:**
+- `supabase/migrations/20251013000000_initial_schema.sql` - Already contained required schema

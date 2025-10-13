@@ -12,7 +12,8 @@ export default defineConfig({
   workers: process.env.CI ? 1 : undefined,
   reporter: 'html',
   use: {
-    baseURL: 'http://localhost:4000',
+    // Test server uses dev port and Supabase instance
+    baseURL: 'http://localhost:3002',
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
   },
@@ -32,11 +33,11 @@ export default defineConfig({
     },
   ],
 
-  // Dedicated test server on port 4000
+  // Use existing dev server on port 3002 with standard Supabase instance
   webServer: {
-    command: 'pnpm run dev:test',
-    url: 'http://localhost:4000',
-    reuseExistingServer: false, // Always start fresh for tests
+    command: 'pnpm run dev',
+    url: 'http://localhost:3002',
+    reuseExistingServer: true, // Reuse if already running
     timeout: 180000, // 3 minutes for first-time compilation
     stdout: 'ignore',
     stderr: 'ignore',

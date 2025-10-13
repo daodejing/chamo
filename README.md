@@ -130,7 +130,7 @@ This creates all tables, indexes, and RLS policies defined in `supabase/migratio
 pnpm dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) in your browser.
+Open [http://localhost:3002](http://localhost:3002) in your browser.
 
 ## Project Structure
 
@@ -178,7 +178,7 @@ pnpm type-check              # Run TypeScript type checking
 pnpm format                  # Format code with Prettier
 
 # Testing
-pnpm test                    # Run unit tests (Vitest)
+pnpm test                    # Run unit & integration tests (Vitest)
 pnpm test:ui                 # Run tests with UI
 pnpm test:coverage           # Run tests with coverage
 pnpm test:e2e                # Run E2E tests (Playwright)
@@ -186,10 +186,10 @@ pnpm test:e2e:ui             # Run E2E tests with UI mode
 pnpm test:e2e:debug          # Debug E2E tests
 
 # Supabase
-pnpm dlx supabase start      # Start local Supabase
-pnpm dlx supabase stop       # Stop local Supabase
+pnpm supabase:start          # Start local Supabase
+pnpm supabase:stop           # Stop local Supabase
+pnpm supabase:reset          # Reset database (apply migrations)
 pnpm dlx supabase status     # Check Supabase status
-pnpm dlx supabase db reset   # Reset database (apply migrations)
 pnpm dlx supabase db diff    # Generate migration from changes
 pnpm dlx supabase migration new <name>  # Create new migration
 ```
@@ -226,9 +226,35 @@ pnpm dlx shadcn@latest add input
 # etc.
 ```
 
-### Running E2E Tests
+### Testing Strategy
 
-**Option 1: Automatic (uses dedicated test server on port 4000)**
+**Test Database Configuration:**
+- All tests (unit, integration, E2E) use the **same Supabase instance** on port 54321
+- Tests clean up their own data after each run using `afterAll` hooks
+- Vitest configuration automatically injects test environment variables
+- Auth users may accumulate (401 errors expected), but main tables are cleaned up
+- Run `pnpm supabase:reset` periodically to fully reset the database
+
+**Running Unit & Integration Tests:**
+```bash
+# Run all tests (requires dev server on port 3002)
+pnpm dev          # Terminal 1: Start server
+pnpm test         # Terminal 2: Run tests
+
+# Run specific test file
+pnpm test src/tests/integration/auth/register-flow.test.ts
+
+# Run with UI
+pnpm test:ui
+
+# Run with coverage
+pnpm test:coverage
+```
+
+**Running E2E Tests:**
+
+Playwright E2E tests automatically start their own dev server if not already running.
+
 ```bash
 # Run all E2E tests
 pnpm test:e2e
@@ -244,25 +270,23 @@ pnpm test:e2e --project=firefox --headed
 pnpm test:e2e:debug
 ```
 
-**Option 2: Manual (recommended for development)**
-```bash
-# Terminal 1: Start dev server
-pnpm dev
-
-# Terminal 2: Run E2E tests
-pnpm test:e2e --project=firefox --headed
-```
-
 **E2E Test Harness Page:**
-Visit http://localhost:3000/test-e2ee to manually test E2EE functions in the browser.
+Visit http://localhost:3002/test-e2ee to manually test E2EE functions in the browser.
 
-**E2E Tests Location:** `tests/e2e/epic-7-e2ee.spec.ts`
+**Test Locations:**
+- Unit tests: `tests/unit/` and `src/tests/unit/`
+- Integration tests: `src/tests/integration/`
+- E2E tests: `tests/e2e/`
+
+**Test Coverage:**
 - Message encryption (US-7.1)
 - File encryption (US-7.2)
 - Performance < 20ms (US-7.3)
 - Key storage in IndexedDB
 - Invite code distribution
 - Zero-knowledge verification
+- Registration flow validation
+- Database operations
 
 ## Architecture Overview
 
