@@ -193,7 +193,7 @@ export default function E2EETestPage() {
           data-testid="test-performance"
           className="w-full p-4 bg-red-500 text-white rounded hover:bg-red-600"
         >
-          Test Performance (< 20ms target)
+          Test Performance (&lt; 20ms target)
         </button>
       </div>
 
