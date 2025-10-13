@@ -4,7 +4,7 @@
   "private": true,
   "description": "Private Family Collaboration Platform",
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev --port 3002",
     "dev:test": "next dev --port 4000 --turbopack",
     "build": "next build",
     "start": "next start",
