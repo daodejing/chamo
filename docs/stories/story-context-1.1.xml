@@ -1,0 +1,218 @@
+<story-context id="bmad/bmm/workflows/4-implementation/story-context/template" v="1.0">
+  <metadata>
+    <epicId>1</epicId>
+    <storyId>1</storyId>
+    <title>Create Family Account</title>
+    <status>Draft</status>
+    <generatedAt>2025-10-13</generatedAt>
+    <generator>BMAD Story Context Workflow</generator>
+    <sourceStoryPath>/Users/usr0101345/projects/ourchat/docs/stories/story-1.1.md</sourceStoryPath>
+  </metadata>
+
+  <story>
+    <asA>family admin</asA>
+    <iWant>to create a family account</iWant>
+    <soThat>I can invite my family members</soThat>
+    <tasks>
+      - Implement database migration for users and families tables
+      - Implement POST /api/auth/register API route
+      - Implement CreateForm component
+      - Implement Login screen with tabs
+      - Implement invite code generation utilities
+      - Write unit tests for registration logic
+      - Write integration tests for registration flow
+      - Write E2E tests for user experience
+    </tasks>
+  </story>
+
+  <acceptanceCriteria>
+    <criterion id="AC1">Admin provides family name, email, password, and their name via registration form</criterion>
+    <criterion id="AC2">System generates unique invite code with embedded family encryption key (format: FAMILY-XXXX:BASE64KEY)</criterion>
+    <criterion id="AC3">Admin receives success confirmation with invite code displayed for sharing</criterion>
+    <criterion id="AC4">Admin is automatically logged in and redirected to chat screen</criterion>
+    <criterion id="AC5">Family record is created in database with generated invite code</criterion>
+    <criterion id="AC6">Admin user record is created with role='admin' and encrypted family key stored</criterion>
+  </acceptanceCriteria>
+
+  <artifacts>
+    <docs>
+      <doc>
+        <path>docs/tech-spec-epic-1.md</path>
+        <title>Tech Spec: Epic 1 - User Onboarding & Authentication</title>
+        <section>3.2 API Contracts - POST /api/auth/register</section>
+        <snippet>Detailed API contract with Zod schemas, request/response types, error codes, rate limiting (5 req/hour), and implementation logic for family creation</snippet>
+      </doc>
+      <doc>
+        <path>docs/tech-spec-epic-1.md</path>
+        <title>Tech Spec: Epic 1 - User Onboarding & Authentication</title>
+        <section>3.3 Component Implementation Guide - CreateForm</section>
+        <snippet>Complete React component implementation with React Hook Form, Zod validation, form fields, error handling, and toast notifications</snippet>
+      </doc>
+      <doc>
+        <path>docs/tech-spec-epic-1.md</path>
+        <title>Tech Spec: Epic 1 - User Onboarding & Authentication</title>
+        <section>2.3 Database Tables</section>
+        <snippet>SQL schema for users and families tables with RLS policies, indexes, and foreign key constraints</snippet>
+      </doc>
+      <doc>
+        <path>docs/solution-architecture.md</path>
+        <title>Solution Architecture</title>
+        <section>5 End-to-End Encryption Implementation</section>
+        <snippet>Shared Family Key model architecture, key generation/distribution, invite code format (FAMILY-XXXX:BASE64KEY), and client-side key storage</snippet>
+      </doc>
+      <doc>
+        <path>docs/solution-architecture.md</path>
+        <title>Solution Architecture</title>
+        <section>6 Security Architecture</section>
+        <snippet>Password hashing (bcrypt 10 rounds), rate limiting, input validation (Zod), CSRF protection (SameSite cookies), Content Security Policy headers</snippet>
+      </doc>
+      <doc>
+        <path>docs/PRD.md</path>
+        <title>Product Requirements Document</title>
+        <section>Epic 1 - User Onboarding & Authentication</section>
+        <snippet>Business requirements for family admin registration, invite code distribution, and session persistence</snippet>
+      </doc>
+    </docs>
+
+    <code>
+      <file>
+        <path>src/lib/e2ee/key-management.ts</path>
+        <kind>library</kind>
+        <symbol>generateFamilyKey()</symbol>
+        <lines>11-30</lines>
+        <reason>Required for generating family encryption key during registration (AC2). Returns familyKey and base64Key for invite code embedding.</reason>
+      </file>
+      <file>
+        <path>src/lib/e2ee/key-management.ts</path>
+        <kind>library</kind>
+        <symbol>createInviteCodeWithKey()</symbol>
+        <lines>99-104</lines>
+        <reason>Required for formatting invite code with embedded key (AC2). Combines invite code with base64 key in format: CODE:KEY</reason>
+      </file>
+      <file>
+        <path>src/lib/e2ee/key-management.ts</path>
+        <kind>library</kind>
+        <symbol>initializeFamilyKey()</symbol>
+        <lines>135-138</lines>
+        <reason>Required for storing family key in IndexedDB after successful registration (AC4). Called after login before redirect to chat.</reason>
+      </file>
+      <file>
+        <path>src/lib/e2ee/storage.ts</path>
+        <kind>library</kind>
+        <symbol>storeKey()</symbol>
+        <lines>N/A</lines>
+        <reason>Used by initializeFamilyKey() to persist key in IndexedDB for session management</reason>
+      </file>
+    </code>
+
+    <dependencies>
+      <node>
+        <dependency name="@supabase/supabase-js" version="^2.47.10" purpose="Database client for users/families tables, auth session management" />
+        <dependency name="zod" version="^3.23.8" purpose="Input validation schemas for registration form and API endpoint" />
+        <dependency name="react-hook-form" version="Not installed yet" purpose="Form state management for CreateForm component (mentioned in tech spec)" />
+        <dependency name="sonner" version="^1.7.0" purpose="Toast notifications for success message with invite code" />
+        <dependency name="idb" version="^8.0.1" purpose="IndexedDB wrapper for storing family key client-side" />
+        <dependency name="next" version="^15.0.3" purpose="Framework for API routes and App Router pages" />
+        <dependency name="react" version="^19.0.0" purpose="UI components and hooks" />
+        <dependency name="bcrypt" version="Not installed yet" purpose="Password hashing on server side (mentioned in tech spec)" />
+        <dependency name="nanoid" version="Not installed yet" purpose="Invite code generation (mentioned in tech spec)" />
+      </node>
+      <dev-dependencies>
+        <dependency name="vitest" version="^3.2.4" purpose="Unit testing framework" />
+        <dependency name="@playwright/test" version="^1.56.0" purpose="E2E testing framework" />
+        <dependency name="@testing-library/react" version="^16.3.0" purpose="React component testing utilities" />
+        <dependency name="typescript" version="^5.6.3" purpose="Type safety and compile-time checks" />
+      </dev-dependencies>
+    </dependencies>
+  </artifacts>
+
+  <constraints>
+    <constraint category="architecture">API Design: RESTful endpoint POST /api/auth/register with Zod validation on both client and server</constraint>
+    <constraint category="security">Password hashing: bcrypt with 10 rounds (OWASP standard)</constraint>
+    <constraint category="security">Rate limiting: 5 requests/hour per IP to prevent spam registrations</constraint>
+    <constraint category="security">Input validation: Server-side validation is mandatory (client-side for UX only)</constraint>
+    <constraint category="database">RLS policies must ensure users can only read their own family data</constraint>
+    <constraint category="database">Foreign key constraints: users.family_id → families.id with CASCADE delete</constraint>
+    <constraint category="e2ee">Family key must be generated using Epic 7 generateFamilyKey() function</constraint>
+    <constraint category="e2ee">Invite code format must be: FAMILY-XXXX:BASE64KEY where XXXX is 8 random alphanumeric chars</constraint>
+    <constraint category="e2ee">Family key must be stored in IndexedDB via initializeFamilyKey() before redirect</constraint>
+    <constraint category="ui">Use React Hook Form + Zod for form state management and validation</constraint>
+    <constraint category="ui">Display success toast with invite code using Sonner library (10 second duration)</constraint>
+    <constraint category="ui">Use shadcn/ui Tabs component for login screen interface</constraint>
+  </constraints>
+
+  <interfaces>
+    <interface>
+      <name>generateFamilyKey</name>
+      <kind>function</kind>
+      <signature>async function generateFamilyKey(): Promise&lt;{ familyKey: CryptoKey; base64Key: string }&gt;</signature>
+      <path>src/lib/e2ee/key-management.ts</path>
+      <usage>Call during registration to generate family encryption key. Returns both CryptoKey and base64-encoded string for invite code.</usage>
+    </interface>
+    <interface>
+      <name>createInviteCodeWithKey</name>
+      <kind>function</kind>
+      <signature>function createInviteCodeWithKey(inviteCode: string, base64Key: string): string</signature>
+      <path>src/lib/e2ee/key-management.ts</path>
+      <usage>Call to format invite code with embedded key. Combines FAMILY-XXXX code with base64 key using : separator.</usage>
+    </interface>
+    <interface>
+      <name>initializeFamilyKey</name>
+      <kind>function</kind>
+      <signature>async function initializeFamilyKey(base64Key: string): Promise&lt;void&gt;</signature>
+      <path>src/lib/e2ee/key-management.ts</path>
+      <usage>Call after successful registration to store family key in IndexedDB. Must be called before redirect to /chat.</usage>
+    </interface>
+    <interface>
+      <name>registerSchema</name>
+      <kind>zod-schema</kind>
+      <signature>z.object({ email: z.string().email(), password: z.string().min(8), familyName: z.string().min(2).max(50), userName: z.string().min(2).max(50) })</signature>
+      <path>src/lib/validators/auth.ts (to be created)</path>
+      <usage>Use for validating registration form input on both client and server. Export as registerSchema constant.</usage>
+    </interface>
+    <interface>
+      <name>POST /api/auth/register</name>
+      <kind>api-endpoint</kind>
+      <signature>Request: { email, password, familyName, userName } → Response: { success, user, family: { inviteCode }, session }</signature>
+      <path>src/app/api/auth/register/route.ts (to be created)</path>
+      <usage>CreateForm component calls this endpoint. Returns user data, family with invite code, and session tokens.</usage>
+    </interface>
+  </interfaces>
+
+  <tests>
+    <standards>
+      Testing framework: Vitest for unit/integration tests, Playwright for E2E tests.
+      Unit tests: 95% code coverage target for auth utilities and API logic.
+      Integration tests: Test full API flows with database operations.
+      E2E tests: Test user flows through UI (form submission, validation, success states).
+      Test file naming: *.test.ts for unit tests, *.spec.ts for E2E tests.
+      Test location: tests/unit/ for unit tests, tests/integration/ for integration tests, tests/e2e/ for E2E tests.
+    </standards>
+
+    <locations>
+      <location>tests/unit/auth/</location>
+      <location>tests/integration/auth/</location>
+      <location>tests/e2e/auth/</location>
+    </locations>
+
+    <ideas>
+      <test ac="AC1">E2E: Fill registration form with valid data and submit, verify no validation errors</test>
+      <test ac="AC1">Unit: Test registerSchema with invalid email, short password, empty names - verify error messages</test>
+      <test ac="AC2">Unit: Test generateInviteCode() produces unique codes in correct format FAMILY-XXXXXXXX</test>
+      <test ac="AC2">Unit: Test createInviteCodeWithKey() formats code correctly with : separator</test>
+      <test ac="AC2">Integration: Test API returns invite code in format FAMILY-XXXX:BASE64KEY</test>
+      <test ac="AC3">E2E: After registration success, verify toast displays with invite code text</test>
+      <test ac="AC3">E2E: Verify toast duration is at least 10 seconds to allow copying code</test>
+      <test ac="AC4">E2E: After successful registration, verify redirect to /chat URL</test>
+      <test ac="AC4">Integration: Test session token created and stored in HTTP-only cookie</test>
+      <test ac="AC5">Integration: Verify families table row created with correct name and invite_code</test>
+      <test ac="AC5">Unit: Test invite code unique constraint prevents duplicates</test>
+      <test ac="AC6">Integration: Verify users table row created with role='admin'</test>
+      <test ac="AC6">Integration: Verify encrypted_family_key column populated with base64 string</test>
+      <test ac="AC6">Integration: Test duplicate email returns 409 Conflict error</test>
+      <test ac="all">E2E: Test rate limiting - attempt 6 registrations from same IP, verify 6th returns 429</test>
+      <test ac="all">Unit: Test bcrypt password hashing with 10 rounds</test>
+      <test ac="all">Integration: Test RLS policies prevent cross-family data access</test>
+    </ideas>
+  </tests>
+</story-context>
