@@ -1,0 +1,215 @@
+<story-context id="bmad/bmm/workflows/4-implementation/story-context/template" v="1.0">
+  <metadata>
+    <epicId>1</epicId>
+    <storyId>1.3</storyId>
+    <title>Session Persistence</title>
+    <status>Approved</status>
+    <generatedAt>2025-10-13</generatedAt>
+    <generator>BMAD Story Context Workflow</generator>
+    <sourceStoryPath>/Users/usr0101345/projects/ourchat/docs/stories/story-1.3.md</sourceStoryPath>
+  </metadata>
+
+  <story>
+    <asA>a user</asA>
+    <iWant>my session to persist across browser restarts</iWant>
+    <soThat>I don't have to log in every time</soThat>
+    <tasks>
+      <task>Implement session persistence logic (HTTP-only cookies + IndexedDB)</task>
+      <task>Implement GET /api/auth/session endpoint for session validation</task>
+      <task>Implement POST /api/auth/logout endpoint to clear session and keys</task>
+      <task>Implement auto-login on app load (useAuth hook)</task>
+      <task>Implement middleware for protected routes</task>
+      <task>Implement logout UI and functionality</task>
+      <task>Write unit tests for session logic</task>
+      <task>Write integration tests for session flows</task>
+      <task>Write E2E tests for session persistence</task>
+    </tasks>
+  </story>
+
+  <acceptanceCriteria>
+    <criterion id="AC1">Session tokens stored securely in HTTP-only cookies (SameSite=Strict)</criterion>
+    <criterion id="AC2">Family key stored in IndexedDB (persists across sessions)</criterion>
+    <criterion id="AC3">Auto-login on app revisit if session valid (redirect /login → /chat)</criterion>
+    <criterion id="AC4">Session validation via GET /api/auth/session checks JWT and returns user data</criterion>
+    <criterion id="AC5">Logout clears HTTP-only cookies</criterion>
+    <criterion id="AC6">Logout clears IndexedDB keys</criterion>
+    <criterion id="AC7">After logout, accessing /chat redirects to /login</criterion>
+    <criterion id="AC8">Session expires after 1 hour (access token) with auto-refresh</criterion>
+  </acceptanceCriteria>
+
+  <artifacts>
+    <docs>
+      <doc>
+        <path>/Users/usr0101345/projects/ourchat/docs/tech-spec-epic-1.md</path>
+        <title>Tech Spec: Epic 1 - User Onboarding &amp; Authentication</title>
+        <section>3.2 API Contracts</section>
+        <snippet>Details GET /api/auth/session and POST /api/auth/logout endpoints with request/response schemas, error codes, and rate limiting</snippet>
+      </doc>
+      <doc>
+        <path>/Users/usr0101345/projects/ourchat/docs/tech-spec-epic-1.md</path>
+        <title>Tech Spec: Epic 1 - User Onboarding &amp; Authentication</title>
+        <section>6.2 Session Management</section>
+        <snippet>Describes JWT storage in HTTP-only cookies (SameSite=Strict), session expiry (1 hour access token, 30 days refresh token), auto-refresh logic, and CSRF protection</snippet>
+      </doc>
+      <doc>
+        <path>/Users/usr0101345/projects/ourchat/docs/solution-architecture.md</path>
+        <title>Solution Architecture</title>
+        <section>6 Security Architecture - Session Management</section>
+        <snippet>JWT storage in HTTP-only cookies, session expiry timelines, CSRF protection (SameSite=Strict cookies), and security measures</snippet>
+      </doc>
+      <doc>
+        <path>/Users/usr0101345/projects/ourchat/docs/solution-architecture.md</path>
+        <title>Solution Architecture</title>
+        <section>5 End-to-End Encryption Implementation - Key Storage</section>
+        <snippet>IndexedDB key storage pattern using idb library, clearKeys() function for logout, and fallback to sessionStorage if quota exceeded</snippet>
+      </doc>
+      <doc>
+        <path>/Users/usr0101345/projects/ourchat/docs/PRD.md</path>
+        <title>Product Requirements Document (PRD)</title>
+        <section>6 Epics &amp; User Stories - Epic 1: US-1.3</section>
+        <snippet>User story: "As a user, I want my session to persist so that I don't have to log in every time" with 3 acceptance criteria</snippet>
+      </doc>
+    </docs>
+    <code>
+      <artifact>
+        <path>/Users/usr0101345/projects/ourchat/src/lib/e2ee/storage.ts</path>
+        <kind>module</kind>
+        <symbol>clearKeys</symbol>
+        <lines>65-68</lines>
+        <reason>Provides clearKeys() function to clear all IndexedDB keys on logout (AC6)</reason>
+      </artifact>
+      <artifact>
+        <path>/Users/usr0101345/projects/ourchat/src/lib/e2ee/storage.ts</path>
+        <kind>module</kind>
+        <symbol>retrieveKey</symbol>
+        <lines>47-51</lines>
+        <reason>Retrieves family key from IndexedDB for auto-login persistence (AC2, AC3)</reason>
+      </artifact>
+      <artifact>
+        <path>/Users/usr0101345/projects/ourchat/src/lib/e2ee/storage.ts</path>
+        <kind>module</kind>
+        <symbol>storeKey</symbol>
+        <lines>37-40</lines>
+        <reason>Stores family key in IndexedDB after login (AC2)</reason>
+      </artifact>
+      <artifact>
+        <path>/Users/usr0101345/projects/ourchat/src/app/api/auth/register/route.ts</path>
+        <kind>api-route</kind>
+        <symbol>POST handler</symbol>
+        <lines>N/A</lines>
+        <reason>Existing auth endpoint pattern to follow for session/logout endpoints</reason>
+      </artifact>
+      <artifact>
+        <path>/Users/usr0101345/projects/ourchat/src/app/api/auth/join/route.ts</path>
+        <kind>api-route</kind>
+        <symbol>POST handler</symbol>
+        <lines>N/A</lines>
+        <reason>Existing auth endpoint pattern for session management</reason>
+      </artifact>
+    </code>
+    <dependencies>
+      <npm>
+        <package name="@supabase/supabase-js" version="^2.47.10">Supabase Auth for JWT session management</package>
+        <package name="@supabase/ssr" version="^0.5.2">Server-side session handling with cookies</package>
+        <package name="idb" version="^8.0.1">IndexedDB wrapper for key storage</package>
+        <package name="next" version="^15.0.3">Next.js middleware for protected routes</package>
+        <package name="react-hook-form" version="^7.65.0">Form management (already used in auth forms)</package>
+        <package name="zod" version="^3.23.8">Input validation (already used in auth)</package>
+      </npm>
+    </dependencies>
+  </artifacts>
+
+  <constraints>
+    <constraint>Session tokens MUST be stored in HTTP-only cookies with SameSite=Strict (never localStorage/sessionStorage for XSS protection)</constraint>
+    <constraint>Access token expiry: 1 hour; Refresh token expiry: 30 days (per solution architecture)</constraint>
+    <constraint>Auto-refresh logic MUST refresh tokens before expiry for seamless experience</constraint>
+    <constraint>IndexedDB key storage MUST use existing lib/e2ee/storage.ts module (do not create duplicate storage logic)</constraint>
+    <constraint>Logout MUST clear both cookies (server-side) AND IndexedDB keys (client-side)</constraint>
+    <constraint>Middleware MUST check session on all protected routes and redirect to /login if invalid</constraint>
+    <constraint>Follow existing auth API route patterns (register, join) for consistency</constraint>
+    <constraint>Error responses MUST follow standard format: { success: false, error: { code, message, details } }</constraint>
+    <constraint>No rate limiting on GET /api/auth/session (called frequently by client)</constraint>
+  </constraints>
+
+  <interfaces>
+    <interface>
+      <name>clearKeys</name>
+      <kind>function</kind>
+      <signature>export async function clearKeys(): Promise&lt;void&gt;</signature>
+      <path>/Users/usr0101345/projects/ourchat/src/lib/e2ee/storage.ts</path>
+      <description>Clears all keys from IndexedDB (on logout). Call this from logout handler.</description>
+    </interface>
+    <interface>
+      <name>retrieveKey</name>
+      <kind>function</kind>
+      <signature>export async function retrieveKey(keyName: string): Promise&lt;CryptoKey | null&gt;</signature>
+      <path>/Users/usr0101345/projects/ourchat/src/lib/e2ee/storage.ts</path>
+      <description>Retrieves family key from IndexedDB. Use for auto-login to check if key exists.</description>
+    </interface>
+    <interface>
+      <name>storeKey</name>
+      <kind>function</kind>
+      <signature>export async function storeKey(keyName: string, key: CryptoKey): Promise&lt;void&gt;</signature>
+      <path>/Users/usr0101345/projects/ourchat/src/lib/e2ee/storage.ts</path>
+      <description>Stores a CryptoKey in IndexedDB. Already used in login/register/join flows.</description>
+    </interface>
+    <interface>
+      <name>Supabase createServerClient</name>
+      <kind>function</kind>
+      <signature>createServerClient(url, anonKey, { cookies })</signature>
+      <path>@supabase/ssr</path>
+      <description>Create Supabase server client for cookie-based auth in API routes and middleware</description>
+    </interface>
+    <interface>
+      <name>Supabase auth.getSession()</name>
+      <kind>method</kind>
+      <signature>supabase.auth.getSession(): Promise&lt;{ data: { session }, error }&gt;</signature>
+      <path>@supabase/supabase-js</path>
+      <description>Validate current session (JWT token) from cookies</description>
+    </interface>
+    <interface>
+      <name>Supabase auth.signOut()</name>
+      <kind>method</kind>
+      <signature>supabase.auth.signOut(): Promise&lt;{ error }&gt;</signature>
+      <path>@supabase/supabase-js</path>
+      <description>Invalidate Supabase session server-side (clears cookies)</description>
+    </interface>
+  </interfaces>
+
+  <tests>
+    <standards>
+      Testing stack:
+      - Unit tests: Vitest with happy-dom (for lib/ utilities)
+      - Integration tests: Vitest with real Supabase instance (test API routes)
+      - E2E tests: Playwright on Firefox (test full user flows)
+
+      Test locations:
+      - Unit: src/tests/unit/auth/*.test.ts
+      - Integration: src/tests/integration/auth/*.test.ts
+      - E2E: tests/e2e/auth-*.spec.ts
+
+      Coverage target: 95% for new code (per tech spec)
+
+      Existing patterns from Stories 1.1 &amp; 1.2:
+      - Use test-db.ts helper for Supabase setup
+      - Integration tests use real database (localhost:54321)
+      - E2E tests use real browser sessions with cookies
+    </standards>
+    <locations>
+      <location>src/tests/unit/auth/session-validation.test.ts</location>
+      <location>src/tests/integration/auth/session-flow.test.ts</location>
+      <location>tests/e2e/auth/session-persistence.spec.ts</location>
+    </locations>
+    <ideas>
+      <idea ac="AC1">Unit test: Verify HTTP-only cookie configuration (SameSite=Strict, no JS access)</idea>
+      <idea ac="AC2">Unit test: Verify family key stored in IndexedDB after login</idea>
+      <idea ac="AC3">E2E test: Login → reload page → verify still logged in (no redirect to /login)</idea>
+      <idea ac="AC4">Integration test: Call GET /api/auth/session with valid JWT → returns user data</idea>
+      <idea ac="AC4">Integration test: Call GET /api/auth/session with expired JWT → returns null</idea>
+      <idea ac="AC5,AC6">Integration test: Call POST /api/auth/logout → verify cookies cleared AND IndexedDB cleared</idea>
+      <idea ac="AC7">E2E test: Logout → try to access /chat → verify redirected to /login</idea>
+      <idea ac="AC8">Integration test: Mock token near expiry → verify auto-refresh triggered</idea>
+      <idea ac="AC3">E2E test: Login → close browser → reopen → verify auto-login works</idea>
+    </ideas>
+  </tests>
+</story-context>

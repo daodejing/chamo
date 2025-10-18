@@ -44,6 +44,9 @@ export function CreateForm({ onSuccess }: CreateFormProps) {
 
       const result = await response.json();
 
+      // Session cookies are automatically set by the API route response
+      // The browser's Supabase client will read them automatically
+
       // Show invite code to admin (10 second duration for copying)
       toast.success(
         `Family created! Share this invite code: ${result.family.inviteCode}`,

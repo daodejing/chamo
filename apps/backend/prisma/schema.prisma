@@ -1,0 +1,206 @@
+// prisma/schema.prisma
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  MEMBER
+}
+
+enum ScheduledMessageStatus {
+  PENDING
+  SENT
+  CANCELLED
+}
+
+model User {
+  id                    String            @id @default(uuid())
+  email                 String            @unique
+  name                  String
+  avatar                String?
+  role                  Role              @default(MEMBER)
+  familyId              String
+  family                Family            @relation(fields: [familyId], references: [id], onDelete: Cascade)
+  passwordHash          String
+  joinedAt              DateTime          @default(now())
+  lastSeenAt            DateTime?
+  encryptedFamilyKey    String            @db.Text // Family key encrypted with user's key
+  publicKey             String            @db.Text // E2EE public key (future)
+  preferences           Json              @default("{}")
+  googleCalendarToken   String?           @db.Text
+  googleCalendarConnected Boolean         @default(false)
+
+  messages              Message[]
+  scheduledMessages     ScheduledMessage[]
+  photos                Photo[]
+  photoComments         PhotoComment[]
+  calendarEvents        CalendarEvent[]
+  createdChannels       Channel[]
+  createdFolders        PhotoFolder[]
+
+  createdAt             DateTime          @default(now())
+  updatedAt             DateTime          @updatedAt
+
+  @@index([familyId])
+  @@index([email])
+  @@map("users")
+}
+
+model Family {
+  id                    String            @id @default(uuid())
+  name                  String
+  avatar                String?
+  inviteCode            String            @unique // Format: CODE-XXXX-YYYY
+  maxMembers            Int               @default(10)
+  createdBy             String
+
+  users                 User[]
+  channels              Channel[]
+  photoFolders          PhotoFolder[]
+  calendarEvents        CalendarEvent[]
+
+  createdAt             DateTime          @default(now())
+  updatedAt             DateTime          @updatedAt
+
+  @@index([inviteCode])
+  @@map("families")
+}
+
+model Channel {
+  id                    String            @id @default(uuid())
+  familyId              String
+  family                Family            @relation(fields: [familyId], references: [id], onDelete: Cascade)
+  name                  String
+  description           String?           @db.Text
+  icon                  String?           @db.VarChar(10) // Emoji
+  createdById           String
+  createdBy             User              @relation(fields: [createdById], references: [id])
+  isDefault             Boolean           @default(false)
+
+  messages              Message[]
+  scheduledMessages     ScheduledMessage[]
+
+  createdAt             DateTime          @default(now())
+
+  @@index([familyId])
+  @@map("channels")
+}
+
+model Message {
+  id                    String            @id @default(uuid())
+  channelId             String
+  channel               Channel           @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  userId                String
+  user                  User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  encryptedContent      String            @db.Text // AES-256-GCM ciphertext
+  timestamp             DateTime          @default(now())
+  isEdited              Boolean           @default(false)
+  editedAt              DateTime?
+
+  createdAt             DateTime          @default(now())
+
+  @@index([channelId, timestamp])
+  @@map("messages")
+}
+
+model ScheduledMessage {
+  id                    String                  @id @default(uuid())
+  userId                String
+  user                  User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  channelId             String
+  channel               Channel                 @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  encryptedContent      String                  @db.Text
+  scheduledTime         DateTime
+  status                ScheduledMessageStatus  @default(PENDING)
+
+  createdAt             DateTime                @default(now())
+
+  @@index([scheduledTime])
+  @@index([status])
+  @@map("scheduled_messages")
+}
+
+model PhotoFolder {
+  id                    String            @id @default(uuid())
+  familyId              String
+  family                Family            @relation(fields: [familyId], references: [id], onDelete: Cascade)
+  name                  String
+  icon                  String?           @db.VarChar(10) // Emoji
+  createdById           String
+  createdBy             User              @relation(fields: [createdById], references: [id])
+  isDefault             Boolean           @default(false)
+
+  photos                Photo[]
+
+  createdAt             DateTime          @default(now())
+
+  @@index([familyId])
+  @@map("photo_folders")
+}
+
+model Photo {
+  id                    String            @id @default(uuid())
+  folderId              String
+  folder                PhotoFolder       @relation(fields: [folderId], references: [id], onDelete: Cascade)
+  userId                String
+  user                  User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  storagePath           String            // R2 path: family_id/photo_id.enc
+  encryptedCaption      String?           @db.Text
+  uploadedAt            DateTime          @default(now())
+  likes                 Json              @default("[]") // Array of user IDs
+
+  comments              PhotoComment[]
+
+  createdAt             DateTime          @default(now())
+
+  @@index([folderId])
+  @@index([uploadedAt])
+  @@map("photos")
+}
+
+model PhotoComment {
+  id                    String            @id @default(uuid())
+  photoId               String
+  photo                 Photo             @relation(fields: [photoId], references: [id], onDelete: Cascade)
+  userId                String
+  user                  User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  encryptedComment      String            @db.Text
+  timestamp             DateTime          @default(now())
+
+  createdAt             DateTime          @default(now())
+
+  @@index([photoId])
+  @@map("photo_comments")
+}
+
+model CalendarEvent {
+  id                    String            @id @default(uuid())
+  familyId              String
+  family                Family            @relation(fields: [familyId], references: [id], onDelete: Cascade)
+  userId                String
+  user                  User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title                 String
+  description           String?           @db.Text
+  date                  DateTime          @db.Date
+  startTime             DateTime?         @db.Time
+  endTime               DateTime?         @db.Time
+  allDay                Boolean           @default(false)
+  reminder              Boolean           @default(false)
+  reminderMinutes       Int?
+  color                 String?           @db.VarChar(7) // Hex color
+  googleEventId         String?
+
+  createdAt             DateTime          @default(now())
+  updatedAt             DateTime          @updatedAt
+
+  @@index([familyId])
+  @@index([date])
+  @@map("calendar_events")
+}

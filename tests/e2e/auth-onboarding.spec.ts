@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { E2E_CONFIG } from './config';
 
 /**
  * Epic 1 - User Onboarding & Authentication
@@ -268,7 +269,7 @@ test.describe('Story 1.2: Join Family via Invite Code', () => {
     const timestamp = Date.now();
     const adminEmail = `admin-${timestamp}@example.com`;
 
-    const registerResponse = await page.request.post('http://localhost:3002/api/auth/register', {
+    const registerResponse = await page.request.post(`${E2E_CONFIG.BASE_URL}/api/auth/register`, {
       headers: {
         'Content-Type': 'application/json',
         'x-test-bypass-rate-limit': 'true',

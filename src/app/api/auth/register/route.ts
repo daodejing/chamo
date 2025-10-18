@@ -10,7 +10,7 @@ import {
   generateFamilyKey,
   createInviteCodeWithKey,
 } from '@/lib/e2ee/key-management';
-import { createClient } from '@/lib/supabase/server';
+import { createServerClient } from '@supabase/ssr';
 
 // Simple in-memory rate limiter (TODO: Replace with Redis in production)
 const rateLimiter = new Map<string, { count: number; resetAt: number }>();
@@ -38,10 +38,11 @@ function checkRateLimit(ip: string): boolean {
 
 export async function POST(request: NextRequest) {
   try {
-    // Rate limiting (skip for test environment)
+    // Rate limiting (skip for test and development environments)
+    const isDevelopment = process.env.NODE_ENV === 'development';
     const isTest = process.env.NODE_ENV === 'test' || request.headers.get('x-test-bypass-rate-limit') === 'true';
 
-    if (!isTest) {
+    if (!isTest && !isDevelopment) {
       const ip =
         request.headers.get('x-forwarded-for') ||
         request.headers.get('x-real-ip') ||
@@ -81,8 +82,25 @@ export async function POST(request: NextRequest) {
 
     const { email, password, familyName, userName } = validationResult.data;
 
-    // Create Supabase client
-    const supabase = await createClient();
+    // We'll collect cookies to set on the response
+    let responseCookies: Array<{ name: string; value: string; options: any }> = [];
+
+    // Create Supabase client with cookie handling (like middleware)
+    const supabase = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        cookies: {
+          getAll() {
+            return request.cookies.getAll();
+          },
+          setAll(cookiesToSet) {
+            // Collect cookies to be set later on the response
+            responseCookies = cookiesToSet;
+          },
+        },
+      }
+    );
 
     // Check if email already exists (Supabase Auth will handle this, but we check early)
     const { data: existingUser } = await supabase
@@ -155,9 +173,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (!authData.user) {
-      throw new Error('No user returned from Supabase Auth');
+    if (!authData.user || !authData.session) {
+      throw new Error('No user or session returned from Supabase Auth');
     }
+
+    // Explicitly set the session in the Supabase client to trigger cookie setting
+    await supabase.auth.setSession({
+      access_token: authData.session.access_token,
+      refresh_token: authData.session.refresh_token,
+    });
 
     // Create family record
     const { data: family, error: familyError } = await supabase
@@ -222,8 +246,8 @@ export async function POST(request: NextRequest) {
     // Format invite code with embedded key
     const inviteCodeWithKey = createInviteCodeWithKey(inviteCode!, base64Key);
 
-    // Return success response
-    return NextResponse.json(
+    // Create response with user, family, and session data
+    const response = NextResponse.json(
       {
         success: true,
         user: {
@@ -246,6 +270,13 @@ export async function POST(request: NextRequest) {
       },
       { status: 201 }
     );
+
+    // Set all cookies collected from Supabase client
+    responseCookies.forEach(({ name, value, options }) => {
+      response.cookies.set(name, value, options);
+    });
+
+    return response;
   } catch (error) {
     console.error('Registration error:', error);
 

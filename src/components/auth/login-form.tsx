@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
+import { createClient } from '@/lib/supabase/client';
 
 interface LoginFormProps {
   onSuccess: (response: any) => void;
@@ -12,27 +13,58 @@ interface LoginFormProps {
 
 export function LoginForm({ onSuccess }: LoginFormProps) {
   const [email, setEmail] = useState('');
-  const [inviteCode, setInviteCode] = useState('');
+  const [password, setPassword] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!email || !inviteCode) {
+    if (!email || !password) {
       toast.error('Please fill in all fields');
       return;
     }
 
     setIsSubmitting(true);
     try {
-      // This would call the actual login/join API endpoint
-      // For now, just show a message
-      toast.info('Login/Join functionality coming soon');
+      const supabase = createClient();
 
-      // Placeholder for actual API call:
-      // const response = await fetch('/api/auth/login', { ... });
-      // onSuccess(response);
+      // Sign in with Supabase Auth
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (error) {
+        throw error;
+      }
+
+      if (!data.user) {
+        throw new Error('No user returned from login');
+      }
+
+      // Fetch user's encrypted family key from database
+      const response = await fetch('/api/auth/session');
+      if (!response.ok) {
+        throw new Error('Failed to fetch session data');
+      }
+
+      const sessionData = await response.json();
+      if (!sessionData || !sessionData.user) {
+        throw new Error('Invalid session data');
+      }
+
+      toast.success('Login successful!');
+      onSuccess({
+        user: {
+          id: sessionData.user.id,
+          email: sessionData.user.email,
+          name: sessionData.user.name,
+          encryptedFamilyKey: sessionData.user.encryptedFamilyKey,
+        },
+        family: sessionData.family,
+      });
     } catch (error: any) {
+      console.error('Login error:', error);
       toast.error(error.message || 'Login failed');
     } finally {
       setIsSubmitting(false);
@@ -45,6 +77,7 @@ export function LoginForm({ onSuccess }: LoginFormProps) {
         <Label htmlFor="email">Email</Label>
         <Input
           id="email"
+          name="email"
           type="email"
           placeholder="your@email.com"
           value={email}
@@ -56,20 +89,18 @@ export function LoginForm({ onSuccess }: LoginFormProps) {
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="inviteCode">Invite Code</Label>
+        <Label htmlFor="password">Password</Label>
         <Input
-          id="inviteCode"
-          type="text"
-          placeholder="FAMILY-XXXX"
-          value={inviteCode}
-          onChange={(e) => setInviteCode(e.target.value)}
+          id="password"
+          name="password"
+          type="password"
+          placeholder="••••••••"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
           required
           disabled={isSubmitting}
           className="rounded-xl"
         />
-        <p className="text-sm text-muted-foreground">
-          Enter the invite code shared by your family
-        </p>
       </div>
 
       <Button

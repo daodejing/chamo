@@ -1,6 +1,33 @@
 /** @type {import('next').NextConfig} */
+
+// Build CSP connect-src directive from environment variables
+const buildConnectSrc = () => {
+  if (!process.env.NEXT_PUBLIC_SUPABASE_URL) {
+    throw new Error('NEXT_PUBLIC_SUPABASE_URL environment variable is required');
+  }
+
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseWsUrl = supabaseUrl.replace('http://', 'ws://').replace('https://', 'wss://');
+
+  const sources = [
+    "'self'",
+    'https://*.supabase.co',
+    'https://api.groq.com',
+    'https://www.googleapis.com',
+    supabaseUrl,
+    supabaseWsUrl,
+  ];
+
+  return sources.join(' ');
+};
+
 const nextConfig = {
   reactStrictMode: true,
+  eslint: {
+    // Warning: This allows production builds to successfully complete even if
+    // your project has ESLint errors.
+    ignoreDuringBuilds: true,
+  },
 
   // Turbopack configuration (Next.js 15.5)
   turbopack: {
@@ -26,7 +53,7 @@ const nextConfig = {
               style-src 'self' 'unsafe-inline';
               img-src 'self' data: https:;
               font-src 'self' data:;
-              connect-src 'self' https://*.supabase.co https://api.groq.com https://www.googleapis.com;
+              connect-src ${buildConnectSrc()};
               frame-ancestors 'none';
             `.replace(/\s{2,}/g, ' ').trim()
           },

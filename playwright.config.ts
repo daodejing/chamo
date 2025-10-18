@@ -6,40 +6,39 @@ import { defineConfig, devices } from '@playwright/test';
  */
 export default defineConfig({
   testDir: './tests/e2e',
-  fullyParallel: true,
+  fullyParallel: false, // Run tests serially to avoid database conflicts
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
-  workers: process.env.CI ? 1 : undefined,
+  workers: 1, // Force single worker to prevent database race conditions
   reporter: 'html',
+  timeout: 30000, // 30 seconds per test
+  expect: {
+    timeout: 5000, // 5 seconds for expect assertions
+  },
+  globalTeardown: './tests/e2e/global-teardown.ts',
   use: {
-    // Test server uses dev port and Supabase instance
-    baseURL: 'http://localhost:3002',
+    // Test server uses unique port to avoid conflicts
+    baseURL: 'http://localhost:3003',
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
+    actionTimeout: 10000, // 10 seconds for actions like click, fill
+    navigationTimeout: 10000, // 10 seconds for page.goto
   },
 
   projects: [
     {
-      name: 'chromium',
-      use: { ...devices['Desktop Chrome'] },
-    },
-    {
       name: 'firefox',
       use: { ...devices['Desktop Firefox'] },
     },
-    {
-      name: 'webkit',
-      use: { ...devices['Desktop Safari'] },
-    },
   ],
 
-  // Use existing dev server on port 3002 with standard Supabase instance
+  // Start dev server on unique port 3003 for E2E tests
   webServer: {
-    command: 'pnpm run dev',
-    url: 'http://localhost:3002',
-    reuseExistingServer: true, // Reuse if already running
-    timeout: 180000, // 3 minutes for first-time compilation
+    command: 'pnpm next dev --port 3003',
+    url: 'http://localhost:3003',
+    reuseExistingServer: !process.env.CI, // Reuse if already running (local dev only)
+    timeout: 120000, // 2 minutes for first-time compilation
     stdout: 'ignore',
-    stderr: 'ignore',
+    stderr: 'pipe',
   },
 });

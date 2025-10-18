@@ -1,0 +1,31 @@
+version: '3.8'
+
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: ourchat_mysql
+    restart: unless-stopped
+    ports:
+      - "3336:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: root_password
+      MYSQL_DATABASE: ourchat_dev
+      MYSQL_USER: ourchat_user
+      MYSQL_PASSWORD: ourchat_password
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-proot_password"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - ourchat_network
+
+volumes:
+  mysql_data:
+    driver: local
+
+networks:
+  ourchat_network:
+    driver: bridge

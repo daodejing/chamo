@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { CreateForm } from '@/components/auth/create-form';
 import { LoginForm } from '@/components/auth/login-form';
@@ -9,6 +9,7 @@ import { initializeFamilyKey } from '@/lib/e2ee/key-management';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { MessageCircle, Fingerprint } from 'lucide-react';
+import { useAuth } from '@/lib/hooks/use-auth';
 
 type AuthMode = 'login' | 'create' | 'join';
 
@@ -17,20 +18,32 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [authMode, setAuthMode] = useState<AuthMode>('create');
   const [isAuthenticating, setIsAuthenticating] = useState(false);
+  const { isAuthenticated, loading: authLoading } = useAuth();
+
+  // Auto-login: if already authenticated, redirect to /chat (AC3)
+  useEffect(() => {
+    if (!authLoading && isAuthenticated) {
+      router.push('/chat');
+    }
+  }, [isAuthenticated, authLoading, router]);
 
   const handleSuccess = async (response: {
-    user: { encryptedFamilyKey: string };
+    user: { encryptedFamilyKey?: string };
   }) => {
     try {
       setLoading(true);
 
-      // Store family key in IndexedDB
-      await initializeFamilyKey(response.user.encryptedFamilyKey);
+      // Store family key in IndexedDB (if available)
+      if (response.user.encryptedFamilyKey) {
+        await initializeFamilyKey(response.user.encryptedFamilyKey);
+      }
 
       // Redirect to chat
       router.push('/chat');
     } catch (error) {
       console.error('Failed to initialize session:', error);
+      // Still redirect to chat even if key initialization fails
+      router.push('/chat');
     } finally {
       setLoading(false);
     }

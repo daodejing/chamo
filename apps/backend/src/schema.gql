@@ -1,0 +1,57 @@
+# ------------------------------------------------------
+# THIS FILE WAS AUTOMATICALLY GENERATED (DO NOT MODIFY)
+# ------------------------------------------------------
+
+type AuthResponse {
+  accessToken: String!
+  family: FamilyType!
+  refreshToken: String!
+  user: UserType!
+}
+
+type FamilyType {
+  avatar: String
+  id: ID!
+  inviteCode: String!
+  maxMembers: Float!
+  name: String!
+}
+
+input JoinFamilyInput {
+  email: String!
+  inviteCode: String!
+  name: String!
+  password: String!
+}
+
+input LoginInput {
+  email: String!
+  password: String!
+}
+
+type Mutation {
+  joinFamily(input: JoinFamilyInput!): AuthResponse!
+  login(input: LoginInput!): AuthResponse!
+  logout: Boolean!
+  register(input: RegisterInput!): AuthResponse!
+}
+
+type Query {
+  me: UserType!
+}
+
+input RegisterInput {
+  email: String!
+  familyName: String!
+  name: String!
+  password: String!
+}
+
+type UserType {
+  avatar: String
+  email: String!
+  familyId: ID!
+  id: ID!
+  name: String!
+  role: String!
+}

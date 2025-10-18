@@ -1,0 +1,235 @@
+<story-context id="bmad/bmm/workflows/4-implementation/story-context/template" v="1.0">
+  <metadata>
+    <epicId>2</epicId>
+    <storyId>1</storyId>
+    <title>Send Messages in Different Channels</title>
+    <status>Draft</status>
+    <generatedAt>2025-10-13</generatedAt>
+    <generator>BMAD Story Context Workflow</generator>
+    <sourceStoryPath>/Users/usr0101345/projects/ourchat/docs/stories/story-2.1.md</sourceStoryPath>
+  </metadata>
+
+  <story>
+    <asA>family member</asA>
+    <iWant>send messages in different channels</iWant>
+    <soThat>I can organize conversations by topic</soThat>
+    <tasks>- [ ] Task 1: Create database schema for messages and channels (AC: #3, #4)
+  - [ ] Subtask 1.1: Create messages table with RLS policies
+  - [ ] Subtask 1.2: Create channels table with RLS policies
+  - [ ] Subtask 1.3: Create default "General" channel for existing families
+  - [ ] Subtask 1.4: Add database indexes for performance (channel_id, timestamp, user_id)
+
+- [ ] Task 2: Implement backend API endpoints (AC: #3, #4)
+  - [ ] Subtask 2.1: Implement POST /api/messages (send message)
+  - [ ] Subtask 2.2: Implement GET /api/messages (fetch history with pagination)
+  - [ ] Subtask 2.3: Implement GET /api/channels (list family channels)
+  - [ ] Subtask 2.4: Add quiet hours validation in POST /api/messages
+
+- [ ] Task 3: Implement Supabase Realtime integration (AC: #3)
+  - [ ] Subtask 3.1: Create useRealtime hook for WebSocket subscriptions
+  - [ ] Subtask 3.2: Handle INSERT events (new messages)
+  - [ ] Subtask 3.3: Implement auto-reconnection logic
+
+- [ ] Task 4: Implement chat screen UI (AC: #1, #2, #3)
+  - [ ] Subtask 4.1: Create chat page layout (sidebar + message area)
+  - [ ] Subtask 4.2: Implement ChannelSelector component
+  - [ ] Subtask 4.3: Implement MessageList component with virtual scrolling
+  - [ ] Subtask 4.4: Implement MessageBubble component
+  - [ ] Subtask 4.5: Implement MessageInput component with send button
+
+- [ ] Task 5: Integrate E2EE encryption (AC: #4)
+  - [ ] Subtask 5.1: Call encryptMessage() before sending to API
+  - [ ] Subtask 5.2: Call decryptMessage() after receiving from API
+  - [ ] Subtask 5.3: Verify family key loaded from IndexedDB
+
+- [ ] Task 6: Write unit tests (AC: All)
+  - [ ] Subtask 6.1: Test API route validation logic (Zod schemas)
+  - [ ] Subtask 6.2: Test message encryption/decryption
+  - [ ] Subtask 6.3: Achieve 95% code coverage for messaging utilities
+
+- [ ] Task 7: Write integration tests (AC: All)
+  - [ ] Subtask 7.1: Test POST /api/messages with encrypted content
+  - [ ] Subtask 7.2: Test GET /api/messages returns correct channel messages
+  - [ ] Subtask 7.3: Test RLS policies enforce family isolation
+
+- [ ] Task 8: Write E2E tests (AC: All)
+  - [ ] Subtask 8.1: Test send message flow (type, send, appears in UI)
+  - [ ] Subtask 8.2: Test real-time delivery (two users see same message)
+  - [ ] Subtask 8.3: Test channel switching
+  - [ ] Subtask 8.4: Test message encryption (verify network logs show ciphertext)</tasks>
+  </story>
+
+  <acceptanceCriteria>1. **AC1:** Select channel from channel list
+2. **AC2:** Type message and send
+3. **AC3:** Message appears in correct channel for all members (real-time &lt; 2s)
+4. **AC4:** Message is encrypted before transmission (E2EE)</acceptanceCriteria>
+
+  <artifacts>
+    <docs>
+      <doc path="/Users/usr0101345/projects/ourchat/docs/tech-spec-epic-2.md" title="Tech Spec: Epic 2 - Multi-Channel Messaging" section="API Contracts">
+        Defines POST /api/messages (send message), GET /api/messages (fetch history with pagination), GET /api/channels (list channels). Includes Zod validation schemas: sendMessageSchema requires channelId and encryptedContent. Response includes message object with id, userId, encryptedContent, timestamp, isEdited fields. Rate limiting: 100 messages/minute per user. Quiet hours validation on server-side.
+      </doc>
+      <doc path="/Users/usr0101345/projects/ourchat/docs/tech-spec-epic-2.md" title="Tech Spec: Epic 2 - Multi-Channel Messaging" section="Database Schema">
+        Messages table: id (UUID), channel_id (FK to channels), user_id (FK to users), encrypted_content (TEXT NOT NULL), timestamp, is_edited, edited_at. Indexes on channel_id and timestamp (DESC). Channels table: id, family_id, name, description, icon, created_by, is_default. RLS policies enforce family isolation - users can only read/write messages in their family's channels.
+      </doc>
+      <doc path="/Users/usr0101345/projects/ourchat/docs/tech-spec-epic-2.md" title="Tech Spec: Epic 2 - Multi-Channel Messaging" section="Supabase Realtime">
+        WebSocket subscription to messages:channel_id. Listen for INSERT, UPDATE, DELETE events on messages table filtered by channel_id. Auto-reconnection handled by Supabase client. RLS policies applied to real-time events. Use useRealtime hook with callbacks: onInsert, onUpdate, onDelete.
+      </doc>
+      <doc path="/Users/usr0101345/projects/ourchat/docs/tech-spec-epic-2.md" title="Tech Spec: Epic 2 - Multi-Channel Messaging" section="Component Implementation">
+        Chat Screen (app/(dashboard)/chat/page.tsx): Two-column layout with ChannelSelector (left) and MessageList + MessageInput (right). State: selectedChannelId, messages, channels. Fetch channels on mount, fetch messages when channel changes, subscribe to real-time updates. MessageBubble component includes context menu for edit/delete (own messages only), shows sender avatar, name, timestamp, (edited) indicator.
+      </doc>
+      <doc path="/Users/usr0101345/projects/ourchat/docs/solution-architecture.md" title="Solution Architecture" section="Data Flow Examples - Message Send Flow">
+        1. User types message in /chat. 2. Client encrypts message with family key (AES-256-GCM). 3. Client sends POST /api/messages with encryptedContent and channelId. 4. Next.js API route validates, stores in PostgreSQL (ciphertext only). 5. Supabase Realtime broadcasts to channel subscribers. 6. Other clients receive encrypted message. 7. Each client decrypts with family key. 8. Display in UI.
+      </doc>
+      <doc path="/Users/usr0101345/projects/ourchat/docs/PRD.md" title="Product Requirements Document" section="FR-2: Multi-Channel Messaging">
+        FR-2.1: Support multiple chat channels per family. FR-2.2: Send, edit, delete messages. FR-2.3: Display sender name, avatar, timestamp. FR-2.4: Real-time delivery to all online members. FR-2.5: Message history persists and syncs. FR-2.6: Edited messages show (edited) indicator. FR-2.7: All messages E2EE before storage.
+      </doc>
+      <doc path="/Users/usr0101345/projects/ourchat/docs/tech-spec-epic-7.md" title="Tech Spec: Epic 7 - E2EE Infrastructure" section="Encryption Primitives">
+        encryptMessage(plaintext, familyKey): Encrypts text with AES-256-GCM, returns base64-encoded ciphertext with IV prepended. decryptMessage(encrypted, familyKey): Decrypts base64 ciphertext, throws error if wrong key. Web Crypto API native, ~5ms for 100 char message. Family key stored in IndexedDB, retrieved with getFamilyKey() from lib/e2ee/key-management.ts.
+      </doc>
+      <doc path="/Users/usr0101345/projects/ourchat/docs/solution-architecture.md" title="Solution Architecture" section="API Design - Messages">
+        GET /api/messages?channelId={uuid}&amp;limit=50&amp;before={timestamp} returns messages array with pagination. POST /api/messages body: { channelId, encryptedContent }. PATCH /api/messages/:id for edit. DELETE /api/messages/:id for delete. All routes require JWT authentication. Supabase RLS enforces family isolation.
+      </doc>
+      <doc path="/Users/usr0101345/projects/ourchat/frontend-proto/src/components/chat-screen.tsx" title="Frontend Prototype Chat Screen" section="UI/UX Reference">
+        Reference design for chat layout: sidebar with channel list (left 240px), main area with message feed (flex-1) and input bar (bottom fixed). Message bubbles show avatar (32px circular), sender name (font-medium), timestamp (text-xs muted), message content (mt-1). Own messages aligned right, others left. Context menu on right-click for edit/delete.
+      </doc>
+      <doc path="/Users/usr0101345/projects/ourchat/docs/tech-spec-epic-2.md" title="Tech Spec: Epic 2 - Multi-Channel Messaging" section="Testing Strategy">
+        Unit tests (Vitest): Test Zod schema validation, encryption/decryption with mock keys. Integration tests: Test POST /api/messages with encrypted content, verify database stores ciphertext. E2E tests (Playwright): Test send message flow (type, send, appears in UI), test real-time delivery (two users see same message within 2s), test channel switching.
+      </doc>
+    </docs>
+    <code>
+      <artifact path="/Users/usr0101345/projects/ourchat/src/lib/e2ee/encryption.ts" kind="module" symbol="encryptMessage, decryptMessage" lines="14-83" reason="Required for encrypting messages before sending to API and decrypting received messages. Story depends on these functions for AC4 (E2EE)." />
+      <artifact path="/Users/usr0101345/projects/ourchat/src/lib/e2ee/key-management.ts" kind="module" symbol="getFamilyKey, initializeFamilyKey" lines="462-474" reason="Required to retrieve family key from IndexedDB before encrypting/decrypting messages. Story depends on this for accessing the shared encryption key." />
+      <artifact path="/Users/usr0101345/projects/ourchat/src/lib/e2ee/storage.ts" kind="module" symbol="retrieveKey, storeKey" lines="519-528" reason="Manages IndexedDB storage for family key persistence. Used by key-management module to store/retrieve encryption keys across sessions." />
+      <artifact path="/Users/usr0101345/projects/ourchat/src/lib/supabase/client.ts" kind="module" symbol="createClient" lines="7-12" reason="Supabase client for browser components. Required for real-time subscriptions and API calls from chat screen." />
+      <artifact path="/Users/usr0101345/projects/ourchat/src/lib/supabase/server.ts" kind="module" symbol="createClient" lines="1-50" reason="Server-side Supabase client for API routes. Handles cookie-based authentication and RLS enforcement for message CRUD operations." />
+      <artifact path="/Users/usr0101345/projects/ourchat/src/lib/hooks/use-auth.ts" kind="hook" symbol="useAuth" lines="1-50" reason="Authentication hook providing user context (user ID, family ID). Required for identifying message sender and enforcing permissions." />
+      <artifact path="/Users/usr0101345/projects/ourchat/src/components/ui/button.tsx" kind="component" symbol="Button" lines="1-50" reason="shadcn/ui Button component. Used for send button in MessageInput and action buttons in context menus." />
+      <artifact path="/Users/usr0101345/projects/ourchat/src/components/ui/avatar.tsx" kind="component" symbol="Avatar, AvatarImage, AvatarFallback" lines="1-50" reason="shadcn/ui Avatar component. Used in MessageBubble to display sender's profile picture with fallback to initials." />
+      <artifact path="/Users/usr0101345/projects/ourchat/src/components/ui/context-menu.tsx" kind="component" symbol="ContextMenu, ContextMenuTrigger, ContextMenuContent" lines="1-50" reason="Radix UI ContextMenu. Required for right-click menu on message bubbles to show edit/delete options." />
+      <artifact path="/Users/usr0101345/projects/ourchat/supabase/migrations/20251013000000_initial_schema.sql" kind="schema" symbol="messages, channels tables and RLS policies" lines="48-239" reason="Database schema for messages and channels. Defines table structure, indexes, and RLS policies that enforce family isolation for message access." />
+      <artifact path="/Users/usr0101345/projects/ourchat/src/components/auth/login-screen.tsx" kind="component" symbol="LoginScreen" lines="1-100" reason="Reference for existing authentication flow. Shows how session management and user context is established after login." />
+    </code>
+    <dependencies>
+      <node>
+        <package>@supabase/supabase-js</package>
+        <version>^2.47.10</version>
+        <usage>Supabase client for database queries, real-time subscriptions, and authentication. Required for messages CRUD and WebSocket connections.</usage>
+      </node>
+      <node>
+        <package>@supabase/ssr</package>
+        <version>^0.5.2</version>
+        <usage>Supabase SSR utilities for Next.js. Handles cookie-based authentication in server components and API routes.</usage>
+      </node>
+      <node>
+        <package>zod</package>
+        <version>^3.23.8</version>
+        <usage>Schema validation for API request/response bodies. Used to validate sendMessageSchema (channelId, encryptedContent) in POST /api/messages.</usage>
+      </node>
+      <node>
+        <package>react-hook-form</package>
+        <version>^7.65.0</version>
+        <usage>Form state management for MessageInput component. Handles message text input, validation, and submit.</usage>
+      </node>
+      <node>
+        <package>date-fns</package>
+        <version>^4.1.0</version>
+        <usage>Date formatting utilities. Used to format message timestamps (e.g., formatDistanceToNow for "2 minutes ago").</usage>
+      </node>
+      <node>
+        <package>idb</package>
+        <version>^8.0.1</version>
+        <usage>IndexedDB wrapper for storing family encryption key in browser. Required for E2EE key persistence across sessions.</usage>
+      </node>
+      <node>
+        <package>sonner</package>
+        <version>^1.7.0</version>
+        <usage>Toast notification library. Used to display error messages (e.g., "Failed to send message", "Quiet hours active").</usage>
+      </node>
+      <node>
+        <package>@radix-ui/react-context-menu</package>
+        <version>^2.2.16</version>
+        <usage>Context menu component for right-click actions on message bubbles. Provides edit/delete options for own messages.</usage>
+      </node>
+      <node>
+        <package>@radix-ui/react-avatar</package>
+        <version>^1.1.10</version>
+        <usage>Avatar component for displaying sender profile pictures in message bubbles with fallback to initials.</usage>
+      </node>
+      <node>
+        <package>lucide-react</package>
+        <version>^0.545.0</version>
+        <usage>Icon library for UI elements (send button icon, channel icons, menu icons).</usage>
+      </node>
+    </dependencies>
+  </artifacts>
+
+  <constraints>
+    <constraint>All messages must be encrypted client-side with AES-256-GCM before transmission. Server must never see plaintext (zero-knowledge architecture).</constraint>
+    <constraint>Use existing encryptMessage() and decryptMessage() functions from lib/e2ee/encryption.ts. Do not reimplement encryption logic.</constraint>
+    <constraint>Retrieve family key from IndexedDB using getFamilyKey() from lib/e2ee/key-management.ts before encrypting/decrypting messages.</constraint>
+    <constraint>Follow Next.js 15 App Router patterns: use 'use client' directive for client components, server components for data fetching, API routes for mutations.</constraint>
+    <constraint>Use Supabase Realtime for real-time message delivery. Subscribe to messages:channel_id with INSERT events. Do not implement custom WebSocket server.</constraint>
+    <constraint>Implement Row Level Security (RLS) policies on server-side. Users can only access messages from their family's channels (enforced by database policies).</constraint>
+    <constraint>Match UI design from frontend-proto/src/components/chat-screen.tsx. Maintain consistent styling, layout, and component structure with prototype.</constraint>
+    <constraint>Use shadcn/ui components (Button, Avatar, ContextMenu, Input, ScrollArea) for consistency with existing UI patterns.</constraint>
+    <constraint>Real-time message delivery must be under 2 seconds (95th percentile) per NFR-2.1. Optimize WebSocket connection and decryption performance.</constraint>
+    <constraint>Implement quiet hours validation on server-side in POST /api/messages. Block message sending during user's configured quiet hours (return 403 with clear message).</constraint>
+    <constraint>Message bubbles must show sender avatar, name, timestamp, (edited) indicator. Own messages aligned right, others left. Context menu (right-click) for edit/delete on own messages only.</constraint>
+    <constraint>Validate all API inputs with Zod schemas. sendMessageSchema: channelId (UUID), encryptedContent (non-empty string). Return 400 with validation errors.</constraint>
+    <constraint>Use cursor-based pagination for message history (before parameter = timestamp). Fetch 50 messages at a time, load more on scroll to top.</constraint>
+    <constraint>Store only ciphertext in database. Verify database inspection shows base64 gibberish, not plaintext. This is a security requirement for E2EE.</constraint>
+    <constraint>Test coverage requirements: Unit tests 95%+ for encryption utilities, integration tests 80%+ for API routes, E2E tests for all user-facing flows (send, edit, delete, real-time).</constraint>
+  </constraints>
+  <interfaces>
+    <interface name="encryptMessage" kind="function" signature="async function encryptMessage(plaintext: string, familyKey: CryptoKey): Promise&lt;string&gt;" path="/Users/usr0101345/projects/ourchat/src/lib/e2ee/encryption.ts">
+      Encrypts plaintext message with AES-256-GCM. Returns base64-encoded ciphertext with IV prepended. Call before sending message to POST /api/messages.
+    </interface>
+    <interface name="decryptMessage" kind="function" signature="async function decryptMessage(encrypted: string, familyKey: CryptoKey): Promise&lt;string&gt;" path="/Users/usr0101345/projects/ourchat/src/lib/e2ee/encryption.ts">
+      Decrypts base64 ciphertext. Returns plaintext message. Call after receiving message from API or real-time subscription. Throws error if wrong key.
+    </interface>
+    <interface name="getFamilyKey" kind="function" signature="async function getFamilyKey(): Promise&lt;CryptoKey | null&gt;" path="/Users/usr0101345/projects/ourchat/src/lib/e2ee/key-management.ts">
+      Retrieves family encryption key from IndexedDB. Returns null if not found. Call before encrypting/decrypting any message.
+    </interface>
+    <interface name="createClient" kind="function" signature="function createClient(): SupabaseClient" path="/Users/usr0101345/projects/ourchat/src/lib/supabase/client.ts">
+      Creates Supabase browser client for client components. Use for real-time subscriptions and client-side queries.
+    </interface>
+    <interface name="createClient (server)" kind="function" signature="async function createClient(): Promise&lt;SupabaseClient&gt;" path="/Users/usr0101345/projects/ourchat/src/lib/supabase/server.ts">
+      Creates Supabase server client with cookie-based auth. Use in API routes and server components for database operations.
+    </interface>
+    <interface name="POST /api/messages" kind="api" signature="POST body: { channelId: string, encryptedContent: string }" path="/Users/usr0101345/projects/ourchat/src/app/api/messages/route.ts">
+      Sends new message. Validates channelId (UUID), encryptedContent (non-empty). Checks quiet hours. Returns message object. Rate limit: 100 req/min.
+    </interface>
+    <interface name="GET /api/messages" kind="api" signature="GET query: { channelId: string, limit?: number, before?: string }" path="/Users/usr0101345/projects/ourchat/src/app/api/messages/route.ts">
+      Fetches message history. channelId required. limit defaults to 50. before is timestamp for cursor-based pagination. Returns messages array with hasMore flag.
+    </interface>
+    <interface name="GET /api/channels" kind="api" signature="GET returns: { channels: Channel[] }" path="/Users/usr0101345/projects/ourchat/src/app/api/channels/route.ts">
+      Fetches all channels for user's family. Returns array of channel objects with id, name, description, icon, isDefault fields.
+    </interface>
+    <interface name="useAuth" kind="hook" signature="function useAuth(): { user: User | null, loading: boolean }" path="/Users/usr0101345/projects/ourchat/src/lib/hooks/use-auth.ts">
+      Authentication hook providing user context. Returns user object with id, name, avatar, familyId, role. Used to identify message sender.
+    </interface>
+  </interfaces>
+  <tests>
+    <standards>
+      Unit tests with Vitest (95%+ coverage for lib/ modules). Integration tests for API routes with Supabase client mocked or using test database. E2E tests with Playwright for user flows (send message, edit, delete, real-time delivery). Security tests verify encryption: network logs show ciphertext only, database inspection shows base64 gibberish. Test browser compatibility (Chrome 90+, Firefox 88+, Safari 14+). Test files in src/tests/unit/, src/tests/integration/, tests/e2e/. Use test database or Supabase local dev for integration tests. E2E tests use config.ts for test user setup.
+    </standards>
+    <locations>
+      <location>src/tests/unit/chat/message-validation.test.ts</location>
+      <location>src/tests/unit/chat/message-encryption.test.ts</location>
+      <location>src/tests/integration/chat/message-flow.test.ts</location>
+      <location>tests/e2e/chat/messaging.spec.ts</location>
+      <location>tests/e2e/chat/realtime.spec.ts</location>
+    </locations>
+    <ideas>
+      <idea ac="AC1">E2E test: Click channel from sidebar, verify URL/state changes to selected channel, verify message list updates.</idea>
+      <idea ac="AC2">E2E test: Type message in input field, click send button, verify message appears in message list with sender name and timestamp.</idea>
+      <idea ac="AC3">E2E test: Open two browser contexts (two users in same family), user1 sends message, user2 sees message appear within 2 seconds (test real-time delivery).</idea>
+      <idea ac="AC4">Integration test: Send message via POST /api/messages, inspect request body in network logs, verify encryptedContent is base64 gibberish (not plaintext). Query database, verify encrypted_content column contains ciphertext.</idea>
+      <idea ac="AC3">Unit test: Mock Supabase Realtime subscription, emit INSERT event, verify onInsert callback fires with encrypted message payload.</idea>
+      <idea ac="AC2">Unit test: Test sendMessageSchema Zod validation - reject empty encryptedContent, reject invalid channelId UUID format.</idea>
+      <idea ac="AC3">Integration test: Test RLS policies - user from family A cannot read messages from family B channels (expect 403 or empty array).</idea>
+      <idea ac="AC4">Unit test: Encrypt message with encryptMessage(), decrypt with decryptMessage(), verify plaintext matches original. Test with wrong key, expect decryption error.</idea>
+    </ideas>
+  </tests>
+</story-context>

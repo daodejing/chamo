@@ -44,6 +44,9 @@ export function JoinForm({ onSuccess }: JoinFormProps) {
 
       const result = await response.json();
 
+      // Session cookies are automatically set by the API route response
+      // The browser's Supabase client will read them automatically
+
       toast.success('Welcome to your family!');
 
       onSuccess(result);

@@ -6,13 +6,20 @@ export default defineConfig({
     globals: true,
     environment: 'happy-dom',
     setupFiles: ['./tests/setup.ts'],
-    exclude: ['**/node_modules/**', '**/tests/e2e/**', '**/dist/**'],
+    exclude: [
+      '**/node_modules/**',
+      '**/tests/e2e/**',
+      '**/dist/**',
+      '**/apps/backend/**', // NestJS backend tests run with Jest
+      '**/src/tests/integration/chat/multi-user-messaging*.test.ts', // TODO: rewrite for NestJS GraphQL
+    ],
+    testTimeout: 10000, // 10 seconds for integration tests
     // Load test environment variables (uses same Supabase instance as dev)
     env: {
       NEXT_PUBLIC_SUPABASE_URL: 'http://127.0.0.1:54321',
       NEXT_PUBLIC_SUPABASE_ANON_KEY: 'sb_publishable_ACJWlzQHlZjBrEguHvfOxg_3BJgxAaH',
       SUPABASE_SERVICE_ROLE_KEY: 'sb_secret_N7UND0UgjKTVK-Uodkm0Hg_xSvEMPvz',
-      NEXT_PUBLIC_APP_URL: 'http://localhost:3002',
+      NEXT_PUBLIC_APP_URL: 'http://localhost:3002', // Integration tests use dev server port
       NODE_ENV: 'test',
     },
     coverage: {

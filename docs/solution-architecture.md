@@ -1,80 +1,76 @@
 # Solution Architecture
 ## OurChat - Private Family Collaboration Platform
 
-**Version:** 1.0
-**Date:** 2025-10-13
+**Version:** 2.0
+**Date:** 2025-10-18
 **Architect:** Winston (BMAD)
-**Status:** Draft
+**Status:** Active - NestJS Architecture
 
 ---
 
 ## Executive Summary
 
-OurChat is a privacy-first family collaboration platform built on modern, cost-effective infrastructure. The architecture prioritizes **simplicity** and **user experience** over theoretical security perfection, using a shared family key E2EE model that provides strong privacy guarantees while remaining completely transparent to non-technical users.
+OurChat is a privacy-first family collaboration platform built on a modern NestJS + GraphQL + MySQL stack. The architecture prioritizes **real-time functionality**, **developer experience**, and **cost efficiency** using free-tier infrastructure.
 
 **Key Architectural Decisions:**
-- **Monolithic full-stack** (Next.js 15 App Router) for MVP simplicity
-- **Supabase** for integrated backend services (PostgreSQL + Realtime + Storage + Auth)
+- **NestJS Backend** (modular monolith) with GraphQL API
+- **MySQL** (PlanetScale) for database with Prisma ORM
+- **GraphQL Subscriptions** over WebSocket for real-time messaging
 - **Shared Family Key E2EE** (AES-256-GCM) for transparent encryption
-- **Groq API** (client-direct) for privacy-preserving LLM translation
-- **Vercel** for zero-config deployment
+- **Free-tier optimized** ($0/month MVP)
 
-**Infrastructure Costs:** $0/month (free tiers) for MVP, scales to ~$20-50/month for 100 families.
+**Infrastructure Costs:** $0/month (free tiers) for MVP, scales to ~$7-12/month for 100 families.
 
 ---
 
 ## 1. Technology Stack
 
+### Backend
+
+| Technology | Version | Purpose | Rationale |
+|------------|---------|---------|-----------|
+| **NestJS** | 10.3.0 | Enterprise backend framework | TypeScript-first, modular, GraphQL native support |
+| **Apollo Server** | 4.10.0 | GraphQL server | Subscriptions over WebSocket, schema-first |
+| **Prisma** | 5.9.0 | ORM | Type-safe MySQL client, migrations, schema management |
+| **MySQL** | 8.0 | Database | PlanetScale free tier (5GB), serverless, branching |
+| **Bull** | 4.12.0 | Job queue | Redis-backed scheduled message delivery |
+| **Upstash Redis** | Latest | Cache/Queue | Serverless Redis, free tier (10k commands/day) |
+| **class-validator** | 0.14.x | Validation | DTO validation with decorators |
+| **bcrypt** | 5.1.x | Password hashing | Server-side auth security |
+| **jsonwebtoken** | 9.0.x | JWT | Authentication tokens |
+
 ### Frontend
 
 | Technology | Version | Purpose | Rationale |
 |------------|---------|---------|-----------|
-| **React** | 19.2.0 | UI framework | Latest stable, performance improvements, Server Components |
-| **Next.js** | 15.x | Full-stack framework | App Router, API routes, SSR, optimal DX |
-| **TypeScript** | 5.6.x | Type safety | Catch errors at compile time, better IDE support |
-| **TailwindCSS** | 3.4.x | Styling | Utility-first, responsive, prototyped UI |
-| **shadcn/ui** | Latest | Component library | Accessible Radix UI primitives, customizable |
-| **Radix UI** | Latest | Headless components | WCAG compliant, keyboard navigation |
-| **React Hook Form** | 7.55.x | Form management | Performant, validation, already in prototype |
-| **date-fns** | 4.1.x | Date utilities | Lightweight, i18n support for calendar |
-| **Sonner** | 2.0.x | Toast notifications | Already in prototype |
-
-### Backend & Services
-
-| Technology | Version | Purpose | Rationale |
-|------------|---------|---------|-----------|
-| **Supabase** | Latest | Backend platform | PostgreSQL + Realtime + Storage + Auth integrated |
-| **PostgreSQL** | 15.x | Database | Supabase managed, JSON support, full-text search |
-| **Supabase Realtime** | Latest | WebSocket layer | Real-time message delivery, presence |
-| **Supabase Storage** | Latest | Object storage | 1GB free, S3-compatible, presigned URLs |
-| **Supabase Auth** | Latest | Authentication | JWT, invite code custom logic |
+| **React** | 19.0.0 | UI framework | Latest stable, performance improvements |
+| **Next.js** | 15.0.3 | Full-stack framework | App Router, SSR, optimal DX |
+| **Apollo Client** | 3.9.0 | GraphQL client | Subscriptions, normalized cache, React hooks |
+| **TypeScript** | 5.6.x | Type safety | Compile-time error detection |
+| **TailwindCSS** | 3.4.x | Styling | Utility-first, responsive design |
+| **shadcn/ui** | Latest | Component library | Accessible Radix UI primitives |
+| **React Hook Form** | 7.65.x | Form management | Performant validation |
+| **date-fns** | 4.1.x | Date utilities | Lightweight, i18n support |
 
 ### External Services
 
 | Service | Purpose | Free Tier | Rationale |
 |---------|---------|-----------|-----------|
-| **Groq API** | LLM translation | Generous | Fast inference, client-direct, Llama 3.1 70B |
-| **Google OAuth** | Calendar integration | Free | Standard OAuth 2.0, Google Calendar API |
-| **Google STUN** | NAT traversal (Phase 2) | Free | `stun.l.google.com:19302` |
-
-### Encryption & Security
-
-| Technology | Version | Purpose | Rationale |
-|------------|---------|---------|-----------|
-| **Web Crypto API** | Native | Encryption primitives | Browser native, no external lib needed |
-| **AES-256-GCM** | Standard | Symmetric encryption | Web Crypto built-in, AEAD, fast |
-| **PBKDF2** | Standard | Key derivation | Derive keys from invite code |
-| **bcrypt** | 5.1.x | Password hashing | Server-side auth (if needed) |
+| **PlanetScale** | MySQL database | 5GB, 1 billion row reads | Serverless, branching, free forever |
+| **Upstash Redis** | Cache & queue | 10k commands/day | Serverless Redis, no ops |
+| **Cloudflare R2** | Object storage | 10GB, 1M writes/month | S3-compatible, zero egress fees |
+| **Render** | Backend hosting | 750hrs/month free | NestJS deployment, auto-sleep |
+| **Vercel** | Frontend hosting | Unlimited bandwidth | Next.js zero-config deployment |
+| **Groq API** | LLM translation | Generous free tier | Fast Llama 3.1 70B inference |
+| **Google OAuth** | Calendar integration | Free | Standard OAuth 2.0 |
 
 ### Development & Deployment
 
 | Technology | Version | Purpose | Rationale |
 |------------|---------|---------|-----------|
-| **Vercel** | Latest | Hosting | Zero-config Next.js deployment, free tier |
-| **pnpm** | 9.x | Package manager | Fast, efficient, monorepo support |
-| **ESLint** | 9.x | Linting | Code quality |
-| **Prettier** | 3.x | Formatting | Consistent style |
-| **Vitest** | 2.x | Testing | Fast, Vite-compatible |
+| **pnpm** | 9.x | Package manager | Monorepo workspaces, fast |
+| **Vitest** | 3.x | Testing | Fast unit tests |
+| **Playwright** | 1.56.0 | E2E testing | Browser automation |
 
 ---
 
@@ -97,50 +93,74 @@ OurChat is a privacy-first family collaboration platform built on modern, cost-e
 │                  decrypt after receive)                          │
 └────────────────────────────┼────────────────────────────────────┘
                              │
-                             │ HTTPS
+                             │ HTTPS + WebSocket
                              ▼
 ┌─────────────────────────────────────────────────────────────────┐
-│                      Vercel (Next.js App)                        │
+│                     Vercel (Next.js Frontend)                    │
 │  ┌───────────────────────────────────────────────────────────┐  │
 │  │  Next.js 15 App Router                                    │  │
 │  │  ┌──────────────────┐  ┌──────────────────┐              │  │
-│  │  │   /app (Pages)   │  │  /api (Routes)   │              │  │
-│  │  │  - /login        │  │  - /api/messages │              │  │
-│  │  │  - /chat         │  │  - /api/photos   │              │  │
-│  │  │  - /settings     │  │  - /api/calendar │              │  │
-│  │  └──────────────────┘  └──────────────────┘              │  │
-│  │  ┌────────────────────────────────────────┐              │  │
-│  │  │  /lib (Business Logic)                 │              │  │
-│  │  │  - supabase client/server              │              │  │
-│  │  │  - e2ee (family key management)        │              │  │
-│  │  │  - groq (translation proxy)            │              │  │
-│  │  │  - google (calendar OAuth)             │              │  │
-│  │  └────────────────────────────────────────┘              │  │
+│  │  │   /app (Pages)   │  │  Apollo Client   │              │  │
+│  │  │  - /login        │  │  - GraphQL       │              │  │
+│  │  │  - /chat         │  │  - Subscriptions │              │  │
+│  │  │  - /settings     │  │  - Normalized    │              │  │
+│  │  └──────────────────┘  │    Cache         │              │  │
+│  │  ┌────────────────────┴───────────────────┘              │  │
+│  │  │  /lib (Business Logic)                                │  │
+│  │  │  - apollo client setup                                │  │
+│  │  │  - e2ee (family key management)                       │  │
+│  │  │  - groq (translation)                                 │  │
+│  │  └───────────────────────────────────────────────────────┘  │
+└────────────────────────┬──────────────────────────────────────┘
+                         │
+                         │ GraphQL over HTTPS/WSS
+                         ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                    Render (NestJS Backend)                       │
+│  ┌───────────────────────────────────────────────────────────┐  │
+│  │  NestJS 10 Application                                    │  │
+│  │  ┌──────────────────────────────────────────────────────┐│  │
+│  │  │  GraphQL Module (Apollo Server 4)                    ││  │
+│  │  │  ┌──────────────┐  ┌──────────────┐  ┌────────────┐ ││  │
+│  │  │  │   Queries    │  │  Mutations   │  │Subscriptions││ ││  │
+│  │  │  │  - messages  │  │  - createMsg │  │ - msgCreated││ ││  │
+│  │  │  │  - channels  │  │  - joinFam   │  │ - msgUpdated││ ││  │
+│  │  │  │  - family    │  │  - uploadPic │  │ - presence  ││ ││  │
+│  │  │  └──────────────┘  └──────────────┘  └────────────┘ ││  │
+│  │  └──────────────────────────────────────────────────────┘│  │
+│  │  ┌──────────────────────────────────────────────────────┐│  │
+│  │  │  Feature Modules                                     ││  │
+│  │  │  - AuthModule     (JWT, bcrypt)                      ││  │
+│  │  │  - MessagesModule (Prisma, Bull queue)              ││  │
+│  │  │  - PhotosModule   (R2 presigned URLs)               ││  │
+│  │  │  - CalendarModule (Google OAuth)                    ││  │
+│  │  │  - FamilyModule   (Invite codes)                    ││  │
+│  │  └──────────────────────────────────────────────────────┘│  │
+│  │  ┌──────────────────────────────────────────────────────┐│  │
+│  │  │  Prisma ORM                                          ││  │
+│  │  │  - Type-safe MySQL client                           ││  │
+│  │  │  - Migrations & schema management                   ││  │
+│  │  └──────────────────────────────────────────────────────┘│  │
 │  └───────────────────────────────────────────────────────────┘  │
-└───────────────┬────────────────────┬────────────────────────────┘
-                │                    │
-                │ PostgreSQL         │ Storage API
-                ▼                    ▼
-┌───────────────────────────┐  ┌────────────────────────────┐
-│   Supabase PostgreSQL     │  │   Supabase Storage         │
-│  ┌──────────────────────┐ │  │  ┌──────────────────────┐  │
-│  │  Tables:             │ │  │  │  Encrypted Photos    │  │
-│  │  - users             │ │  │  │  (AES-256-GCM blob)  │  │
-│  │  - families          │ │  │  │                      │  │
-│  │  - messages          │ │  │  │  family_id/          │  │
-│  │  - photos            │ │  │  │    photo_id.enc      │  │
-│  │  - calendar_events   │ │  │  └──────────────────────┘  │
-│  │  - channels          │ │  │                            │
-│  │  - ...               │ │  │  Presigned URLs for        │
-│  └──────────────────────┘ │  │  secure upload/download    │
-│                           │  └────────────────────────────┘
-│  Supabase Realtime        │
-│  ┌──────────────────────┐ │
-│  │  WebSocket Channels  │ │
-│  │  - messages:*        │ │
-│  │  - presence:*        │ │
-│  └──────────────────────┘ │
-└───────────────────────────┘
+└──────────┬──────────────────┬──────────────────┬───────────────┘
+           │                  │                  │
+           │ MySQL            │ Redis            │ S3 API
+           ▼                  ▼                  ▼
+┌──────────────────┐  ┌──────────────┐  ┌────────────────────┐
+│  PlanetScale     │  │  Upstash     │  │  Cloudflare R2     │
+│  ┌─────────────┐ │  │  Redis       │  │  ┌──────────────┐  │
+│  │  MySQL 8.0  │ │  │  ┌─────────┐ │  │  │   Encrypted  │  │
+│  │  - users    │ │  │  │  Cache  │ │  │  │   Photos     │  │
+│  │  - families │ │  │  │  Queue  │ │  │  │  (AES-256)   │  │
+│  │  - messages │ │  │  │  Jobs   │ │  │  │              │  │
+│  │  - photos   │ │  │  └─────────┘ │  │  │  family_id/  │  │
+│  │  - channels │ │  │              │  │  │   photo_id   │  │
+│  │  - events   │ │  │  Bull Queue: │  │  └──────────────┘  │
+│  └─────────────┘ │  │  - scheduled │  │                    │
+│                  │  │    messages  │  │  Presigned URLs    │
+│  Serverless DB   │  │              │  │  for upload/       │
+│  5GB free tier   │  └──────────────┘  │  download          │
+└──────────────────┘                    └────────────────────┘
 
 External Services (Client-Direct):
 ┌──────────────────────┐      ┌──────────────────────────┐
@@ -151,1210 +171,964 @@ External Services (Client-Direct):
 └──────────────────────┘      └──────────────────────────┘
 ```
 
-### Data Flow Examples
+### Request Flow Examples
 
-#### Message Send Flow (E2EE)
+#### Message Send Flow (GraphQL Mutation + Subscription)
 
 ```
-1. User types message in /chat
+1. User types message in chat UI
 2. Client encrypts message with family key (AES-256-GCM)
    plaintext → ciphertext
-3. Client sends POST /api/messages { encryptedContent, channelId }
-4. Next.js API route validates, stores in PostgreSQL (ciphertext only)
-5. Supabase Realtime broadcasts to channel subscribers
-6. Other clients receive encrypted message
-7. Each client decrypts with family key
+3. Client sends GraphQL mutation:
+   mutation CreateMessage {
+     createMessage(channelId: "...", encryptedContent: "...") {
+       id timestamp user { name }
+     }
+   }
+4. NestJS MessageResolver validates JWT, calls MessageService
+5. Prisma saves encrypted message to MySQL (ciphertext only)
+6. GraphQL subscription triggers broadcast to channel subscribers
+7. Other clients receive via WebSocket:
+   subscription MessageCreated {
+     messageCreated(channelId: "...") {
+       id encryptedContent timestamp user { name }
+     }
+   }
+8. Each client decrypts with family key
    ciphertext → plaintext
-8. Display in UI
+9. Display in UI
 ```
 
-#### Photo Upload Flow (E2EE)
+#### Photo Upload Flow (E2EE + R2 Presigned URLs)
 
 ```
 1. User selects photo from device
 2. Client encrypts photo blob with family key (AES-256-GCM)
    photoBlob → encryptedBlob
-3. Client requests presigned upload URL from /api/photos/upload
-4. Client uploads encrypted blob directly to Supabase Storage
-5. Client sends POST /api/photos { storageUrl, encryptedCaption, ... }
-6. Server stores metadata in PostgreSQL
-7. Other clients fetch metadata, download encrypted blob
+3. Client requests presigned upload URL:
+   mutation GetUploadUrl {
+     getPhotoUploadUrl(fileName: "photo.jpg", fileSize: 1024000) {
+       uploadUrl storagePath
+     }
+   }
+4. Client uploads encrypted blob directly to Cloudflare R2
+5. Client creates photo record:
+   mutation CreatePhoto {
+     createPhoto(folderId: "...", storagePath: "...", encryptedCaption: "...") {
+       id uploadedAt
+     }
+   }
+6. Server stores metadata in MySQL
+7. Other clients fetch metadata via query, download encrypted blob
 8. Decrypt blob client-side, display
 ```
 
-#### Translation Flow (Client-Direct, Privacy-Preserving)
+---
 
-```
-1. User sends message (already encrypted and stored)
-2. Client decrypts message (plaintext only in client memory)
-3. Client reads user's preferred language from settings (preferences.preferredLanguage)
-4. Groq/Llama auto-detects message source language:
-   a. Client calls Groq API directly (no server proxy)
-   b. Send plaintext to Groq: "Translate to {preferredLanguage}: {message}"
-   c. Groq returns translation (supports 20+ languages: en, ja, es, fr, de, zh, ko, pt, ru, ar, it, nl, pl, tr, vi, th, id, hi, sv, no)
-   d. If translation differs from original, display translation below original (not stored)
-5. Server never sees plaintext or translation
+## 3. Database Schema (Prisma)
+
+### Prisma Schema File
+
+```prisma
+// prisma/schema.prisma
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  MEMBER
+}
+
+enum ScheduledMessageStatus {
+  PENDING
+  SENT
+  CANCELLED
+}
+
+model User {
+  id                    String            @id @default(uuid())
+  email                 String            @unique
+  name                  String
+  avatar                String?
+  role                  Role              @default(MEMBER)
+  familyId              String
+  family                Family            @relation(fields: [familyId], references: [id], onDelete: Cascade)
+  passwordHash          String
+  joinedAt              DateTime          @default(now())
+  lastSeenAt            DateTime?
+  encryptedFamilyKey    String            @db.Text // Family key encrypted with user's key
+  publicKey             String            @db.Text // E2EE public key (future)
+  preferences           Json              @default("{}")
+  googleCalendarToken   String?           @db.Text
+  googleCalendarConnected Boolean         @default(false)
+
+  messages              Message[]
+  scheduledMessages     ScheduledMessage[]
+  photos                Photo[]
+  photoComments         PhotoComment[]
+  calendarEvents        CalendarEvent[]
+  createdChannels       Channel[]
+  createdFolders        PhotoFolder[]
+
+  createdAt             DateTime          @default(now())
+  updatedAt             DateTime          @updatedAt
+
+  @@index([familyId])
+  @@index([email])
+  @@map("users")
+}
+
+model Family {
+  id                    String            @id @default(uuid())
+  name                  String
+  avatar                String?
+  inviteCode            String            @unique // Format: CODE-XXXX-YYYY
+  maxMembers            Int               @default(10)
+  createdBy             String
+
+  users                 User[]
+  channels              Channel[]
+  photoFolders          PhotoFolder[]
+  calendarEvents        CalendarEvent[]
+
+  createdAt             DateTime          @default(now())
+  updatedAt             DateTime          @updatedAt
+
+  @@index([inviteCode])
+  @@map("families")
+}
+
+model Channel {
+  id                    String            @id @default(uuid())
+  familyId              String
+  family                Family            @relation(fields: [familyId], references: [id], onDelete: Cascade)
+  name                  String
+  description           String?           @db.Text
+  icon                  String?           @db.VarChar(10) // Emoji
+  createdById           String
+  createdBy             User              @relation(fields: [createdById], references: [id])
+  isDefault             Boolean           @default(false)
+
+  messages              Message[]
+  scheduledMessages     ScheduledMessage[]
+
+  createdAt             DateTime          @default(now())
+
+  @@index([familyId])
+  @@map("channels")
+}
+
+model Message {
+  id                    String            @id @default(uuid())
+  channelId             String
+  channel               Channel           @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  userId                String
+  user                  User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  encryptedContent      String            @db.Text // AES-256-GCM ciphertext
+  timestamp             DateTime          @default(now())
+  isEdited              Boolean           @default(false)
+  editedAt              DateTime?
+
+  createdAt             DateTime          @default(now())
+
+  @@index([channelId, timestamp])
+  @@map("messages")
+}
+
+model ScheduledMessage {
+  id                    String                  @id @default(uuid())
+  userId                String
+  user                  User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  channelId             String
+  channel               Channel                 @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  encryptedContent      String                  @db.Text
+  scheduledTime         DateTime
+  status                ScheduledMessageStatus  @default(PENDING)
+
+  createdAt             DateTime                @default(now())
+
+  @@index([scheduledTime])
+  @@index([status])
+  @@map("scheduled_messages")
+}
+
+model PhotoFolder {
+  id                    String            @id @default(uuid())
+  familyId              String
+  family                Family            @relation(fields: [familyId], references: [id], onDelete: Cascade)
+  name                  String
+  icon                  String?           @db.VarChar(10) // Emoji
+  createdById           String
+  createdBy             User              @relation(fields: [createdById], references: [id])
+  isDefault             Boolean           @default(false)
+
+  photos                Photo[]
+
+  createdAt             DateTime          @default(now())
+
+  @@index([familyId])
+  @@map("photo_folders")
+}
+
+model Photo {
+  id                    String            @id @default(uuid())
+  folderId              String
+  folder                PhotoFolder       @relation(fields: [folderId], references: [id], onDelete: Cascade)
+  userId                String
+  user                  User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  storagePath           String            // R2 path: family_id/photo_id.enc
+  encryptedCaption      String?           @db.Text
+  uploadedAt            DateTime          @default(now())
+  likes                 Json              @default("[]") // Array of user IDs
+
+  comments              PhotoComment[]
+
+  createdAt             DateTime          @default(now())
+
+  @@index([folderId])
+  @@index([uploadedAt])
+  @@map("photos")
+}
+
+model PhotoComment {
+  id                    String            @id @default(uuid())
+  photoId               String
+  photo                 Photo             @relation(fields: [photoId], references: [id], onDelete: Cascade)
+  userId                String
+  user                  User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  encryptedComment      String            @db.Text
+  timestamp             DateTime          @default(now())
+
+  createdAt             DateTime          @default(now())
+
+  @@index([photoId])
+  @@map("photo_comments")
+}
+
+model CalendarEvent {
+  id                    String            @id @default(uuid())
+  familyId              String
+  family                Family            @relation(fields: [familyId], references: [id], onDelete: Cascade)
+  userId                String
+  user                  User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title                 String
+  description           String?           @db.Text
+  date                  DateTime          @db.Date
+  startTime             DateTime?         @db.Time
+  endTime               DateTime?         @db.Time
+  allDay                Boolean           @default(false)
+  reminder              Boolean           @default(false)
+  reminderMinutes       Int?
+  color                 String?           @db.VarChar(7) // Hex color
+  googleEventId         String?
+
+  createdAt             DateTime          @default(now())
+  updatedAt             DateTime          @updatedAt
+
+  @@index([familyId])
+  @@index([date])
+  @@map("calendar_events")
+}
 ```
 
 ---
 
-## 3. Database Schema
+## 4. GraphQL API Schema
 
-### Tables
+### Type Definitions
 
-#### users
-```sql
-CREATE TABLE users (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  email VARCHAR(255) UNIQUE NOT NULL,
-  name VARCHAR(255) NOT NULL,
-  avatar TEXT, -- URL or base64 data URI
-  role VARCHAR(20) NOT NULL CHECK (role IN ('admin', 'member')),
-  family_id UUID NOT NULL REFERENCES families(id) ON DELETE CASCADE,
-  joined_at TIMESTAMPTZ DEFAULT NOW(),
-  last_seen_at TIMESTAMPTZ,
-  encrypted_family_key TEXT NOT NULL, -- Family key encrypted with user's key
-  preferences JSONB DEFAULT '{}', -- { theme, fontSize, uiLanguage, preferredLanguage, quietHours }
-  google_calendar_token TEXT, -- Encrypted OAuth token
-  google_calendar_connected BOOLEAN DEFAULT FALSE,
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  updated_at TIMESTAMPTZ DEFAULT NOW()
-);
+```graphql
+# schema.graphql
 
-CREATE INDEX idx_users_family_id ON users(family_id);
-CREATE INDEX idx_users_email ON users(email);
-```
+scalar DateTime
+scalar JSON
 
-#### families
-```sql
-CREATE TABLE families (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  name VARCHAR(255) NOT NULL,
-  avatar TEXT,
-  invite_code VARCHAR(50) UNIQUE NOT NULL, -- Format: CODE-XXXX-YYYY
-  max_members INTEGER DEFAULT 10,
-  created_by UUID NOT NULL, -- user_id
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  updated_at TIMESTAMPTZ DEFAULT NOW()
-);
+type User {
+  id: ID!
+  email: String!
+  name: String!
+  avatar: String
+  role: Role!
+  familyId: ID!
+  family: Family!
+  joinedAt: DateTime!
+  lastSeenAt: DateTime
+  preferences: JSON!
+  googleCalendarConnected: Boolean!
+}
 
-CREATE INDEX idx_families_invite_code ON families(invite_code);
-```
+enum Role {
+  ADMIN
+  MEMBER
+}
 
-#### messages
-```sql
-CREATE TABLE messages (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  channel_id UUID NOT NULL REFERENCES channels(id) ON DELETE CASCADE,
-  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  encrypted_content TEXT NOT NULL, -- AES-256-GCM ciphertext
-  timestamp TIMESTAMPTZ DEFAULT NOW(),
-  is_edited BOOLEAN DEFAULT FALSE,
-  edited_at TIMESTAMPTZ,
-  created_at TIMESTAMPTZ DEFAULT NOW()
-);
+type Family {
+  id: ID!
+  name: String!
+  avatar: String
+  inviteCode: String!
+  maxMembers: Int!
+  members: [User!]!
+  channels: [Channel!]!
+  photoFolders: [PhotoFolder!]!
+  createdAt: DateTime!
+}
 
-CREATE INDEX idx_messages_channel_id ON messages(channel_id);
-CREATE INDEX idx_messages_timestamp ON messages(timestamp DESC);
-```
+type Channel {
+  id: ID!
+  familyId: ID!
+  name: String!
+  description: String
+  icon: String
+  isDefault: Boolean!
+  createdBy: User!
+  createdAt: DateTime!
+}
 
-#### scheduled_messages
-```sql
-CREATE TABLE scheduled_messages (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  channel_id UUID NOT NULL REFERENCES channels(id) ON DELETE CASCADE,
-  encrypted_content TEXT NOT NULL,
-  scheduled_time TIMESTAMPTZ NOT NULL,
-  status VARCHAR(20) DEFAULT 'pending' CHECK (status IN ('pending', 'sent', 'cancelled')),
-  created_at TIMESTAMPTZ DEFAULT NOW()
-);
+type Message {
+  id: ID!
+  channelId: ID!
+  channel: Channel!
+  userId: ID!
+  user: User!
+  encryptedContent: String!
+  timestamp: DateTime!
+  isEdited: Boolean!
+  editedAt: DateTime
+}
 
-CREATE INDEX idx_scheduled_messages_scheduled_time ON scheduled_messages(scheduled_time);
-CREATE INDEX idx_scheduled_messages_status ON scheduled_messages(status);
-```
+type ScheduledMessage {
+  id: ID!
+  userId: ID!
+  user: User!
+  channelId: ID!
+  channel: Channel!
+  encryptedContent: String!
+  scheduledTime: DateTime!
+  status: ScheduledMessageStatus!
+  createdAt: DateTime!
+}
 
-#### photos
-```sql
-CREATE TABLE photos (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  folder_id UUID NOT NULL REFERENCES photo_folders(id) ON DELETE CASCADE,
-  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  storage_path TEXT NOT NULL, -- Supabase Storage path: family_id/photo_id.enc
-  encrypted_caption TEXT, -- AES-256-GCM ciphertext
-  uploaded_at TIMESTAMPTZ DEFAULT NOW(),
-  likes JSONB DEFAULT '[]', -- Array of user_ids
-  created_at TIMESTAMPTZ DEFAULT NOW()
-);
+enum ScheduledMessageStatus {
+  PENDING
+  SENT
+  CANCELLED
+}
 
-CREATE INDEX idx_photos_folder_id ON photos(folder_id);
-CREATE INDEX idx_photos_uploaded_at ON photos(uploaded_at DESC);
-```
+type PhotoFolder {
+  id: ID!
+  familyId: ID!
+  name: String!
+  icon: String
+  isDefault: Boolean!
+  photos: [Photo!]!
+  createdAt: DateTime!
+}
 
-#### photo_comments
-```sql
-CREATE TABLE photo_comments (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  photo_id UUID NOT NULL REFERENCES photos(id) ON DELETE CASCADE,
-  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  encrypted_comment TEXT NOT NULL,
-  timestamp TIMESTAMPTZ DEFAULT NOW(),
-  created_at TIMESTAMPTZ DEFAULT NOW()
-);
+type Photo {
+  id: ID!
+  folderId: ID!
+  folder: PhotoFolder!
+  userId: ID!
+  user: User!
+  storagePath: String!
+  encryptedCaption: String
+  uploadedAt: DateTime!
+  likes: [ID!]!
+  comments: [PhotoComment!]!
+}
 
-CREATE INDEX idx_photo_comments_photo_id ON photo_comments(photo_id);
-```
+type PhotoComment {
+  id: ID!
+  photoId: ID!
+  userId: ID!
+  user: User!
+  encryptedComment: String!
+  timestamp: DateTime!
+}
 
-#### photo_folders
-```sql
-CREATE TABLE photo_folders (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  family_id UUID NOT NULL REFERENCES families(id) ON DELETE CASCADE,
-  name VARCHAR(255) NOT NULL,
-  icon VARCHAR(10), -- Emoji
-  created_by UUID NOT NULL REFERENCES users(id),
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  is_default BOOLEAN DEFAULT FALSE -- "All Photos" folder
-);
+type CalendarEvent {
+  id: ID!
+  familyId: ID!
+  userId: ID!
+  user: User!
+  title: String!
+  description: String
+  date: DateTime!
+  startTime: DateTime
+  endTime: DateTime
+  allDay: Boolean!
+  reminder: Boolean!
+  reminderMinutes: Int
+  color: String
+  googleEventId: String
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
 
-CREATE INDEX idx_photo_folders_family_id ON photo_folders(family_id);
-```
+type AuthResponse {
+  user: User!
+  family: Family!
+  accessToken: String!
+  refreshToken: String!
+}
 
-#### calendar_events
-```sql
-CREATE TABLE calendar_events (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  family_id UUID NOT NULL REFERENCES families(id) ON DELETE CASCADE,
-  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  title VARCHAR(255) NOT NULL,
-  description TEXT,
-  date DATE NOT NULL,
-  start_time TIME,
-  end_time TIME,
-  all_day BOOLEAN DEFAULT FALSE,
-  reminder BOOLEAN DEFAULT FALSE,
-  reminder_minutes INTEGER, -- 15, 30, 60
-  color VARCHAR(7), -- Hex color
-  google_event_id VARCHAR(255), -- For sync
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  updated_at TIMESTAMPTZ DEFAULT NOW()
-);
+type PhotoUploadUrl {
+  uploadUrl: String!
+  storagePath: String!
+}
 
-CREATE INDEX idx_calendar_events_family_id ON calendar_events(family_id);
-CREATE INDEX idx_calendar_events_date ON calendar_events(date);
-```
+type Query {
+  # Auth
+  me: User!
 
-#### channels
-```sql
-CREATE TABLE channels (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  family_id UUID NOT NULL REFERENCES families(id) ON DELETE CASCADE,
-  name VARCHAR(255) NOT NULL, -- i18n key or custom name
-  description TEXT,
-  icon VARCHAR(10), -- Emoji
-  created_by UUID NOT NULL REFERENCES users(id),
-  is_default BOOLEAN DEFAULT FALSE, -- "General" channel
-  created_at TIMESTAMPTZ DEFAULT NOW()
-);
+  # Family
+  family: Family!
 
-CREATE INDEX idx_channels_family_id ON channels(family_id);
-```
+  # Channels
+  channels: [Channel!]!
+  channel(id: ID!): Channel
 
-### Row Level Security (RLS) Policies
+  # Messages
+  messages(channelId: ID!, limit: Int, before: DateTime): [Message!]!
+  scheduledMessages: [ScheduledMessage!]!
 
-**Enable RLS on all tables:**
+  # Photos
+  photoFolders: [PhotoFolder!]!
+  photos(folderId: ID!, limit: Int, offset: Int): [Photo!]!
+  photo(id: ID!): Photo
 
-```sql
-ALTER TABLE users ENABLE ROW LEVEL SECURITY;
-ALTER TABLE families ENABLE ROW LEVEL SECURITY;
-ALTER TABLE messages ENABLE ROW LEVEL SECURITY;
--- ... (enable for all tables)
+  # Calendar
+  calendarEvents(startDate: DateTime!, endDate: DateTime!): [CalendarEvent!]!
+}
 
--- Example policy: Users can only see data from their family
-CREATE POLICY "Users can read their family's messages"
-  ON messages FOR SELECT
-  USING (
-    channel_id IN (
-      SELECT id FROM channels WHERE family_id = (
-        SELECT family_id FROM users WHERE id = auth.uid()
-      )
-    )
-  );
+type Mutation {
+  # Auth
+  register(email: String!, familyName: String!, password: String!, name: String!): AuthResponse!
+  joinFamily(email: String!, inviteCode: String!, password: String!, name: String!): AuthResponse!
+  login(email: String!, password: String!): AuthResponse!
+  logout: Boolean!
+
+  # Family
+  updateFamily(name: String, avatar: String, maxMembers: Int): Family!
+  regenerateInviteCode: Family!
+  removeFamilyMember(userId: ID!): Boolean!
+
+  # Channels
+  createChannel(name: String!, description: String, icon: String): Channel!
+  deleteChannel(id: ID!): Boolean!
+
+  # Messages
+  createMessage(channelId: ID!, encryptedContent: String!): Message!
+  updateMessage(id: ID!, encryptedContent: String!): Message!
+  deleteMessage(id: ID!): Boolean!
+
+  # Scheduled Messages
+  scheduleMessage(channelId: ID!, encryptedContent: String!, scheduledTime: DateTime!): ScheduledMessage!
+  cancelScheduledMessage(id: ID!): Boolean!
+
+  # Photos
+  createPhotoFolder(name: String!, icon: String): PhotoFolder!
+  deletePhotoFolder(id: ID!): Boolean!
+  getPhotoUploadUrl(fileName: String!, fileSize: Int!): PhotoUploadUrl!
+  createPhoto(folderId: ID!, storagePath: String!, encryptedCaption: String): Photo!
+  deletePhoto(id: ID!): Boolean!
+  likePhoto(id: ID!): Photo!
+  createPhotoComment(photoId: ID!, encryptedComment: String!): PhotoComment!
+
+  # Calendar
+  createCalendarEvent(title: String!, description: String, date: DateTime!, startTime: DateTime, endTime: DateTime, allDay: Boolean, reminder: Boolean, reminderMinutes: Int, color: String): CalendarEvent!
+  updateCalendarEvent(id: ID!, title: String, description: String, date: DateTime, startTime: DateTime, endTime: DateTime, allDay: Boolean, reminder: Boolean, reminderMinutes: Int, color: String): CalendarEvent!
+  deleteCalendarEvent(id: ID!): Boolean!
+
+  # Google Calendar
+  connectGoogleCalendar(code: String!): Boolean!
+  syncGoogleCalendar: Int!
+  disconnectGoogleCalendar: Boolean!
+}
+
+type Subscription {
+  # Messages
+  messageCreated(channelId: ID!): Message!
+  messageUpdated(channelId: ID!): Message!
+  messageDeleted(channelId: ID!): ID!
+
+  # Presence
+  userPresence(familyId: ID!): UserPresenceUpdate!
+}
+
+type UserPresenceUpdate {
+  userId: ID!
+  online: Boolean!
+  lastSeen: DateTime
+}
 ```
 
 ---
 
-## 4. API Design
+## 5. NestJS Architecture
 
-### REST API Endpoints (Next.js API Routes)
-
-#### Authentication
-
-```typescript
-POST /api/auth/register
-Body: { email, familyName, password }
-Response: { user, family, inviteCode }
-
-POST /api/auth/join
-Body: { email, inviteCode, password }
-Response: { user, family }
-
-POST /api/auth/logout
-Response: { success: true }
-
-GET /api/auth/session
-Response: { user, family }
-```
-
-#### Messages
-
-```typescript
-GET /api/messages?channelId={uuid}&limit=50&before={timestamp}
-Response: { messages: Message[] }
-
-POST /api/messages
-Body: { channelId, encryptedContent }
-Response: { message: Message }
-
-PATCH /api/messages/:id
-Body: { encryptedContent }
-Response: { message: Message }
-
-DELETE /api/messages/:id
-Response: { success: true }
-```
-
-#### Scheduled Messages
-
-```typescript
-GET /api/scheduled-messages
-Response: { scheduledMessages: ScheduledMessage[] }
-
-POST /api/scheduled-messages
-Body: { channelId, encryptedContent, scheduledTime }
-Response: { scheduledMessage: ScheduledMessage }
-
-DELETE /api/scheduled-messages/:id
-Response: { success: true }
-```
-
-#### Photos
-
-```typescript
-GET /api/photos?folderId={uuid}&limit=50&offset=0
-Response: { photos: Photo[] }
-
-POST /api/photos/upload-url
-Body: { fileName, fileSize }
-Response: { uploadUrl, storagePath }
-
-POST /api/photos
-Body: { folderId, storagePath, encryptedCaption }
-Response: { photo: Photo }
-
-DELETE /api/photos/:id
-Response: { success: true }
-
-POST /api/photos/:id/like
-Response: { photo: Photo }
-
-POST /api/photos/:id/comments
-Body: { encryptedComment }
-Response: { comment: PhotoComment }
-```
-
-#### Calendar
-
-```typescript
-GET /api/calendar/events?startDate={date}&endDate={date}
-Response: { events: CalendarEvent[] }
-
-POST /api/calendar/events
-Body: { title, description, date, startTime, ... }
-Response: { event: CalendarEvent }
-
-PATCH /api/calendar/events/:id
-Body: { title, ... }
-Response: { event: CalendarEvent }
-
-DELETE /api/calendar/events/:id
-Response: { success: true }
-```
-
-#### Google Calendar
-
-```typescript
-GET /api/google/auth
-Response: { authUrl }
-
-GET /api/google/callback?code={code}
-Response: { success: true }
-
-POST /api/google/sync
-Response: { events: CalendarEvent[], newEventsCount }
-
-DELETE /api/google/disconnect
-Response: { success: true }
-```
-
-#### Family Management
-
-```typescript
-GET /api/family
-Response: { family: Family, members: User[] }
-
-PATCH /api/family
-Body: { name, avatar, maxMembers }
-Response: { family: Family }
-
-POST /api/family/invite-code
-Response: { inviteCode }
-
-DELETE /api/family/members/:id
-Response: { success: true }
-```
-
-#### Channels
-
-```typescript
-GET /api/channels
-Response: { channels: Channel[] }
-
-POST /api/channels
-Body: { name, description, icon }
-Response: { channel: Channel }
-
-DELETE /api/channels/:id
-Response: { success: true }
-```
-
-### Supabase Realtime Channels
-
-**Subscribe to real-time updates:**
-
-```typescript
-// Messages
-supabase
-  .channel(`messages:${channelId}`)
-  .on('postgres_changes', {
-    event: 'INSERT',
-    schema: 'public',
-    table: 'messages',
-    filter: `channel_id=eq.${channelId}`
-  }, (payload) => {
-    // New message received (encrypted)
-    const newMessage = payload.new;
-    decryptAndDisplay(newMessage);
-  })
-  .subscribe();
-
-// Presence (online users)
-supabase
-  .channel(`presence:family:${familyId}`)
-  .on('presence', { event: 'sync' }, () => {
-    const state = channel.presenceState();
-    // Update online users list
-  })
-  .subscribe();
-```
-
----
-
-## 5. End-to-End Encryption Implementation
-
-### Shared Family Key Model
-
-**Architecture Decision:** Use a single symmetric key per family for simplicity and transparency.
-
-#### Key Generation & Distribution
-
-```typescript
-// 1. Family creation (admin)
-async function createFamily(familyName: string, adminEmail: string) {
-  // Generate 256-bit family key
-  const familyKey = await crypto.subtle.generateKey(
-    { name: 'AES-GCM', length: 256 },
-    true, // extractable
-    ['encrypt', 'decrypt']
-  );
-
-  // Export key as raw bytes
-  const rawKey = await crypto.subtle.exportKey('raw', familyKey);
-  const base64Key = btoa(String.fromCharCode(...new Uint8Array(rawKey)));
-
-  // Generate invite code
-  const inviteCode = `FAMILY-${generateRandomCode(8)}`;
-
-  // Store invite code + base64 key mapping (server)
-  await supabase.from('families').insert({
-    name: familyName,
-    invite_code: inviteCode,
-    created_by: adminId
-  });
-
-  // Store encrypted family key for admin
-  await supabase.from('users').update({
-    encrypted_family_key: base64Key // In production: encrypt this with user's password-derived key
-  }).eq('id', adminId);
-
-  return { inviteCode: `${inviteCode}:${base64Key}` }; // Format: CODE:KEY
-}
-
-// 2. Family join (member)
-async function joinFamily(inviteCode: string) {
-  // Parse invite code
-  const [code, base64Key] = inviteCode.split(':');
-
-  // Import family key
-  const rawKey = Uint8Array.from(atob(base64Key), c => c.charCodeAt(0));
-  const familyKey = await crypto.subtle.importKey(
-    'raw',
-    rawKey,
-    { name: 'AES-GCM', length: 256 },
-    true,
-    ['encrypt', 'decrypt']
-  );
-
-  // Store encrypted family key for this user
-  await supabase.from('users').update({
-    encrypted_family_key: base64Key
-  }).eq('id', userId);
-
-  // Store key in IndexedDB (client-side)
-  await idb.set('familyKey', familyKey);
-
-  return { familyKey };
-}
-```
-
-#### Encryption & Decryption
-
-```typescript
-// lib/e2ee/encryption.ts
-
-async function encryptMessage(plaintext: string, familyKey: CryptoKey): Promise<string> {
-  const encoder = new TextEncoder();
-  const data = encoder.encode(plaintext);
-
-  // Generate random IV (96 bits for GCM)
-  const iv = crypto.getRandomValues(new Uint8Array(12));
-
-  // Encrypt
-  const ciphertext = await crypto.subtle.encrypt(
-    { name: 'AES-GCM', iv },
-    familyKey,
-    data
-  );
-
-  // Combine IV + ciphertext + auth tag (all in ciphertext buffer)
-  const combined = new Uint8Array(iv.length + ciphertext.byteLength);
-  combined.set(iv, 0);
-  combined.set(new Uint8Array(ciphertext), iv.length);
-
-  // Encode as base64
-  return btoa(String.fromCharCode(...combined));
-}
-
-async function decryptMessage(encrypted: string, familyKey: CryptoKey): Promise<string> {
-  // Decode base64
-  const combined = Uint8Array.from(atob(encrypted), c => c.charCodeAt(0));
-
-  // Extract IV and ciphertext
-  const iv = combined.slice(0, 12);
-  const ciphertext = combined.slice(12);
-
-  // Decrypt
-  const plaintext = await crypto.subtle.decrypt(
-    { name: 'AES-GCM', iv },
-    familyKey,
-    ciphertext
-  );
-
-  const decoder = new TextDecoder();
-  return decoder.decode(plaintext);
-}
-
-async function encryptFile(blob: Blob, familyKey: CryptoKey): Promise<Blob> {
-  const arrayBuffer = await blob.arrayBuffer();
-  const iv = crypto.getRandomValues(new Uint8Array(12));
-
-  const ciphertext = await crypto.subtle.encrypt(
-    { name: 'AES-GCM', iv },
-    familyKey,
-    arrayBuffer
-  );
-
-  // Prepend IV to ciphertext
-  const combined = new Uint8Array(iv.length + ciphertext.byteLength);
-  combined.set(iv, 0);
-  combined.set(new Uint8Array(ciphertext), iv.length);
-
-  return new Blob([combined], { type: 'application/octet-stream' });
-}
-
-async function decryptFile(encryptedBlob: Blob, familyKey: CryptoKey): Promise<Blob> {
-  const combined = new Uint8Array(await encryptedBlob.arrayBuffer());
-  const iv = combined.slice(0, 12);
-  const ciphertext = combined.slice(12);
-
-  const plaintext = await crypto.subtle.decrypt(
-    { name: 'AES-GCM', iv },
-    familyKey,
-    ciphertext
-  );
-
-  // Detect original MIME type from first bytes (magic numbers)
-  const mimeType = detectMimeType(new Uint8Array(plaintext));
-  return new Blob([plaintext], { type: mimeType });
-}
-```
-
-#### Key Storage (Client-Side)
-
-```typescript
-// Store family key in IndexedDB (persists across sessions)
-import { openDB } from 'idb';
-
-const db = await openDB('ourchat', 1, {
-  upgrade(db) {
-    db.createObjectStore('keys');
-  }
-});
-
-// Store
-await db.put('keys', familyKey, 'familyKey');
-
-// Retrieve
-const familyKey = await db.get('keys', 'familyKey');
-
-// Clear on logout
-await db.delete('keys', 'familyKey');
-```
-
-#### Security Properties
-
-**What's Protected:**
-- ✅ Messages encrypted at rest (server stores ciphertext only)
-- ✅ Photos encrypted at rest (object storage has ciphertext only)
-- ✅ Server cannot read user content (zero-knowledge)
-- ✅ Man-in-the-middle attacks mitigated (HTTPS + E2EE)
-
-**What's NOT Protected:**
-- ⚠️ Metadata (sender, timestamp, channel) visible to server
-- ⚠️ Forward secrecy (old messages compromised if key leaked)
-- ⚠️ Malicious server can inject keys (but requires compromising Vercel/Supabase)
-- ⚠️ Members removed from family can still decrypt old messages (no key rotation in MVP)
-
-**Acceptable for Family Use Case:** Yes - family members trust each other, server compromise unlikely for self-hosted infrastructure.
-
----
-
-## 6. Security Architecture
-
-### Threat Model
-
-**In Scope:**
-- External attackers intercepting network traffic
-- Database breach (attacker gains access to PostgreSQL)
-- Object storage breach (attacker gains access to S3)
-- Compromised third-party services (e.g., Groq sees plaintext during translation)
-
-**Out of Scope (MVP):**
-- Malicious family members
-- Compromised Vercel or Supabase infrastructure
-- Nation-state attackers
-- Quantum computing attacks
-
-### Security Measures
-
-#### Transport Security
-- ✅ HTTPS/TLS 1.3 for all client-server communication
-- ✅ HSTS enabled (Strict-Transport-Security header)
-- ✅ Certificate pinning (automatic via Vercel)
-
-#### Authentication & Authorization
-- ✅ Supabase Auth (JWT-based)
-- ✅ Password hashing: bcrypt (10 rounds)
-- ✅ Session management: HTTP-only cookies
-- ✅ CSRF protection: SameSite=Strict cookies
-- ✅ Row Level Security (RLS) on all Supabase tables
-
-#### Input Validation
-- ✅ Client-side: React Hook Form validation
-- ✅ Server-side: Zod schemas on API routes
-- ✅ SQL injection: Parameterized queries (Supabase client)
-- ✅ XSS: React auto-escaping + Content Security Policy
-
-#### Rate Limiting
-- ✅ Vercel edge functions rate limiting
-- ✅ Supabase rate limiting (default: 100 req/min)
-- ✅ Groq API rate limiting (free tier: ~30 req/min)
-
-#### Secrets Management
-- ✅ Environment variables (Vercel secrets)
-- ✅ No secrets in client code (except Groq API key - rate-limited)
-- ✅ Supabase service role key server-side only
-
-#### Content Security Policy (CSP)
-
-```typescript
-// next.config.js
-const securityHeaders = [
-  {
-    key: 'Content-Security-Policy',
-    value: `
-      default-src 'self';
-      script-src 'self' 'unsafe-eval' 'unsafe-inline';
-      style-src 'self' 'unsafe-inline';
-      img-src 'self' data: https:;
-      font-src 'self' data:;
-      connect-src 'self' https://*.supabase.co https://api.groq.com;
-      frame-ancestors 'none';
-    `.replace(/\s{2,}/g, ' ').trim()
-  },
-  {
-    key: 'X-Frame-Options',
-    value: 'DENY'
-  },
-  {
-    key: 'X-Content-Type-Options',
-    value: 'nosniff'
-  },
-  {
-    key: 'Referrer-Policy',
-    value: 'strict-origin-when-cross-origin'
-  },
-  {
-    key: 'Permissions-Policy',
-    value: 'camera=(), microphone=(), geolocation=()'
-  }
-];
-```
-
----
-
-## 7. Deployment Architecture
-
-### Infrastructure Overview
+### Monorepo Structure
 
 ```
-Production Environment:
-
-┌──────────────────────────────────────────────────┐
-│  Cloudflare CDN (Optional - Vercel has built-in) │
-│  - Global edge caching                            │
-│  - DDoS protection                                │
-└────────────────┬─────────────────────────────────┘
-                 │
-                 ▼
-┌──────────────────────────────────────────────────┐
-│  Vercel Edge Network                              │
-│  ┌────────────────────────────────────────────┐  │
-│  │  Next.js 15 App (Serverless Functions)    │  │
-│  │  - Automatic scaling                       │  │
-│  │  - Edge runtime for API routes            │  │
-│  │  - Static assets (CDN distributed)        │  │
-│  └────────────────────────────────────────────┘  │
-└────────────────┬─────────────────────────────────┘
-                 │
-                 ▼
-┌──────────────────────────────────────────────────┐
-│  Supabase (us-east-1 or nearest region)          │
-│  ┌────────────────────────────────────────────┐  │
-│  │  PostgreSQL 15 (Managed)                   │  │
-│  │  - Auto backups (daily)                    │  │
-│  │  - Point-in-time recovery                  │  │
-│  │  - Connection pooling (PgBouncer)          │  │
-│  └────────────────────────────────────────────┘  │
-│  ┌────────────────────────────────────────────┐  │
-│  │  Supabase Realtime (WebSocket)             │  │
-│  │  - Pub/sub channels                        │  │
-│  │  - Presence tracking                       │  │
-│  └────────────────────────────────────────────┘  │
-│  ┌────────────────────────────────────────────┐  │
-│  │  Supabase Storage (S3-compatible)          │  │
-│  │  - 1GB free tier                           │  │
-│  │  - CDN delivery                            │  │
-│  └────────────────────────────────────────────┘  │
-└──────────────────────────────────────────────────┘
+ourchat/
+├── apps/
+│   ├── backend/                    # NestJS application
+│   │   ├── src/
+│   │   │   ├── main.ts             # Bootstrap
+│   │   │   ├── app.module.ts       # Root module
+│   │   │   ├── auth/
+│   │   │   │   ├── auth.module.ts
+│   │   │   │   ├── auth.resolver.ts
+│   │   │   │   ├── auth.service.ts
+│   │   │   │   ├── jwt.strategy.ts
+│   │   │   │   └── guards/
+│   │   │   ├── messages/
+│   │   │   │   ├── messages.module.ts
+│   │   │   │   ├── messages.resolver.ts
+│   │   │   │   ├── messages.service.ts
+│   │   │   │   └── dto/
+│   │   │   ├── photos/
+│   │   │   │   ├── photos.module.ts
+│   │   │   │   ├── photos.resolver.ts
+│   │   │   │   ├── photos.service.ts
+│   │   │   │   └── r2.service.ts
+│   │   │   ├── calendar/
+│   │   │   │   ├── calendar.module.ts
+│   │   │   │   ├── calendar.resolver.ts
+│   │   │   │   ├── calendar.service.ts
+│   │   │   │   └── google-calendar.service.ts
+│   │   │   ├── family/
+│   │   │   │   ├── family.module.ts
+│   │   │   │   ├── family.resolver.ts
+│   │   │   │   └── family.service.ts
+│   │   │   ├── channels/
+│   │   │   │   ├── channels.module.ts
+│   │   │   │   ├── channels.resolver.ts
+│   │   │   │   └── channels.service.ts
+│   │   │   ├── prisma/
+│   │   │   │   ├── prisma.module.ts
+│   │   │   │   └── prisma.service.ts
+│   │   │   └── common/
+│   │   │       ├── decorators/
+│   │   │       ├── filters/
+│   │   │       └── pipes/
+│   │   ├── prisma/
+│   │   │   ├── schema.prisma
+│   │   │   └── migrations/
+│   │   ├── test/
+│   │   ├── .env
+│   │   ├── package.json
+│   │   └── tsconfig.json
+│   │
+│   └── frontend/                   # Next.js application
+│       ├── src/
+│       │   ├── app/
+│       │   │   ├── (auth)/
+│       │   │   │   └── login/page.tsx
+│       │   │   ├── (dashboard)/
+│       │   │   │   ├── chat/page.tsx
+│       │   │   │   └── settings/page.tsx
+│       │   │   └── layout.tsx
+│       │   ├── components/
+│       │   │   ├── ui/             # shadcn/ui
+│       │   │   ├── chat/
+│       │   │   ├── photos/
+│       │   │   └── calendar/
+│       │   ├── lib/
+│       │   │   ├── apollo/
+│       │   │   │   ├── client.ts
+│       │   │   │   └── provider.tsx
+│       │   │   ├── e2ee/
+│       │   │   │   ├── encryption.ts
+│       │   │   │   ├── key-management.ts
+│       │   │   │   └── storage.ts
+│       │   │   ├── groq/
+│       │   │   │   └── translation.ts
+│       │   │   └── hooks/
+│       │   ├── graphql/
+│       │   │   ├── queries.ts
+│       │   │   ├── mutations.ts
+│       │   │   └── subscriptions.ts
+│       │   └── middleware.ts
+│       ├── public/
+│       ├── .env.local
+│       ├── next.config.js
+│       └── package.json
+│
+├── packages/
+│   ├── shared-types/               # Shared TypeScript types
+│   │   ├── src/
+│   │   │   └── index.ts
+│   │   └── package.json
+│   └── eslint-config/
+│       └── package.json
+│
+├── pnpm-workspace.yaml
+├── package.json                    # Root package.json
+├── tsconfig.json                   # Base TypeScript config
+└── README.md
 ```
 
 ### Environment Configuration
 
-#### Development
+#### Backend (.env)
+
 ```bash
-# .env.local
-NEXT_PUBLIC_SUPABASE_URL=https://xxx.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJxxx...
-SUPABASE_SERVICE_ROLE_KEY=eyJxxx... # Server-side only
-NEXT_PUBLIC_GROQ_API_KEY=gsk_xxx # Client-side (rate-limited)
+# Database
+DATABASE_URL="mysql://user:password@aws.connect.psdb.cloud/ourchat?sslaccept=strict"
+
+# JWT
+JWT_SECRET=your-jwt-secret-here-generate-with-openssl-rand-base64-32
+JWT_EXPIRES_IN=7d
+REFRESH_TOKEN_SECRET=your-refresh-secret-here
+REFRESH_TOKEN_EXPIRES_IN=30d
+
+# Redis (Upstash)
+REDIS_URL=redis://default:password@regional-endpoint.upstash.io:6379
+
+# Cloudflare R2
+R2_ACCOUNT_ID=your-cloudflare-account-id
+R2_ACCESS_KEY_ID=your-r2-access-key
+R2_SECRET_ACCESS_KEY=your-r2-secret-key
+R2_BUCKET_NAME=ourchat-photos
+R2_PUBLIC_URL=https://pub-xxxx.r2.dev
+
+# Google OAuth (for Calendar)
 GOOGLE_CLIENT_ID=xxx.apps.googleusercontent.com
 GOOGLE_CLIENT_SECRET=GOCSPX-xxx
-NEXTAUTH_URL=http://localhost:3000
-NEXTAUTH_SECRET=xxx
+
+# Server
+PORT=4000
+NODE_ENV=development
 ```
 
-#### Production
+#### Frontend (.env.local)
+
 ```bash
-# Vercel Environment Variables (set in dashboard)
-NEXT_PUBLIC_SUPABASE_URL=https://prod.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJxxx...
-SUPABASE_SERVICE_ROLE_KEY=eyJxxx...
+# GraphQL API
+NEXT_PUBLIC_GRAPHQL_HTTP_URL=http://localhost:4000/graphql
+NEXT_PUBLIC_GRAPHQL_WS_URL=ws://localhost:4000/graphql
+
+# Groq API (client-side translation)
 NEXT_PUBLIC_GROQ_API_KEY=gsk_xxx
-GOOGLE_CLIENT_ID=xxx.apps.googleusercontent.com
-GOOGLE_CLIENT_SECRET=GOCSPX-xxx
-NEXTAUTH_URL=https://ourchat.app
-NEXTAUTH_SECRET=xxx
+
+# Google OAuth
+NEXT_PUBLIC_GOOGLE_CLIENT_ID=xxx.apps.googleusercontent.com
+
+# Environment
+NODE_ENV=development
 ```
-
-### Deployment Pipeline
-
-```yaml
-# Automated via Vercel GitHub integration
-
-git push origin main
-  ↓
-Vercel detects push
-  ↓
-Build Next.js app
-  - pnpm install
-  - pnpm build
-  - Run type checks
-  - Run linting
-  ↓
-Deploy to preview (auto-generated URL)
-  ↓
-Run smoke tests (optional)
-  ↓
-Promote to production (manual approval)
-  ↓
-Deploy to ourchat.app
-  ↓
-Invalidate CDN cache
-  ↓
-Notify team (Slack/Discord webhook)
-```
-
-### Monitoring & Observability
-
-#### Metrics
-- **Vercel Analytics:** Page views, Core Web Vitals, API latency
-- **Supabase Metrics:** Database queries, connection pool, storage usage
-- **Custom Metrics:** E2EE operations (encrypt/decrypt timing)
-
-#### Logging
-- **Vercel Logs:** Function invocations, errors, cold starts
-- **Supabase Logs:** Database queries, auth events
-- **Client-side:** Sentry (optional) for frontend errors
-
-#### Alerts
-- **Uptime:** Vercel auto-alerts on deployment failures
-- **Database:** Supabase alerts on connection pool exhaustion
-- **Budget:** AWS Cost Alerts if exceeding free tier
 
 ---
 
-## 8. Proposed Source Tree
+## 6. End-to-End Encryption Implementation
+
+(Same as Supabase version - client-side E2EE with shared family key)
+
+See original document sections for:
+- Key generation & distribution
+- Encryption & decryption (Web Crypto API)
+- IndexedDB storage
+- Security properties
+
+---
+
+## 7. Security Architecture
+
+### Authentication Flow
 
 ```
-ourchat/                          # Monorepo root
-├── .github/
-│   └── workflows/
-│       ├── ci.yml                # GitHub Actions CI
-│       └── deploy.yml            # Deployment automation
-├── public/                       # Static assets
-│   ├── icons/                    # App icons (PWA)
-│   └── images/                   # Static images
-├── src/
-│   ├── app/                      # Next.js 15 App Router
-│   │   ├── (auth)/               # Auth route group
-│   │   │   ├── login/
-│   │   │   │   └── page.tsx      # Login screen
-│   │   │   └── layout.tsx        # Auth layout
-│   │   ├── (dashboard)/          # Main app route group
-│   │   │   ├── chat/
-│   │   │   │   └── page.tsx      # Chat screen
-│   │   │   ├── settings/
-│   │   │   │   └── page.tsx      # Settings screen
-│   │   │   └── layout.tsx        # Dashboard layout
-│   │   ├── api/                  # API routes
-│   │   │   ├── auth/
-│   │   │   │   ├── register/route.ts
-│   │   │   │   ├── join/route.ts
-│   │   │   │   └── logout/route.ts
-│   │   │   ├── messages/
-│   │   │   │   ├── route.ts      # GET, POST
-│   │   │   │   └── [id]/route.ts # PATCH, DELETE
-│   │   │   ├── photos/
-│   │   │   │   ├── route.ts
-│   │   │   │   ├── upload-url/route.ts
-│   │   │   │   └── [id]/
-│   │   │   │       ├── route.ts  # DELETE
-│   │   │   │       ├── like/route.ts
-│   │   │   │       └── comments/route.ts
-│   │   │   ├── calendar/
-│   │   │   │   ├── events/route.ts
-│   │   │   │   └── events/[id]/route.ts
-│   │   │   ├── google/
-│   │   │   │   ├── auth/route.ts
-│   │   │   │   ├── callback/route.ts
-│   │   │   │   ├── sync/route.ts
-│   │   │   │   └── disconnect/route.ts
-│   │   │   ├── family/
-│   │   │   │   ├── route.ts
-│   │   │   │   ├── invite-code/route.ts
-│   │   │   │   └── members/[id]/route.ts
-│   │   │   └── channels/
-│   │   │       ├── route.ts
-│   │   │       └── [id]/route.ts
-│   │   ├── layout.tsx            # Root layout
-│   │   └── page.tsx              # Redirect to /login or /chat
-│   ├── components/               # React components
-│   │   ├── ui/                   # shadcn/ui components
-│   │   │   ├── button.tsx
-│   │   │   ├── dialog.tsx
-│   │   │   ├── input.tsx
-│   │   │   └── ... (all shadcn components)
-│   │   ├── chat/
-│   │   │   ├── message-bubble.tsx
-│   │   │   ├── message-input.tsx
-│   │   │   ├── channel-selector.tsx
-│   │   │   └── translation-display.tsx
-│   │   ├── photos/
-│   │   │   ├── photo-grid.tsx
-│   │   │   ├── photo-detail.tsx
-│   │   │   ├── folder-selector.tsx
-│   │   │   └── photo-upload.tsx
-│   │   ├── calendar/
-│   │   │   ├── calendar-view.tsx
-│   │   │   ├── event-form.tsx
-│   │   │   └── google-sync-panel.tsx
-│   │   └── settings/
-│   │       ├── profile-section.tsx
-│   │       ├── family-section.tsx
-│   │       └── preferences-section.tsx
-│   ├── lib/                      # Business logic & utilities
-│   │   ├── supabase/
-│   │   │   ├── client.ts         # Browser client
-│   │   │   ├── server.ts         # Server client (cookies)
-│   │   │   └── middleware.ts     # Auth middleware
-│   │   ├── e2ee/
-│   │   │   ├── encryption.ts     # Encrypt/decrypt functions
-│   │   │   ├── key-management.ts # Family key handling
-│   │   │   └── storage.ts        # IndexedDB key storage
-│   │   ├── groq/
-│   │   │   └── translation.ts    # LLM translation client
-│   │   ├── google/
-│   │   │   ├── oauth.ts          # OAuth flow
-│   │   │   └── calendar-sync.ts  # Calendar API calls
-│   │   ├── utils/
-│   │   │   ├── cn.ts             # Tailwind class merger
-│   │   │   ├── date.ts           # Date formatting
-│   │   │   └── validators.ts     # Zod schemas
-│   │   └── hooks/
-│   │       ├── use-family-key.ts # Get family key from IDB
-│   │       ├── use-realtime.ts   # Supabase Realtime hook
-│   │       └── use-translation.ts # LLM translation hook
-│   ├── types/
-│   │   ├── database.ts           # Supabase generated types
-│   │   ├── api.ts                # API request/response types
-│   │   └── index.ts              # Shared types
-│   └── middleware.ts             # Next.js middleware (auth)
-├── supabase/                     # Supabase config
-│   ├── migrations/               # SQL migrations
-│   │   └── 001_initial_schema.sql
-│   ├── seed.sql                  # Dev seed data
-│   └── config.toml               # Supabase config
-├── tests/
-│   ├── unit/                     # Vitest unit tests
-│   ├── integration/              # API integration tests
-│   └── e2e/                      # Playwright E2E tests
-├── .env.local.example            # Example env vars
-├── .eslintrc.json                # ESLint config
-├── .prettierrc                   # Prettier config
-├── next.config.js                # Next.js config
-├── package.json                  # Dependencies
-├── pnpm-lock.yaml                # Lock file
-├── tsconfig.json                 # TypeScript config
-├── tailwind.config.ts            # Tailwind config
-├── components.json               # shadcn/ui config
-└── README.md                     # Project README
+1. User submits login credentials
+2. NestJS AuthResolver validates email/password
+3. bcrypt compares password hash
+4. Generate JWT access token (7 days) + refresh token (30 days)
+5. Return tokens to client
+6. Client stores tokens in HTTP-only cookies (set by Next.js API route)
+7. Subsequent requests include JWT in Authorization header
+8. NestJS JwtAuthGuard validates token on protected resolvers
+```
+
+### Authorization
+
+```typescript
+// guards/gql-auth.guard.ts
+@Injectable()
+export class GqlAuthGuard implements CanActivate {
+  canActivate(context: ExecutionContext): boolean {
+    const ctx = GqlExecutionContext.create(context);
+    const { req } = ctx.getContext();
+    return req.user != null; // Populated by JwtStrategy
+  }
+}
+
+// Usage in resolver
+@UseGuards(GqlAuthGuard)
+@Query(() => [Message])
+async messages(@Args('channelId') channelId: string, @CurrentUser() user: User) {
+  // Validate user is in channel's family
+  return this.messagesService.findByChannel(channelId, user.familyId);
+}
+```
+
+---
+
+## 8. Deployment Architecture
+
+### Production Environment
+
+```
+Frontend:
+┌────────────────────────────────┐
+│  Vercel                         │
+│  - Next.js 15 SSR              │
+│  - Edge functions              │
+│  - Global CDN                  │
+│  - Auto HTTPS                  │
+└────────────────────────────────┘
+         │ GraphQL/WSS
+         ▼
+Backend:
+┌────────────────────────────────┐
+│  Render                         │
+│  - NestJS app                  │
+│  - WebSocket support           │
+│  - Auto-deploy from Git        │
+│  - Free tier: 750hrs/month     │
+└────────────────────────────────┘
+         │                    │                    │
+         ▼                    ▼                    ▼
+┌──────────────┐  ┌──────────────┐  ┌──────────────────┐
+│ PlanetScale  │  │ Upstash Redis│  │ Cloudflare R2    │
+│ MySQL 5GB    │  │ 10k cmds/day │  │ 10GB storage     │
+└──────────────┘  └──────────────┘  └──────────────────┘
+```
+
+### Deployment Commands
+
+```bash
+# Backend (Render auto-deploys on git push)
+git push origin main
+
+# Frontend (Vercel auto-deploys)
+git push origin main
+
+# Database migrations
+npx prisma migrate deploy
+
+# Generate Prisma client
+npx prisma generate
 ```
 
 ---
 
 ## 9. Architecture Decision Records (ADRs)
 
-### ADR-001: Next.js 15 App Router vs Pages Router
+### ADR-001: NestJS + GraphQL vs Supabase
 
 **Status:** Accepted
 
-**Context:** Need to choose Next.js routing approach.
+**Context:** Kong WebSocket authentication issue blocking Supabase Realtime in local development. Need reliable real-time messaging.
 
-**Decision:** Use App Router (not Pages Router).
+**Decision:** Migrate to NestJS + GraphQL + MySQL instead of Supabase.
 
 **Rationale:**
-- App Router is the recommended approach (stable in Next.js 15)
-- React Server Components improve performance
-- Better data fetching patterns
-- File-based routing with layouts
+- **Zero sunk cost:** No production code written yet
+- **Real-time guaranteed:** GraphQL Subscriptions over WebSocket (no Kong issues)
+- **Developer control:** Full control over authentication and real-time logic
+- **Type safety:** End-to-end TypeScript with Prisma
+- **Free tier:** PlanetScale + Render + Vercel = $0/month MVP
 
 **Consequences:**
-- Learning curve for App Router patterns
-- Some libraries may not be fully compatible yet
-- Better long-term maintainability
+- More infrastructure to manage vs Supabase integrated platform
+- Need to implement auth ourselves (vs Supabase Auth)
+- Need to handle scheduled jobs (Bull queue)
+- Better long-term scalability and control
+
+**Alternative Considered:** Hosted Supabase - rejected due to avoiding vendor lock-in and wanting full control.
 
 ---
 
-### ADR-002: Shared Family Key vs Signal Protocol
+### ADR-002: MySQL (PlanetScale) vs PostgreSQL
 
 **Status:** Accepted
 
-**Context:** Need E2EE that's transparent to non-tech users.
+**Context:** Need cost-effective serverless database.
 
-**Decision:** Use Shared Family Key (AES-256-GCM), not Signal Protocol or Megolm.
+**Decision:** Use MySQL 8.0 via PlanetScale.
 
 **Rationale:**
-- **Simplicity:** ~100 LOC vs 500+ LOC
-- **UX:** Zero user friction (no device verification)
-- **Sufficient security:** Server can't decrypt, good enough for family trust model
-- **Acceptable tradeoffs:** No forward secrecy acceptable for family use case
+- **Free forever tier:** 5GB database, 1 billion row reads/month
+- **Serverless:** Auto-scaling, no connection limits
+- **Branching:** Database branching like Git (great for migrations)
+- **Prisma support:** First-class Prisma ORM compatibility
 
 **Consequences:**
-- Key compromise = all messages compromised
-- Member removal requires key rotation (Phase 2 feature)
-- Cannot claim "Signal-level security" in marketing
+- MySQL vs PostgreSQL tradeoffs (JSON support less rich, no array columns)
+- Vendor lock-in to PlanetScale (mitigated by standard MySQL compatibility)
 
-**Alternative Considered:** Simplified Megolm with auto-trust - rejected due to complexity.
+**Alternative Considered:** Supabase PostgreSQL, Neon - rejected due to free tier limits and vendor lock-in.
 
 ---
 
-### ADR-003: Supabase vs Self-Hosted PostgreSQL + Socket.IO
+### ADR-003: Monorepo vs Polyrepo
 
 **Status:** Accepted
 
-**Context:** Need database, realtime, storage, and auth.
+**Context:** Need to organize frontend and backend code.
 
-**Decision:** Use Supabase (integrated platform).
+**Decision:** Use pnpm workspaces monorepo.
 
 **Rationale:**
-- **Velocity:** All services in one platform
-- **Cost:** Free tier sufficient for MVP
-- **Maintenance:** Managed services reduce ops burden
-- **DX:** Excellent TypeScript SDK
+- **Shared types:** Easy type sharing between frontend/backend
+- **Atomic commits:** Frontend + backend changes in single PR
+- **Simplified CI/CD:** Single repository to deploy
+- **Developer experience:** One clone, one install
 
 **Consequences:**
-- Vendor lock-in (mitigated by standard PostgreSQL)
-- Supabase Realtime less mature than Socket.IO
-- Storage limited to 1GB free tier (migrate to Proton Drive if needed)
+- Slightly larger repository size
+- Need workspace-aware tooling (pnpm)
 
-**Alternative Considered:** Neon + Socket.IO + Cloudflare R2 - rejected for MVP simplicity.
+**Alternative Considered:** Polyrepo with separate frontend/backend repos - rejected for MVP simplicity.
 
 ---
 
-### ADR-004: Groq API (Client-Direct) vs Server-Mediated Translation
+### ADR-004: Free Tier Optimization Strategy
 
 **Status:** Accepted
 
-**Context:** Need LLM translation without breaking E2EE.
+**Context:** Want $0/month MVP hosting costs.
 
-**Decision:** Client calls Groq API directly (not via server).
+**Decision:** Use free tiers: Render (750hrs) + Vercel (unlimited) + PlanetScale (5GB) + Upstash (10k commands) + R2 (10GB).
 
 **Rationale:**
-- **Privacy:** Server never sees plaintext or translations
-- **Latency:** Direct connection is faster
-- **Cost:** Groq free tier generous
+- **Zero cost MVP:** Perfect for bootstrapping
+- **Generous limits:** 5GB database, 10GB storage sufficient for 10-50 families
+- **Easy upgrade path:** All services have paid tiers when needed
 
 **Consequences:**
-- Groq API key exposed in client (mitigated by rate limiting)
-- Clients must handle Groq errors directly
-- Network failures visible to users
+- Render free tier sleeps after inactivity (30s cold start)
+- Need to monitor free tier limits
+- Acceptable tradeoff for MVP
 
-**Alternative Considered:** Server proxy with temp tokens - adds complexity without security benefit.
+**Cost at 100 families:**
+- Render: $7/month (persistent instance)
+- PlanetScale: Free tier likely sufficient
+- Upstash: Free tier likely sufficient
+- R2: ~$1-2/month (storage)
+- Vercel: Free tier sufficient
+- **Total: ~$8-10/month**
 
 ---
 
-### ADR-005: Monorepo vs Polyrepo
+### ADR-005: GraphQL Subscriptions vs Server-Sent Events (SSE)
 
 **Status:** Accepted
 
-**Context:** Need repository structure for frontend + backend.
+**Context:** Need real-time message delivery.
 
-**Decision:** Monorepo (single repo).
+**Decision:** Use GraphQL Subscriptions over WebSocket (via Apollo Server).
 
 **Rationale:**
-- **Simplicity:** Frontend + backend tightly coupled for MVP
-- **Velocity:** Share types, easier refactoring
-- **Deployment:** Vercel deploys monorepo seamlessly
+- **Bidirectional:** WebSocket allows server push + client queries
+- **Native Apollo support:** Apollo Client/Server have excellent subscription support
+- **Type safety:** GraphQL schema enforces types
+- **Presence:** Can implement user online/offline easily
 
 **Consequences:**
-- Cannot scale to microservices without restructuring
-- Acceptable for MVP (can migrate to polyrepo in Phase 2 if needed)
+- WebSocket connections more resource-intensive than SSE
+- Need to handle reconnection logic
+- Apollo Server handles complexity well
+
+**Alternative Considered:** Server-Sent Events (SSE) - rejected due to unidirectional nature and lack of native Apollo support.
 
 ---
 
 ## 10. Cost Analysis
 
-### Free Tier Limits (MVP - Single Family)
+### Free Tier Limits (MVP - 10 Families)
 
 | Service | Free Tier | Usage Estimate | Cost |
 |---------|-----------|----------------|------|
-| **Vercel** | 100GB bandwidth, serverless functions | ~5GB/month | $0 |
-| **Supabase Database** | 500MB, 2GB RAM | ~50MB | $0 |
-| **Supabase Storage** | 1GB | ~200MB (photos) | $0 |
-| **Supabase Realtime** | Unlimited connections | 10 concurrent | $0 |
-| **Groq API** | ~30 req/min free tier | ~50 translations/day | $0 |
+| **Render** | 750hrs/month, auto-sleep | ~720hrs (sleeps when inactive) | $0 |
+| **Vercel** | Unlimited bandwidth | ~10GB/month | $0 |
+| **PlanetScale** | 5GB, 1B row reads | ~100MB database | $0 |
+| **Upstash Redis** | 10k commands/day | ~5k commands/day | $0 |
+| **Cloudflare R2** | 10GB storage, 1M writes | ~2GB photos | $0 |
+| **Groq API** | ~30 req/min | ~50 translations/day | $0 |
 | **Google Calendar API** | 10k req/day | ~50 req/day | $0 |
 | **Total** | | | **$0/month** |
 
-### Scaling Costs (Phase 2 - 100 Families)
+### Scaling Costs (100 Families)
 
 | Service | Paid Tier | Usage Estimate | Cost |
 |---------|-----------|----------------|------|
-| **Vercel Pro** | Unlimited bandwidth | ~500GB/month | $20/month |
-| **Supabase Pro** | 8GB DB, 100GB storage | ~2GB DB, 20GB storage | $25/month |
-| **Groq API** | Pay-per-token | ~5k translations/day | ~$5/month |
-| **Total** | | | **~$50/month** |
+| **Render** | Starter ($7/month) | Persistent instance | $7/month |
+| **Vercel** | Free tier sufficient | ~100GB/month | $0 |
+| **PlanetScale** | Free tier (if <5GB) | ~1GB database | $0 |
+| **Upstash Redis** | Free tier sufficient | ~8k commands/day | $0 |
+| **Cloudflare R2** | Storage + ops | ~20GB photos | ~$2/month |
+| **Groq API** | Pay-per-token | ~500 translations/day | ~$3/month |
+| **Total** | | | **~$12/month** |
 
 ### Break-Even Analysis
 
-- **Cost per family (100 families):** $0.50/month
+- **Cost per family (100 families):** $0.12/month
 - **Potential pricing:** $5/month per family
-- **Margin:** 90% (sustainable SaaS)
+- **Margin:** 97.6% (highly sustainable)
 
 ---
 
-## 11. Scaling Strategy
+## 11. Testing Strategy
 
-### Vertical Scaling (Single Instance Growth)
+### Unit Tests (Vitest)
 
-**Capacity:**
-- 100 families = 1,000 users
-- 10k messages/day
-- 100GB photo storage
-- Supabase Pro tier handles this comfortably
+```typescript
+// messages.service.spec.ts
+describe('MessagesService', () => {
+  it('should create encrypted message', async () => {
+    const message = await service.create({
+      channelId: 'xxx',
+      userId: 'yyy',
+      encryptedContent: 'base64ciphertext',
+    });
+    expect(message.encryptedContent).toBe('base64ciphertext');
+  });
+});
+```
 
-**Optimization:**
-- Enable PostgreSQL connection pooling (PgBouncer)
-- Implement Redis caching for frequently accessed data (Phase 3)
-- Use Supabase Edge Functions for API routes (reduce latency)
+### Integration Tests (Playwright)
 
-### Horizontal Scaling (Multi-Region, Phase 3)
+```typescript
+// tests/e2e/chat-messaging.spec.ts
+test('should send and receive real-time message', async ({ page, context }) => {
+  // User 1: Login and open chat
+  await page.goto('/login');
+  await page.fill('[name=email]', 'user1@test.com');
+  await page.fill('[name=password]', 'password123');
+  await page.click('button[type=submit]');
 
-**When:**
-- > 1,000 families
-- Global user base (latency issues)
+  // User 2: Open in new tab
+  const page2 = await context.newPage();
+  await page2.goto('/login');
+  // ... login as user2
 
-**Approach:**
-- Multi-region Supabase (US, EU, APAC)
-- Cloudflare Workers for edge API routes
-- Regional read replicas for PostgreSQL
+  // User 1: Send message
+  await page.goto('/chat');
+  await page.fill('[name=message]', 'Hello from User 1');
+  await page.click('button:has-text("Send")');
 
----
-
-## 12. Migration & Future-Proofing
-
-### From Shared Family Key to Advanced E2EE (Phase 2+)
-
-**If needed (e.g., for paranoid users or marketing):**
-
-1. **Add optional Megolm layer:**
-   - Shared Family Key remains for backwards compat
-   - Users opt-in to "Advanced Security Mode"
-   - Enable device verification UI (hidden by default)
-
-2. **Dual-encryption mode:**
-   - New messages use Megolm (forward secrecy)
-   - Old messages stay with Shared Family Key
-   - Gradual migration over time
-
-**Why deferred:** MVP users don't need this complexity.
-
----
-
-### From Supabase to Self-Hosted (Phase 3+)
-
-**If needed (vendor lock-in concerns, cost optimization):**
-
-1. **Supabase is standard PostgreSQL:**
-   - Dump database: `pg_dump`
-   - Migrate to any PostgreSQL provider (Neon, Railway, RDS)
-
-2. **Supabase Storage is S3-compatible:**
-   - Migrate photos to AWS S3, Cloudflare R2, Backblaze B2
-
-3. **Supabase Realtime replacement:**
-   - Switch to Socket.IO + Redis
-   - Client-side code changes minimal
-
-**Migration effort:** ~1 week for experienced team.
-
----
-
-## Appendix A: Technology Selection Rationale
-
-### Why React 19.2.0?
-- Latest stable release (October 2025)
-- Performance improvements over React 18
-- Better concurrent features
-- Strong ecosystem
-
-### Why Next.js 15?
-- Best-in-class React framework
-- App Router mature and recommended
-- Vercel deployment zero-config
-- Strong TypeScript support
-
-### Why Supabase?
-- Integrated platform (DB + Storage + Auth + Realtime)
-- Excellent free tier for MVP
-- Open source (PostgreSQL, PostgREST)
-- Great DX (TypeScript SDK, auto-generated types)
-
-### Why Shared Family Key E2EE?
-- **UX over paranoia:** Non-tech users prioritized
-- **Good enough security:** Server can't decrypt
-- **Simple implementation:** ~100 LOC
-- **Upgradeable:** Can add Megolm in Phase 2
-
-### Why Groq API?
-- **Fast inference:** Llama 3.1 70B, low latency
-- **Privacy-preserving:** Client-direct connection
-- **Free tier:** Generous limits
-- **Fallback option:** Can switch to Cloudflare Workers AI
-
----
-
-## Appendix B: Deployment Checklist
-
-### Pre-Launch
-
-- [ ] Set up Supabase project
-- [ ] Create database schema (run migrations)
-- [ ] Enable Row Level Security (RLS) policies
-- [ ] Set up Supabase Storage buckets
-- [ ] Create Vercel project
-- [ ] Configure environment variables (production)
-- [ ] Set up custom domain (ourchat.app)
-- [ ] Enable HTTPS (automatic via Vercel)
-- [ ] Configure CSP headers
-- [ ] Set up Groq API key (client-side, rate-limited)
-- [ ] Set up Google OAuth credentials
-- [ ] Test E2EE encryption/decryption flows
-- [ ] Run security audit (OWASP Top 10)
-- [ ] Test with real family (5+ users, different devices)
-- [ ] Monitor performance (Core Web Vitals)
-- [ ] Set up error tracking (Sentry optional)
-- [ ] Document deployment process (README)
-
-### Post-Launch
-
-- [ ] Monitor Vercel Analytics
-- [ ] Monitor Supabase metrics (DB, Storage, Realtime)
-- [ ] Set up uptime monitoring (UptimeRobot, StatusCake)
-- [ ] Set up cost alerts (Vercel, Supabase)
-- [ ] Collect user feedback
-- [ ] Plan Phase 2 features (voice/video, advanced E2EE)
+  // User 2: Should see message in real-time
+  await expect(page2.locator('text=Hello from User 1')).toBeVisible({ timeout: 2000 });
+});
+```
 
 ---
 
@@ -1362,15 +1136,17 @@ ourchat/                          # Monorepo root
 
 | Version | Date | Author | Changes |
 |---------|------|--------|---------|
-| 1.0 | 2025-10-13 | Winston | Initial architecture based on PRD, tech research, and stakeholder input |
+| 1.0 | 2025-10-13 | Winston | Initial Supabase architecture |
+| 2.0 | 2025-10-18 | Winston | Complete rewrite for NestJS + GraphQL + MySQL |
 
 ---
 
 **Next Steps:**
-1. ✅ Architecture approved by Nick
-2. ⏳ Generate Architecture Decision Records (detailed ADRs)
-3. ⏳ Create per-epic tech specs
-4. ⏳ Set up development environment
-5. ⏳ Begin Epic 1: User Onboarding & Authentication
+1. ✅ Architecture approved
+2. ⏳ Set up monorepo structure
+3. ⏳ Initialize NestJS backend with GraphQL
+4. ⏳ Initialize Next.js frontend with Apollo Client
+5. ⏳ Set up Prisma with PlanetScale
+6. ⏳ Implement Epic 1: User Onboarding & Authentication
 
-**Questions or Feedback:** Contact Nick or Winston (BMAD Architect)
+**Questions or Feedback:** Contact development team
