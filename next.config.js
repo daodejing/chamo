@@ -1,26 +1,5 @@
 /** @type {import('next').NextConfig} */
 
-// Build CSP connect-src directive from environment variables
-const buildConnectSrc = () => {
-  if (!process.env.NEXT_PUBLIC_SUPABASE_URL) {
-    throw new Error('NEXT_PUBLIC_SUPABASE_URL environment variable is required');
-  }
-
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const supabaseWsUrl = supabaseUrl.replace('http://', 'ws://').replace('https://', 'wss://');
-
-  const sources = [
-    "'self'",
-    'https://*.supabase.co',
-    'https://api.groq.com',
-    'https://www.googleapis.com',
-    supabaseUrl,
-    supabaseWsUrl,
-  ];
-
-  return sources.join(' ');
-};
-
 const nextConfig = {
   reactStrictMode: true,
   eslint: {
@@ -53,7 +32,7 @@ const nextConfig = {
               style-src 'self' 'unsafe-inline';
               img-src 'self' data: https:;
               font-src 'self' data:;
-              connect-src ${buildConnectSrc()};
+              connect-src 'self' http://localhost:4000 ws://localhost:4000 https://api.groq.com https://www.googleapis.com;
               frame-ancestors 'none';
             `.replace(/\s{2,}/g, ' ').trim()
           },
@@ -81,12 +60,7 @@ const nextConfig = {
   // Image optimization
   images: {
     domains: [],
-    remotePatterns: [
-      {
-        protocol: 'https',
-        hostname: '**.supabase.co',
-      },
-    ],
+    remotePatterns: [],
   },
 };
 

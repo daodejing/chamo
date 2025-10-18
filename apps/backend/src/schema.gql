@@ -9,12 +9,41 @@ type AuthResponse {
   user: UserType!
 }
 
+"""
+A date-time string at UTC, such as 2019-12-03T09:54:33Z, compliant with the date-time format.
+"""
+scalar DateTime
+
+input DeleteMessageInput {
+  messageId: ID!
+}
+
+type DeleteMessageResponse {
+  messageId: ID!
+  success: Boolean!
+}
+
+type DeletedMessageType {
+  messageId: ID!
+}
+
+input EditMessageInput {
+  encryptedContent: String!
+  messageId: ID!
+}
+
 type FamilyType {
   avatar: String
   id: ID!
   inviteCode: String!
   maxMembers: Float!
   name: String!
+}
+
+input GetMessagesInput {
+  channelId: ID!
+  cursor: ID
+  limit: Int = 50
 }
 
 input JoinFamilyInput {
@@ -29,14 +58,36 @@ input LoginInput {
   password: String!
 }
 
+type MessageUserType {
+  avatar: String
+  id: ID!
+  name: String!
+}
+
+type MessageWithUserType {
+  channelId: ID!
+  createdAt: DateTime!
+  editedAt: DateTime
+  encryptedContent: String!
+  id: ID!
+  isEdited: Boolean!
+  timestamp: DateTime!
+  user: MessageUserType!
+  userId: ID!
+}
+
 type Mutation {
+  deleteMessage(input: DeleteMessageInput!): DeleteMessageResponse!
+  editMessage(input: EditMessageInput!): MessageWithUserType!
   joinFamily(input: JoinFamilyInput!): AuthResponse!
   login(input: LoginInput!): AuthResponse!
   logout: Boolean!
   register(input: RegisterInput!): AuthResponse!
+  sendMessage(input: SendMessageInput!): MessageWithUserType!
 }
 
 type Query {
+  getMessages(input: GetMessagesInput!): [MessageWithUserType!]!
   me: UserType!
 }
 
@@ -45,6 +96,17 @@ input RegisterInput {
   familyName: String!
   name: String!
   password: String!
+}
+
+input SendMessageInput {
+  channelId: ID!
+  encryptedContent: String!
+}
+
+type Subscription {
+  messageAdded(channelId: String!): MessageWithUserType!
+  messageDeleted(channelId: String!): DeletedMessageType!
+  messageEdited(channelId: String!): MessageWithUserType!
 }
 
 type UserType {

@@ -9,7 +9,7 @@ import { initializeFamilyKey } from '@/lib/e2ee/key-management';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { MessageCircle, Fingerprint } from 'lucide-react';
-import { useAuth } from '@/lib/hooks/use-auth';
+import { useAuth } from '@/lib/contexts/auth-context';
 
 type AuthMode = 'login' | 'create' | 'join';
 
@@ -18,14 +18,14 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [authMode, setAuthMode] = useState<AuthMode>('create');
   const [isAuthenticating, setIsAuthenticating] = useState(false);
-  const { isAuthenticated, loading: authLoading } = useAuth();
+  const { user, loading: authLoading } = useAuth();
 
   // Auto-login: if already authenticated, redirect to /chat (AC3)
   useEffect(() => {
-    if (!authLoading && isAuthenticated) {
+    if (!authLoading && user) {
       router.push('/chat');
     }
-  }, [isAuthenticated, authLoading, router]);
+  }, [user, authLoading, router]);
 
   const handleSuccess = async (response: {
     user: { encryptedFamilyKey?: string };

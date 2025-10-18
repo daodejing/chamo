@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
-import { createClient } from '@/lib/supabase/client';
+import { useAuth } from '@/lib/contexts/auth-context';
 
 interface LoginFormProps {
   onSuccess: (response: any) => void;
@@ -15,6 +15,7 @@ export function LoginForm({ onSuccess }: LoginFormProps) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const { login } = useAuth();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -26,42 +27,14 @@ export function LoginForm({ onSuccess }: LoginFormProps) {
 
     setIsSubmitting(true);
     try {
-      const supabase = createClient();
-
-      // Sign in with Supabase Auth
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
-
-      if (error) {
-        throw error;
-      }
-
-      if (!data.user) {
-        throw new Error('No user returned from login');
-      }
-
-      // Fetch user's encrypted family key from database
-      const response = await fetch('/api/auth/session');
-      if (!response.ok) {
-        throw new Error('Failed to fetch session data');
-      }
-
-      const sessionData = await response.json();
-      if (!sessionData || !sessionData.user) {
-        throw new Error('Invalid session data');
-      }
+      // Login with GraphQL
+      await login({ email, password });
 
       toast.success('Login successful!');
       onSuccess({
         user: {
-          id: sessionData.user.id,
-          email: sessionData.user.email,
-          name: sessionData.user.name,
-          encryptedFamilyKey: sessionData.user.encryptedFamilyKey,
+          encryptedFamilyKey: null, // Will be fetched from context
         },
-        family: sessionData.family,
       });
     } catch (error: any) {
       console.error('Login error:', error);

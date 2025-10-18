@@ -1,6 +1,7 @@
 /**
  * Chat Page (Story 2.1)
  * Main chat screen with channel selection, message list, and E2EE messaging
+ * Now using GraphQL instead of Supabase REST API
  */
 
 'use client';
@@ -12,67 +13,63 @@ import { ChannelSelector, type Channel } from '@/components/chat/channel-selecto
 import { MessageList } from '@/components/chat/message-list';
 import { MessageInput } from '@/components/chat/message-input';
 import { MessageBubbleProps } from '@/components/chat/message-bubble';
-import { useRealtime, type Message as RealtimeMessage } from '@/lib/hooks/use-realtime';
+import { useMessages, useSendMessage, useEditMessage, useDeleteMessage, useMessageSubscription } from '@/lib/hooks/use-messages';
+import { useAuth } from '@/lib/contexts/auth-context';
 import { encryptMessage, decryptMessage } from '@/lib/e2ee/encryption';
 import { getFamilyKey } from '@/lib/e2ee/key-management';
-import { createClient } from '@/lib/supabase/client';
 
 export default function ChatPage() {
   const router = useRouter();
-  const supabase = createClient();
+  const { user, loading: authLoading } = useAuth();
 
   // State
   const [channels, setChannels] = useState<Channel[]>([]);
   const [currentChannelId, setCurrentChannelId] = useState<string | null>(null);
-  const [messages, setMessages] = useState<MessageBubbleProps[]>([]);
+  const [displayMessages, setDisplayMessages] = useState<MessageBubbleProps[]>([]);
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
-  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [familyKey, setFamilyKey] = useState<CryptoKey | null>(null);
-  // Cache user info to avoid repeated queries in real-time handler
-  const [userCache, setUserCache] = useState<Map<string, { name: string; avatar?: string }>>(new Map());
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
 
-  // Initialize: Load user, family key, channels
+  // GraphQL hooks
+  const { messages: rawMessages, loading: messagesLoading, refetch } = useMessages({
+    channelId: currentChannelId || '',
+  });
+  const { send } = useSendMessage();
+  const { edit } = useEditMessage();
+  const { remove } = useDeleteMessage();
+
+  // Subscribe to real-time updates
+  const { messageAdded, messageEdited, messageDeleted } = useMessageSubscription(currentChannelId || '');
+
+  // Initialize: Check auth and load family key
   useEffect(() => {
     const initialize = async () => {
+      if (authLoading) return;
+
+      if (!user) {
+        toast.error('Please log in to access chat');
+        router.push('/login');
+        return;
+      }
+
+      // Load family key from IndexedDB
+      const key = await getFamilyKey();
+      if (!key) {
+        toast.error('Family key not found. Please log in again.');
+        router.push('/login');
+        return;
+      }
+      setFamilyKey(key);
+
+      // Fetch channels
       try {
-        // Check auth
-        const { data: { user }, error: authError } = await supabase.auth.getUser();
-
-        if (authError || !user) {
-          toast.error('Please log in to access chat');
-          router.push('/login');
-          return;
-        }
-
-        setCurrentUserId(user.id);
-
-        // Set access token for Realtime authentication
-        const { data: { session } } = await supabase.auth.getSession();
-        if (session?.access_token) {
-          supabase.realtime.setAuth(session.access_token);
-          console.log('Realtime auth token set');
-        } else {
-          console.warn('No access token available for Realtime');
-        }
-
-        // Load family key from IndexedDB
-        const key = await getFamilyKey();
-        if (!key) {
-          toast.error('Family key not found. Please log in again.');
-          router.push('/login');
-          return;
-        }
-        setFamilyKey(key);
-
-        // Fetch channels
-        const channelsResponse = await fetch('/api/channels');
-        if (!channelsResponse.ok) {
+        const response = await fetch('/api/channels');
+        if (!response.ok) {
           throw new Error('Failed to load channels');
         }
 
-        const channelsData = await channelsResponse.json();
+        const channelsData = await response.json();
         if (channelsData.success && channelsData.channels.length > 0) {
           setChannels(channelsData.channels);
 
@@ -91,194 +88,120 @@ export default function ChatPage() {
     };
 
     initialize();
-  }, [router, supabase]);
+  }, [user, authLoading, router]);
 
-  // Fetch messages when channel changes
+  // Decrypt messages when raw messages change
   useEffect(() => {
-    if (!currentChannelId || !familyKey) return;
+    if (!familyKey || !rawMessages || rawMessages.length === 0) {
+      if (displayMessages.length > 0) {
+        setDisplayMessages([]);
+      }
+      return;
+    }
 
-    const fetchMessages = async () => {
+    const decryptMessages = async () => {
+      const decrypted = await Promise.all(
+        rawMessages.map(async (msg) => {
+          try {
+            const plaintext = await decryptMessage(msg.encryptedContent, familyKey);
+
+            return {
+              id: msg.id,
+              userId: msg.userId,
+              userName: msg.user.name,
+              userAvatar: msg.user.avatar || undefined,
+              content: plaintext,
+              timestamp: msg.timestamp.toString(),
+              isEdited: msg.isEdited,
+              editedAt: msg.editedAt ? msg.editedAt.toString() : null,
+              isMine: msg.userId === user?.id,
+            } as MessageBubbleProps;
+          } catch (error) {
+            console.error('Failed to decrypt message:', error);
+            return null;
+          }
+        })
+      );
+
+      setDisplayMessages(decrypted.filter((m) => m !== null) as MessageBubbleProps[]);
+    };
+
+    decryptMessages();
+  }, [rawMessages, familyKey, user]);
+
+  // Handle real-time message added
+  useEffect(() => {
+    if (!messageAdded || !familyKey) return;
+
+    const processNewMessage = async () => {
       try {
-        setLoading(true);
+        const plaintext = await decryptMessage(messageAdded.encryptedContent, familyKey);
 
-        const response = await fetch(
-          `/api/messages?channelId=${currentChannelId}&limit=50`
-        );
+        const newMessage: MessageBubbleProps = {
+          id: messageAdded.id,
+          userId: messageAdded.userId,
+          userName: messageAdded.user.name,
+          userAvatar: messageAdded.user.avatar || undefined,
+          content: plaintext,
+          timestamp: messageAdded.timestamp.toString(),
+          isEdited: messageAdded.isEdited,
+          editedAt: messageAdded.editedAt ? messageAdded.editedAt.toString() : null,
+          isMine: messageAdded.userId === user?.id,
+        };
 
-        if (!response.ok) {
-          throw new Error('Failed to fetch messages');
-        }
-
-        const data = await response.json();
-
-        if (data.success) {
-          // Build user cache from fetched messages
-          const newUserCache = new Map(userCache);
-          data.messages.forEach((msg: any) => {
-            if (msg.userName && !newUserCache.has(msg.userId)) {
-              newUserCache.set(msg.userId, {
-                name: msg.userName,
-                avatar: msg.userAvatar,
-              });
-            }
-          });
-          setUserCache(newUserCache);
-
-          // Decrypt all messages (user data already included from API JOIN)
-          const decryptedMessages = await Promise.all(
-            data.messages.map(async (msg: any) => {
-              try {
-                const plaintext = await decryptMessage(msg.encryptedContent, familyKey);
-
-                return {
-                  id: msg.id,
-                  userId: msg.userId,
-                  userName: msg.userName || 'Unknown',
-                  userAvatar: msg.userAvatar,
-                  content: plaintext,
-                  timestamp: msg.timestamp,
-                  isEdited: msg.isEdited,
-                  editedAt: msg.editedAt,
-                  isMine: msg.userId === currentUserId,
-                } as MessageBubbleProps;
-              } catch (decryptError) {
-                console.error('Failed to decrypt message:', decryptError);
-                return null;
-              }
-            })
-          );
-
-          // Filter out failed decryptions and reverse (newest last)
-          setMessages(
-            decryptedMessages.filter((m) => m !== null).reverse() as MessageBubbleProps[]
-          );
-        }
+        setDisplayMessages((prev) => {
+          // Avoid duplicates
+          if (prev.some((m) => m.id === newMessage.id)) {
+            return prev;
+          }
+          return [...prev, newMessage];
+        });
       } catch (error) {
-        console.error('Fetch messages error:', error);
-        console.error('Error details:', error instanceof Error ? error.message : String(error));
-        console.error('Error stack:', error instanceof Error ? error.stack : 'No stack');
-        toast.error('Failed to load messages');
-      } finally {
-        setLoading(false);
+        console.error('Failed to process new message:', error);
       }
     };
 
-    fetchMessages();
-  }, [currentChannelId, familyKey, currentUserId, supabase]);
+    processNewMessage();
+  }, [messageAdded, familyKey, user]);
 
-  // Real-time subscription
-  const handleRealtimeInsert = useCallback(
-    async (message: RealtimeMessage) => {
-      if (!familyKey) return;
+  // Handle real-time message edited
+  useEffect(() => {
+    if (!messageEdited || !familyKey) return;
 
+    const processEditedMessage = async () => {
       try {
-        // Decrypt incoming message
-        const plaintext = await decryptMessage(message.encrypted_content, familyKey);
+        const plaintext = await decryptMessage(messageEdited.encryptedContent, familyKey);
 
-        // Try to get user info from cache first
-        let userName = 'Unknown';
-        let userAvatar: string | undefined = undefined;
-
-        if (userCache.has(message.user_id)) {
-          const cached = userCache.get(message.user_id)!;
-          userName = cached.name;
-          userAvatar = cached.avatar;
-        } else {
-          // Cache miss - fetch and update cache
-          const { data: userData } = await supabase
-            .from('users')
-            .select('name, avatar')
-            .eq('id', message.user_id)
-            .single();
-
-          if (userData) {
-            userName = userData.name;
-            userAvatar = userData.avatar;
-            // Update cache
-            setUserCache((prev) => new Map(prev).set(message.user_id, {
-              name: userData.name,
-              avatar: userData.avatar,
-            }));
-          }
-        }
-
-        const newMessage: MessageBubbleProps = {
-          id: message.id,
-          userId: message.user_id,
-          userName,
-          userAvatar,
-          content: plaintext,
-          timestamp: message.timestamp,
-          isEdited: message.is_edited,
-          editedAt: message.edited_at,
-          isMine: message.user_id === currentUserId,
-        };
-
-        setMessages((prev) => [...prev, newMessage]);
-      } catch (error) {
-        console.error('Failed to handle real-time message:', error);
-      }
-    },
-    [familyKey, currentUserId, supabase, userCache]
-  );
-
-  // Handle real-time UPDATE events
-  const handleRealtimeUpdate = useCallback(
-    async (message: RealtimeMessage) => {
-      if (!familyKey) return;
-
-      try {
-        // Decrypt updated message
-        const plaintext = await decryptMessage(message.encrypted_content, familyKey);
-
-        setMessages((prev) =>
+        setDisplayMessages((prev) =>
           prev.map((m) =>
-            m.id === message.id
+            m.id === messageEdited.id
               ? {
                   ...m,
                   content: plaintext,
-                  isEdited: message.is_edited,
-                  editedAt: message.edited_at,
+                  isEdited: messageEdited.isEdited,
+                  editedAt: messageEdited.editedAt ? messageEdited.editedAt.toString() : null,
                 }
               : m
           )
         );
       } catch (error) {
-        console.error('Failed to handle real-time message update:', error);
+        console.error('Failed to process edited message:', error);
       }
-    },
-    [familyKey]
-  );
+    };
 
-  // Handle real-time DELETE events
-  const handleRealtimeDelete = useCallback(
-    (messageId: string) => {
-      setMessages((prev) => prev.filter((m) => m.id !== messageId));
-    },
-    []
-  );
+    processEditedMessage();
+  }, [messageEdited, familyKey]);
 
-  useRealtime(currentChannelId, {
-    onInsert: handleRealtimeInsert,
-    onUpdate: handleRealtimeUpdate,
-    onDelete: handleRealtimeDelete,
-    onError: (error, willRetry, retryCount) => {
-      console.error(`Realtime error (attempt ${retryCount + 1}):`, error);
-      if (!willRetry) {
-        toast.error('Real-time connection failed. Please refresh the page.');
-      }
-    },
-    onReconnecting: (retryCount) => {
-      toast.info(`Reconnecting... (attempt ${retryCount})`);
-    },
-    onReconnected: () => {
-      toast.success('Real-time connection restored');
-    },
-  });
+  // Handle real-time message deleted
+  useEffect(() => {
+    if (!messageDeleted) return;
+
+    setDisplayMessages((prev) => prev.filter((m) => m.id !== messageDeleted.messageId));
+  }, [messageDeleted]);
 
   // Send message
   const handleSend = async (content: string) => {
-    if (!currentChannelId || !familyKey || sending || !currentUserId) return;
+    if (!currentChannelId || !familyKey || sending || !user) return;
 
     try {
       setSending(true);
@@ -286,11 +209,12 @@ export default function ChatPage() {
       // Encrypt message
       const encryptedContent = await encryptMessage(content, familyKey);
 
-      // Optimistically add message to UI (before API response)
+      // Optimistically add message to UI
       const optimisticMessage: MessageBubbleProps = {
-        id: `temp-${Date.now()}`, // Temporary ID
-        userId: currentUserId,
-        userName: 'You',
+        id: `temp-${Date.now()}`,
+        userId: user.id,
+        userName: user.name,
+        userAvatar: user.avatar || undefined,
         content: content,
         timestamp: new Date().toISOString(),
         isEdited: false,
@@ -298,40 +222,17 @@ export default function ChatPage() {
         isMine: true,
       };
 
-      setMessages((prev) => [...prev, optimisticMessage]);
+      setDisplayMessages((prev) => [...prev, optimisticMessage]);
 
-      // Send to API
-      const response = await fetch('/api/messages', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          channelId: currentChannelId,
-          encryptedContent,
-        }),
-      });
+      // Send via GraphQL
+      const result = await send(currentChannelId, encryptedContent);
 
-      const data = await response.json();
-
-      if (!response.ok) {
-        // Remove optimistic message on error
-        setMessages((prev) => prev.filter((m) => m.id !== optimisticMessage.id));
-
-        if (data.error?.code === 'QUIET_HOURS_ACTIVE') {
-          toast.error('Quiet hours active - cannot send messages');
-        } else if (data.error?.code === 'RATE_LIMIT_EXCEEDED') {
-          toast.error('Too many messages. Please slow down.');
-        } else {
-          throw new Error(data.error?.message || 'Failed to send message');
-        }
-        return;
-      }
-
-      // Replace optimistic message with real one from server (if real-time doesn't deliver)
-      if (data.success && data.message) {
-        setMessages((prev) =>
+      if (result) {
+        // Replace optimistic message with real one
+        setDisplayMessages((prev) =>
           prev.map((m) =>
             m.id === optimisticMessage.id
-              ? { ...optimisticMessage, id: data.message.id }
+              ? { ...optimisticMessage, id: result.id }
               : m
           )
         );
@@ -339,6 +240,8 @@ export default function ChatPage() {
     } catch (error) {
       console.error('Send message error:', error);
       toast.error('Failed to send message');
+      // Remove optimistic message on error
+      setDisplayMessages((prev) => prev.filter((m) => !m.id.startsWith('temp-')));
     } finally {
       setSending(false);
     }
@@ -352,35 +255,23 @@ export default function ChatPage() {
       // Encrypt new content
       const encryptedContent = await encryptMessage(newContent, familyKey);
 
-      const response = await fetch(`/api/messages/${messageId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ encryptedContent }),
-      });
+      await edit(messageId, encryptedContent);
 
-      if (!response.ok) {
-        throw new Error('Failed to edit message');
-      }
+      // Update local state optimistically
+      setDisplayMessages((prev) =>
+        prev.map((m) =>
+          m.id === messageId
+            ? {
+                ...m,
+                content: newContent,
+                isEdited: true,
+                editedAt: new Date().toISOString(),
+              }
+            : m
+        )
+      );
 
-      const data = await response.json();
-
-      // Update local state
-      if (data.success && data.message) {
-        setMessages((prev) =>
-          prev.map((m) =>
-            m.id === messageId
-              ? {
-                  ...m,
-                  content: newContent,
-                  isEdited: true,
-                  editedAt: data.message.editedAt,
-                }
-              : m
-          )
-        );
-        toast.success('Message edited');
-      }
-
+      toast.success('Message edited');
       setEditingMessageId(null);
     } catch (error) {
       console.error('Edit message error:', error);
@@ -393,16 +284,10 @@ export default function ChatPage() {
     if (!confirm('Delete this message?')) return;
 
     try {
-      const response = await fetch(`/api/messages/${messageId}`, {
-        method: 'DELETE',
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to delete message');
-      }
+      await remove(messageId);
 
       // Remove from local state
-      setMessages((prev) => prev.filter((m) => m.id !== messageId));
+      setDisplayMessages((prev) => prev.filter((m) => m.id !== messageId));
       toast.success('Message deleted');
     } catch (error) {
       console.error('Delete message error:', error);
@@ -413,10 +298,10 @@ export default function ChatPage() {
   // Handle channel change
   const handleChannelChange = (channelId: string) => {
     setCurrentChannelId(channelId);
-    setMessages([]); // Clear messages when switching channels
+    setDisplayMessages([]); // Clear messages when switching channels
   };
 
-  if (loading && !currentChannelId) {
+  if (authLoading || (loading && !currentChannelId)) {
     return (
       <div className="h-screen flex items-center justify-center">
         <div className="text-center">
@@ -440,8 +325,8 @@ export default function ChatPage() {
 
       {/* Message List */}
       <MessageList
-        messages={messages}
-        loading={loading}
+        messages={displayMessages}
+        loading={messagesLoading}
         onEdit={handleEdit}
         onDelete={handleDelete}
         editingMessageId={editingMessageId}

@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 import { useState } from 'react';
+import { useAuth } from '@/lib/contexts/auth-context';
 
 interface CreateFormProps {
   onSuccess: (response: {
@@ -19,6 +20,7 @@ interface CreateFormProps {
 
 export function CreateForm({ onSuccess }: CreateFormProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const { register: registerUser, family } = useAuth();
 
   const {
     register,
@@ -31,29 +33,44 @@ export function CreateForm({ onSuccess }: CreateFormProps) {
   const onSubmit = async (data: RegisterInput) => {
     setIsSubmitting(true);
     try {
-      const response = await fetch('/api/auth/register', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
+      // Register with GraphQL
+      await registerUser({
+        email: data.email,
+        password: data.password,
+        name: data.userName,
+        familyName: data.familyName,
       });
 
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error?.message || 'Registration failed');
-      }
-
-      const result = await response.json();
-
-      // Session cookies are automatically set by the API route response
-      // The browser's Supabase client will read them automatically
+      // Get family data from context
+      const familyData = family;
 
       // Show invite code to admin (10 second duration for copying)
-      toast.success(
-        `Family created! Share this invite code: ${result.family.inviteCode}`,
-        { duration: 10000 }
-      );
+      if (familyData) {
+        toast.success(
+          `Family created! Share this invite code: ${familyData.inviteCode}`,
+          { duration: 10000 }
+        );
+      }
 
-      onSuccess(result);
+      onSuccess({
+        user: {
+          id: '',
+          email: data.email,
+          name: data.userName,
+          role: 'ADMIN',
+          familyId: familyData?.id || '',
+          encryptedFamilyKey: '',
+        },
+        family: {
+          id: familyData?.id || '',
+          name: familyData?.name || '',
+          inviteCode: familyData?.inviteCode || '',
+        },
+        session: {
+          accessToken: '',
+          refreshToken: '',
+        },
+      });
     } catch (error: any) {
       toast.error(error.message || 'Failed to create family');
     } finally {

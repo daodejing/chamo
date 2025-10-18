@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 import { useState } from 'react';
+import { useAuth } from '@/lib/contexts/auth-context';
 
 interface JoinFormProps {
   onSuccess: (response: {
@@ -19,6 +20,7 @@ interface JoinFormProps {
 
 export function JoinForm({ onSuccess }: JoinFormProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const { joinFamily, family } = useAuth();
 
   const {
     register,
@@ -31,25 +33,34 @@ export function JoinForm({ onSuccess }: JoinFormProps) {
   const onSubmit = async (data: JoinInput) => {
     setIsSubmitting(true);
     try {
-      const response = await fetch('/api/auth/join', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
+      // Join family with GraphQL
+      await joinFamily({
+        email: data.email,
+        password: data.password,
+        name: data.userName,
+        inviteCode: data.inviteCode,
       });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error?.message || 'Failed to join family');
-      }
-
-      const result = await response.json();
-
-      // Session cookies are automatically set by the API route response
-      // The browser's Supabase client will read them automatically
 
       toast.success('Welcome to your family!');
 
-      onSuccess(result);
+      onSuccess({
+        user: {
+          id: '',
+          email: data.email,
+          name: data.userName,
+          role: 'MEMBER',
+          familyId: family?.id || '',
+          encryptedFamilyKey: '',
+        },
+        family: {
+          id: family?.id || '',
+          name: family?.name || '',
+        },
+        session: {
+          accessToken: '',
+          refreshToken: '',
+        },
+      });
     } catch (error: any) {
       toast.error(error.message || 'Failed to join family');
     } finally {
