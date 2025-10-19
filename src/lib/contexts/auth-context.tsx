@@ -101,9 +101,11 @@ function AuthProviderInner({ children }: { children: React.ReactNode }) {
     });
 
     if (data?.login) {
+      console.log('[AuthContext] Login successful', data.login);
       setAuthToken(data.login.accessToken);
       setUser(data.login.user);
       setFamily(data.login.family);
+      console.log('[AuthContext] User and family state updated');
     }
   };
 

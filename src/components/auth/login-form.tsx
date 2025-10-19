@@ -31,14 +31,15 @@ export function LoginForm({ onSuccess }: LoginFormProps) {
       await login({ email, password });
 
       toast.success('Login successful!');
-      onSuccess({
-        user: {
-          encryptedFamilyKey: null, // Will be fetched from context
-        },
-      });
+
+      // Redirect will be handled by the login page's useEffect
+      // which watches for user state changes
     } catch (error: any) {
-      console.error('Login error:', error);
-      toast.error(error.message || 'Login failed');
+      console.error('[LoginForm] Login error:', error);
+      console.error('[LoginForm] Error details:', JSON.stringify(error, null, 2));
+      const errorMessage = error.message || error.graphQLErrors?.[0]?.message || 'Login failed';
+      console.error('[LoginForm] Showing error toast:', errorMessage);
+      toast.error(errorMessage);
     } finally {
       setIsSubmitting(false);
     }
