@@ -91,6 +91,32 @@ export const ME_QUERY = gql`
       avatar
       role
       familyId
+      family {
+        id
+        name
+        avatar
+        inviteCode
+        maxMembers
+      }
+    }
+  }
+`;
+
+// ============================================================================
+// CHANNELS
+// ============================================================================
+
+export const GET_CHANNELS_QUERY = gql`
+  query GetChannels {
+    getChannels {
+      id
+      familyId
+      name
+      description
+      icon
+      createdById
+      isDefault
+      createdAt
     }
   }
 `;

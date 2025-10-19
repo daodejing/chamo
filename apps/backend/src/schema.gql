@@ -9,6 +9,17 @@ type AuthResponse {
   user: UserType!
 }
 
+type Channel {
+  createdAt: DateTime!
+  createdById: String!
+  description: String
+  familyId: String!
+  icon: String
+  id: ID!
+  isDefault: Boolean!
+  name: String!
+}
+
 """
 A date-time string at UTC, such as 2019-12-03T09:54:33Z, compliant with the date-time format.
 """
@@ -87,6 +98,8 @@ type Mutation {
 }
 
 type Query {
+  getChannel(id: String!): Channel
+  getChannels: [Channel!]!
   getMessages(input: GetMessagesInput!): [MessageWithUserType!]!
   me: UserType!
 }
@@ -112,6 +125,7 @@ type Subscription {
 type UserType {
   avatar: String
   email: String!
+  family: FamilyType
   familyId: ID!
   id: ID!
   name: String!

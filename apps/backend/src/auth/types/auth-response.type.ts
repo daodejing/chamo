@@ -1,4 +1,5 @@
 import { ObjectType, Field, ID } from '@nestjs/graphql';
+import { FamilyType } from './family.type';
 
 @ObjectType()
 export class UserType {
@@ -19,24 +20,9 @@ export class UserType {
 
   @Field(() => ID)
   familyId: string;
-}
 
-@ObjectType()
-export class FamilyType {
-  @Field(() => ID)
-  id: string;
-
-  @Field()
-  name: string;
-
-  @Field(() => String, { nullable: true })
-  avatar: string | null;
-
-  @Field()
-  inviteCode: string;
-
-  @Field()
-  maxMembers: number;
+  @Field(() => FamilyType, { nullable: true })
+  family?: FamilyType;
 }
 
 @ObjectType()

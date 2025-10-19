@@ -10,7 +10,8 @@
 
 'use client';
 
-import { ApolloClient, InMemoryCache, HttpLink, split } from '@apollo/client';
+import { ApolloClient, InMemoryCache, HttpLink, split, from } from '@apollo/client';
+import { setContext } from '@apollo/client/link/context';
 import { GraphQLWsLink } from '@apollo/client/link/subscriptions';
 import { getMainDefinition } from '@apollo/client/utilities';
 import { createClient } from 'graphql-ws';
@@ -23,6 +24,21 @@ const httpLink = new HttpLink({
   uri: GRAPHQL_HTTP_URL,
   credentials: 'same-origin',
 });
+
+// Auth link - adds headers to all requests
+const authLink = setContext((_, { headers }) => {
+  const token = typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null;
+  return {
+    headers: {
+      ...headers,
+      'content-type': 'application/json',
+      ...(token ? { authorization: `Bearer ${token}` } : {}),
+    }
+  };
+});
+
+// Combine auth link with HTTP link
+const httpLinkWithAuth = from([authLink, httpLink]);
 
 // WebSocket Link for subscriptions
 const wsLink = typeof window !== 'undefined' ? new GraphQLWsLink(
@@ -48,9 +64,9 @@ const splitLink = typeof window !== 'undefined' && wsLink
         );
       },
       wsLink,
-      httpLink
+      httpLinkWithAuth
     )
-  : httpLink;
+  : httpLinkWithAuth;
 
 // Create Apollo Client instance
 export const apolloClient = new ApolloClient({
@@ -78,21 +94,14 @@ export const apolloClient = new ApolloClient({
 });
 
 /**
- * Set authentication token for GraphQL requests
+ * Set or clear authentication token
  */
 export function setAuthToken(token: string | null) {
+  if (typeof window === 'undefined') return;
+
   if (token) {
     localStorage.setItem('accessToken', token);
   } else {
     localStorage.removeItem('accessToken');
   }
-}
-
-/**
- * Get authentication header for GraphQL requests
- */
-export function getAuthHeader(): Record<string, string> {
-  if (typeof window === 'undefined') return {};
-  const token = localStorage.getItem('accessToken');
-  return token ? { authorization: `Bearer ${token}` } : {};
 }

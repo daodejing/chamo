@@ -1,38 +1,38 @@
 /**
  * Chat Page (Story 2.1)
  * Main chat screen with channel selection, message list, and E2EE messaging
- * Now using GraphQL instead of Supabase REST API
+ * Uses the professional prototype ChatScreen component
  */
 
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
-import { ChannelSelector, type Channel } from '@/components/chat/channel-selector';
-import { MessageList } from '@/components/chat/message-list';
-import { MessageInput } from '@/components/chat/message-input';
-import { MessageBubbleProps } from '@/components/chat/message-bubble';
+import { ChatScreen } from '@/components/chat-screen';
 import { useMessages, useSendMessage, useEditMessage, useDeleteMessage, useMessageSubscription } from '@/lib/hooks/use-messages';
+import { useChannels } from '@/lib/hooks/use-channels';
 import { useAuth } from '@/lib/contexts/auth-context';
+import { useLanguage } from '@/lib/contexts/language-context';
 import { encryptMessage, decryptMessage } from '@/lib/e2ee/encryption';
 import { getFamilyKey } from '@/lib/e2ee/key-management';
+import { t } from '@/lib/translations';
 
 export default function ChatPage() {
   const router = useRouter();
-  const { user, loading: authLoading } = useAuth();
+  const { user, family, loading: authLoading } = useAuth();
+  const { language } = useLanguage();
 
   // State
-  const [channels, setChannels] = useState<Channel[]>([]);
   const [currentChannelId, setCurrentChannelId] = useState<string | null>(null);
-  const [displayMessages, setDisplayMessages] = useState<MessageBubbleProps[]>([]);
+  const [displayMessages, setDisplayMessages] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [familyKey, setFamilyKey] = useState<CryptoKey | null>(null);
-  const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
 
   // GraphQL hooks
-  const { messages: rawMessages, loading: messagesLoading, refetch } = useMessages({
+  const { channels, loading: channelsLoading } = useChannels();
+  const { messages: rawMessages, loading: messagesLoading } = useMessages({
     channelId: currentChannelId || '',
   });
   const { send } = useSendMessage();
@@ -61,34 +61,24 @@ export default function ChatPage() {
         return;
       }
       setFamilyKey(key);
-
-      // Fetch channels
-      try {
-        const response = await fetch('/api/channels');
-        if (!response.ok) {
-          throw new Error('Failed to load channels');
-        }
-
-        const channelsData = await response.json();
-        if (channelsData.success && channelsData.channels.length > 0) {
-          setChannels(channelsData.channels);
-
-          // Select default channel (first one, usually "General")
-          const defaultChannel = channelsData.channels.find((c: Channel) => c.isDefault) || channelsData.channels[0];
-          setCurrentChannelId(defaultChannel.id);
-        } else {
-          toast.error('No channels available');
-        }
-      } catch (error) {
-        console.error('Initialization error:', error);
-        toast.error('Failed to initialize chat');
-      } finally {
-        setLoading(false);
-      }
+      setLoading(false);
     };
 
     initialize();
   }, [user, authLoading, router]);
+
+  // Select default channel when channels load
+  useEffect(() => {
+    if (channelsLoading || channels.length === 0 || currentChannelId) return;
+
+    // Select default channel (first one, usually "General")
+    const defaultChannel = channels.find((c) => c.isDefault) || channels[0];
+    if (defaultChannel) {
+      setCurrentChannelId(defaultChannel.id);
+    } else {
+      toast.error('No channels available');
+    }
+  }, [channels, channelsLoading, currentChannelId]);
 
   // Decrypt messages when raw messages change
   useEffect(() => {
@@ -109,13 +99,13 @@ export default function ChatPage() {
               id: msg.id,
               userId: msg.userId,
               userName: msg.user.name,
-              userAvatar: msg.user.avatar || undefined,
-              content: plaintext,
-              timestamp: msg.timestamp.toString(),
-              isEdited: msg.isEdited,
-              editedAt: msg.editedAt ? msg.editedAt.toString() : null,
+              userAvatar: msg.user.avatar || '',
+              message: plaintext,
+              translation: '', // TODO: Add translation support
+              timestamp: new Date(msg.timestamp).toLocaleString(),
               isMine: msg.userId === user?.id,
-            } as MessageBubbleProps;
+              isEdited: msg.isEdited,
+            };
           } catch (error) {
             console.error('Failed to decrypt message:', error);
             return null;
@@ -123,7 +113,7 @@ export default function ChatPage() {
         })
       );
 
-      setDisplayMessages(decrypted.filter((m) => m !== null) as MessageBubbleProps[]);
+      setDisplayMessages(decrypted.filter((m) => m !== null));
     };
 
     decryptMessages();
@@ -137,16 +127,16 @@ export default function ChatPage() {
       try {
         const plaintext = await decryptMessage(messageAdded.encryptedContent, familyKey);
 
-        const newMessage: MessageBubbleProps = {
+        const newMessage = {
           id: messageAdded.id,
           userId: messageAdded.userId,
           userName: messageAdded.user.name,
-          userAvatar: messageAdded.user.avatar || undefined,
-          content: plaintext,
-          timestamp: messageAdded.timestamp.toString(),
-          isEdited: messageAdded.isEdited,
-          editedAt: messageAdded.editedAt ? messageAdded.editedAt.toString() : null,
+          userAvatar: messageAdded.user.avatar || '',
+          message: plaintext,
+          translation: '',
+          timestamp: new Date(messageAdded.timestamp).toLocaleString(),
           isMine: messageAdded.userId === user?.id,
+          isEdited: messageAdded.isEdited,
         };
 
         setDisplayMessages((prev) => {
@@ -177,9 +167,8 @@ export default function ChatPage() {
             m.id === messageEdited.id
               ? {
                   ...m,
-                  content: plaintext,
+                  message: plaintext,
                   isEdited: messageEdited.isEdited,
-                  editedAt: messageEdited.editedAt ? messageEdited.editedAt.toString() : null,
                 }
               : m
           )
@@ -199,27 +188,27 @@ export default function ChatPage() {
     setDisplayMessages((prev) => prev.filter((m) => m.id !== messageDeleted.messageId));
   }, [messageDeleted]);
 
-  // Send message
-  const handleSend = async (content: string) => {
+  // Handler: Send message
+  const handleSendMessage = async (message: string) => {
     if (!currentChannelId || !familyKey || sending || !user) return;
 
     try {
       setSending(true);
 
       // Encrypt message
-      const encryptedContent = await encryptMessage(content, familyKey);
+      const encryptedContent = await encryptMessage(message, familyKey);
 
       // Optimistically add message to UI
-      const optimisticMessage: MessageBubbleProps = {
+      const optimisticMessage = {
         id: `temp-${Date.now()}`,
         userId: user.id,
         userName: user.name,
-        userAvatar: user.avatar || undefined,
-        content: content,
-        timestamp: new Date().toISOString(),
-        isEdited: false,
-        editedAt: null,
+        userAvatar: user.avatar || '',
+        message: message,
+        translation: '',
+        timestamp: new Date().toLocaleString(),
         isMine: true,
+        isEdited: false,
       };
 
       setDisplayMessages((prev) => [...prev, optimisticMessage]);
@@ -247,13 +236,13 @@ export default function ChatPage() {
     }
   };
 
-  // Edit message
-  const handleEdit = async (messageId: string, newContent: string) => {
+  // Handler: Edit message
+  const handleEditMessage = async (messageId: string, newText: string) => {
     if (!familyKey) return;
 
     try {
       // Encrypt new content
-      const encryptedContent = await encryptMessage(newContent, familyKey);
+      const encryptedContent = await encryptMessage(newText, familyKey);
 
       await edit(messageId, encryptedContent);
 
@@ -263,26 +252,22 @@ export default function ChatPage() {
           m.id === messageId
             ? {
                 ...m,
-                content: newContent,
+                message: newText,
                 isEdited: true,
-                editedAt: new Date().toISOString(),
               }
             : m
         )
       );
 
       toast.success('Message edited');
-      setEditingMessageId(null);
     } catch (error) {
       console.error('Edit message error:', error);
       toast.error('Failed to edit message');
     }
   };
 
-  // Delete message
-  const handleDelete = async (messageId: string) => {
-    if (!confirm('Delete this message?')) return;
-
+  // Handler: Delete message
+  const handleDeleteMessage = async (messageId: string) => {
     try {
       await remove(messageId);
 
@@ -295,11 +280,98 @@ export default function ChatPage() {
     }
   };
 
-  // Handle channel change
+  // Handler: Schedule message
+  const handleScheduleMessage = async (message: string, scheduledTime: Date) => {
+    // TODO: Implement scheduled messages in backend
+    toast.info('Scheduled messages will be implemented soon!');
+  };
+
+  // Handler: Cancel scheduled message
+  const handleCancelScheduledMessage = async (messageId: string) => {
+    // TODO: Implement in backend
+    toast.info('Cancel scheduled messages will be implemented soon!');
+  };
+
+  // Handler: Channel change
   const handleChannelChange = (channelId: string) => {
     setCurrentChannelId(channelId);
     setDisplayMessages([]); // Clear messages when switching channels
   };
+
+  // Handler: Settings click
+  const handleSettingsClick = () => {
+    toast.info('Settings coming soon!');
+  };
+
+  // Handler: Add calendar event
+  const handleAddEvent = (event: any) => {
+    toast.info('Calendar events will be implemented soon!');
+  };
+
+  // Handler: Edit calendar event
+  const handleEditEvent = (eventId: string, event: any) => {
+    toast.info('Calendar events will be implemented soon!');
+  };
+
+  // Handler: Delete calendar event
+  const handleDeleteEvent = (eventId: string) => {
+    toast.info('Calendar events will be implemented soon!');
+  };
+
+  // Handler: Add photo
+  const handleAddPhoto = (photo: any) => {
+    toast.info('Photo gallery will be implemented soon!');
+  };
+
+  // Handler: Delete photo
+  const handleDeletePhoto = (photoId: string) => {
+    toast.info('Photo gallery will be implemented soon!');
+  };
+
+  // Handler: Like photo
+  const handleLikePhoto = (photoId: string, userId: string) => {
+    toast.info('Photo likes will be implemented soon!');
+  };
+
+  // Handler: Add photo comment
+  const handleAddPhotoComment = (photoId: string, comment: any) => {
+    toast.info('Photo comments will be implemented soon!');
+  };
+
+  // Handler: Create folder
+  const handleCreateFolder = (folder: any) => {
+    toast.info('Photo folders will be implemented soon!');
+  };
+
+  // Handler: Delete folder
+  const handleDeleteFolder = (folderId: string) => {
+    toast.info('Photo folders will be implemented soon!');
+  };
+
+  // Handler: Rename folder
+  const handleRenameFolder = (folderId: string, newName: string) => {
+    toast.info('Photo folders will be implemented soon!');
+  };
+
+  // Handler: Move photo to folder
+  const handleMovePhotoToFolder = (photoId: string, folderId: string) => {
+    toast.info('Photo folders will be implemented soon!');
+  };
+
+  // Transform channels to ChatScreen format
+  const transformedChannels = channels.map((c) => ({
+    id: c.id,
+    name: c.name,
+    description: c.description || '',
+    icon: '💬',
+    createdAt: c.createdAt || new Date().toISOString(),
+    createdBy: c.createdBy || 'system',
+  }));
+
+  // Get family info
+  const familyName = family?.name || 'Loading...';
+  const familyAvatar = family?.avatar || '';
+  const familyMemberCount = family?.maxMembers || 0;
 
   if (authLoading || (loading && !currentChannelId)) {
     return (
@@ -313,39 +385,39 @@ export default function ChatPage() {
   }
 
   return (
-    <div className="h-screen flex flex-col bg-background">
-      {/* Channel Selector */}
-      {channels.length > 0 && currentChannelId && (
-        <ChannelSelector
-          channels={channels}
-          currentChannelId={currentChannelId}
-          onChannelChange={handleChannelChange}
-        />
-      )}
-
-      {/* Message List */}
-      <MessageList
-        messages={displayMessages}
-        loading={messagesLoading}
-        onEdit={handleEdit}
-        onDelete={handleDelete}
-        editingMessageId={editingMessageId}
-        onEditStart={setEditingMessageId}
-        onEditCancel={() => setEditingMessageId(null)}
-      />
-
-      {/* Message Input */}
-      <MessageInput
-        onSend={handleSend}
-        disabled={sending || !currentChannelId}
-        placeholder={
-          sending
-            ? 'Sending...'
-            : !currentChannelId
-            ? 'Select a channel first'
-            : 'Type a message...'
-        }
-      />
-    </div>
+    <ChatScreen
+      chatName={familyName}
+      chatAvatar={familyAvatar}
+      chatMembers={familyMemberCount}
+      messages={displayMessages}
+      channels={transformedChannels}
+      currentChannelId={currentChannelId || ''}
+      scheduledMessages={[]}
+      calendarEvents={[]}
+      photos={[]}
+      photoFolders={[]}
+      familyMembers={[]}
+      currentUserId={user?.id || ''}
+      currentUserName={user?.name || ''}
+      language={language}
+      onSettingsClick={handleSettingsClick}
+      onChannelChange={handleChannelChange}
+      onSendMessage={handleSendMessage}
+      onScheduleMessage={handleScheduleMessage}
+      onDeleteMessage={handleDeleteMessage}
+      onEditMessage={handleEditMessage}
+      onCancelScheduledMessage={handleCancelScheduledMessage}
+      onAddEvent={handleAddEvent}
+      onEditEvent={handleEditEvent}
+      onDeleteEvent={handleDeleteEvent}
+      onAddPhoto={handleAddPhoto}
+      onDeletePhoto={handleDeletePhoto}
+      onLikePhoto={handleLikePhoto}
+      onAddPhotoComment={handleAddPhotoComment}
+      onCreateFolder={handleCreateFolder}
+      onDeleteFolder={handleDeleteFolder}
+      onRenameFolder={handleRenameFolder}
+      onMovePhotoToFolder={handleMovePhotoToFolder}
+    />
   );
 }

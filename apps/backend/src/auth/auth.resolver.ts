@@ -1,17 +1,22 @@
-import { Resolver, Mutation, Args, Query } from '@nestjs/graphql';
+import { Resolver, Mutation, Args, Query, ResolveField, Parent } from '@nestjs/graphql';
 import { UseGuards } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { RegisterInput } from './dto/register.input';
 import { JoinFamilyInput } from './dto/join-family.input';
 import { LoginInput } from './dto/login.input';
 import { AuthResponse, UserType } from './types/auth-response.type';
+import { FamilyType } from './types/family.type';
 import { GqlAuthGuard } from './guards/gql-auth.guard';
 import { CurrentUser } from './current-user.decorator';
+import { PrismaService } from '../prisma/prisma.service';
 import type { User } from '@prisma/client';
 
-@Resolver()
+@Resolver(() => UserType)
 export class AuthResolver {
-  constructor(private authService: AuthService) {}
+  constructor(
+    private authService: AuthService,
+    private prisma: PrismaService,
+  ) {}
 
   @Mutation(() => AuthResponse)
   async register(@Args('input') input: RegisterInput): Promise<AuthResponse> {
@@ -44,6 +49,13 @@ export class AuthResolver {
   @UseGuards(GqlAuthGuard)
   async me(@CurrentUser() user: User): Promise<UserType> {
     return user as UserType;
+  }
+
+  @ResolveField(() => FamilyType, { nullable: true })
+  async family(@Parent() user: UserType): Promise<FamilyType | null> {
+    return this.prisma.family.findUnique({
+      where: { id: user.familyId },
+    });
   }
 
   @Mutation(() => Boolean)
