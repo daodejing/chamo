@@ -251,7 +251,7 @@ export const translations = {
     "login.authenticating": "Authenticating...",
     "login.switchToSignup": "Don't have an account?",
     "login.switchToLogin": "Already have an account? Login",
-    "login.switchToCreate": "Create a new family",
+    "login.switchToCreate": "Create a New Family",
     "login.switchToJoin": "Have an invite code? Join Family",
     "login.userName": "Your Name",
     "login.userNamePlaceholder": "John Doe",
