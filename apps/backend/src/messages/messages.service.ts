@@ -92,7 +92,7 @@ export class MessagesService {
         ...(cursor ? { id: { lt: cursor } } : {}), // Messages before cursor
       },
       orderBy: {
-        timestamp: 'desc', // Newest first
+        timestamp: 'asc', // Oldest first (standard chat order)
       },
       take: limit,
       include: {

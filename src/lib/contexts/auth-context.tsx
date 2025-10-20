@@ -49,27 +49,48 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
-function AuthProviderInner({ children }: { children: React.ReactNode }) {
+function AuthProviderInner({ children }: { children: React.ReactNode}) {
   const [user, setUser] = useState<User | null>(null);
   const [family, setFamily] = useState<Family | null>(null);
+  const [isClient, setIsClient] = useState(false);
+  const [hasCompletedInitialQuery, setHasCompletedInitialQuery] = useState(false);
 
-  // Query current user
-  const { data, loading, refetch } = useQuery(ME_QUERY, {
-    skip: typeof window === 'undefined' || !localStorage.getItem('accessToken'),
-    notifyOnNetworkStatusChange: false,
-    onCompleted: (data) => {
-      if (data?.me) {
-        setUser(data.me);
-        setFamily(data.me.family);
-      }
-    },
-    onError: () => {
-      // Token expired or invalid
+  // Set isClient to true only on client-side
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
+
+  // Query current user - only on client-side where localStorage exists
+  const { data, loading, error, refetch } = useQuery(ME_QUERY, {
+    skip: !isClient, // Skip until we're on client-side
+    fetchPolicy: 'network-only', // Always fetch from network, ignore cache
+    errorPolicy: 'all', // Allow partial results even if query errors
+    notifyOnNetworkStatusChange: true, // Get updates when network status changes
+  });
+
+  // Handle query results with useEffect (callbacks don't fire reliably with skip)
+  useEffect(() => {
+    if (!isClient || loading) return;
+
+    // Mark that initial query has completed
+    setHasCompletedInitialQuery(true);
+
+    if (error) {
+      // Token expired, invalid, or missing - clear auth state
       setAuthToken(null);
       setUser(null);
       setFamily(null);
-    },
-  });
+      return;
+    }
+
+    if (data?.me) {
+      setUser(data.me);
+      setFamily(data.me.family);
+    } else {
+      setUser(null);
+      setFamily(null);
+    }
+  }, [data, error, loading, isClient]);
 
   // Mutations
   const [registerMutation] = useMutation(REGISTER_MUTATION);
@@ -101,11 +122,9 @@ function AuthProviderInner({ children }: { children: React.ReactNode }) {
     });
 
     if (data?.login) {
-      console.log('[AuthContext] Login successful', data.login);
       setAuthToken(data.login.accessToken);
       setUser(data.login.user);
       setFamily(data.login.family);
-      console.log('[AuthContext] User and family state updated');
     }
   };
 
@@ -135,21 +154,13 @@ function AuthProviderInner({ children }: { children: React.ReactNode }) {
     apolloClient.clearStore();
   };
 
-  // Check for existing token on mount (only run once)
-  useEffect(() => {
-    const token = typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null;
-    if (token && !user) {
-      refetch();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Intentionally empty - only run on mount
 
   return (
     <AuthContext.Provider
       value={{
         user,
         family,
-        loading,
+        loading: !hasCompletedInitialQuery, // Loading until initial auth check completes
         register,
         login,
         joinFamily,

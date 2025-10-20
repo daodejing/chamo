@@ -56,11 +56,14 @@ export default function ChatPage() {
       // Load family key from IndexedDB
       const key = await getFamilyKey();
       if (!key) {
-        toast.error('Family key not found. Please log in again.');
-        router.push('/login');
-        return;
+        // TODO: Implement proper family key distribution from backend
+        // For now, just show a warning and allow access without encryption
+        console.warn('[ChatPage] Family key not found in IndexedDB. E2EE will not work.');
+        toast.error('Encryption key missing. Messages will not be encrypted.');
+        // Continue without key - this allows chat to load
+      } else {
+        setFamilyKey(key);
       }
-      setFamilyKey(key);
       setLoading(false);
     };
 
@@ -82,7 +85,7 @@ export default function ChatPage() {
 
   // Decrypt messages when raw messages change
   useEffect(() => {
-    if (!familyKey || !rawMessages || rawMessages.length === 0) {
+    if (!rawMessages || rawMessages.length === 0) {
       if (displayMessages.length > 0) {
         setDisplayMessages([]);
       }
@@ -93,7 +96,10 @@ export default function ChatPage() {
       const decrypted = await Promise.all(
         rawMessages.map(async (msg) => {
           try {
-            const plaintext = await decryptMessage(msg.encryptedContent, familyKey);
+            // If no family key, show encrypted content as placeholder
+            const plaintext = familyKey
+              ? await decryptMessage(msg.encryptedContent, familyKey)
+              : '[Encrypted - Key Missing]';
 
             return {
               id: msg.id,
@@ -108,12 +114,22 @@ export default function ChatPage() {
             };
           } catch (error) {
             console.error('Failed to decrypt message:', error);
-            return null;
+            return {
+              id: msg.id,
+              userId: msg.userId,
+              userName: msg.user.name,
+              userAvatar: msg.user.avatar || '',
+              message: '[Decryption Failed]',
+              translation: '',
+              timestamp: new Date(msg.timestamp).toLocaleString(),
+              isMine: msg.userId === user?.id,
+              isEdited: msg.isEdited,
+            };
           }
         })
       );
 
-      setDisplayMessages(decrypted.filter((m) => m !== null));
+      setDisplayMessages(decrypted);
     };
 
     decryptMessages();
@@ -190,7 +206,12 @@ export default function ChatPage() {
 
   // Handler: Send message
   const handleSendMessage = async (message: string) => {
-    if (!currentChannelId || !familyKey || sending || !user) return;
+    if (!currentChannelId || sending || !user) return;
+
+    if (!familyKey) {
+      toast.error('Cannot send messages: Encryption key missing. Please log in again.');
+      return;
+    }
 
     try {
       setSending(true);
@@ -238,7 +259,10 @@ export default function ChatPage() {
 
   // Handler: Edit message
   const handleEditMessage = async (messageId: string, newText: string) => {
-    if (!familyKey) return;
+    if (!familyKey) {
+      toast.error('Cannot edit messages: Encryption key missing.');
+      return;
+    }
 
     try {
       // Encrypt new content
