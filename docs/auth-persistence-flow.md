@@ -27,9 +27,96 @@ When a user refreshes the page, the application needs to:
 
 We track whether the initial authentication query has completed at least once. The `loading` state stays `true` until this flag is set, preventing premature routing decisions.
 
-## Sequence Diagram
+## Login Process Sequence Diagram
 
-This diagram shows the interaction between components over time during a page refresh with a valid authentication token.
+This diagram shows the complete login flow when a user enters their credentials and logs in for the first time.
+
+```mermaid
+sequenceDiagram
+    actor User
+    participant LoginPage as Login Page
+    participant LoginScreen as Unified Login Screen
+    participant AuthContext as Auth Context
+    participant Apollo as Apollo Client
+    participant Backend as GraphQL Backend (NestJS)
+    participant JWT as JWT Service
+    participant DB as MySQL Database
+    participant Storage as localStorage
+
+    User->>LoginPage: Navigate to /login
+    LoginPage->>LoginScreen: Render login form
+    LoginScreen-->>User: Show email/password inputs
+
+    User->>LoginScreen: Enter email: "user@example.com"
+    User->>LoginScreen: Enter password: "********"
+    User->>LoginScreen: Click "Login" button
+
+    LoginScreen->>LoginScreen: handleSubmit(e)
+    Note over LoginScreen: Validate inputs<br/>email && password exist
+
+    LoginScreen->>AuthContext: login({ email, password })
+    activate AuthContext
+
+    AuthContext->>Apollo: loginMutation({ variables: { input } })
+    activate Apollo
+
+    Apollo->>Backend: POST /graphql<br/>Mutation: login<br/>Body: { email, password }
+    activate Backend
+
+    Note over Backend: AuthResolver.login()
+    Backend->>Backend: Validate input schema
+
+    Backend->>DB: SELECT * FROM users<br/>WHERE email = 'user@example.com'
+    activate DB
+    DB-->>Backend: User record found
+    deactivate DB
+
+    Backend->>Backend: bcrypt.compare(password, hashedPassword)
+    Note over Backend: Password matches ✓
+
+    Backend->>DB: SELECT * FROM families<br/>WHERE id = user.familyId
+    activate DB
+    DB-->>Backend: Family record
+    deactivate DB
+
+    Backend->>JWT: Generate access token
+    activate JWT
+    JWT->>JWT: jwt.sign({ userId, email, role })
+    JWT-->>Backend: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+    deactivate JWT
+
+    Backend-->>Apollo: { data: { login: {<br/>  accessToken,<br/>  user: { id, email, name, role, familyId },<br/>  family: { id, name, inviteCode }<br/>} } }
+    deactivate Backend
+
+    Apollo-->>AuthContext: Login response data
+    deactivate Apollo
+
+    AuthContext->>Storage: setItem('accessToken', token)
+    Storage-->>AuthContext: Token saved
+
+    AuthContext->>AuthContext: setUser(data.login.user)
+    AuthContext->>AuthContext: setFamily(data.login.family)
+    Note over AuthContext: Auth state updated
+
+    AuthContext-->>LoginScreen: Login successful
+    deactivate AuthContext
+
+    LoginScreen->>LoginPage: onSuccess() callback
+    LoginPage->>LoginPage: router.push('/chat')
+
+    LoginPage-->>User: Redirect to /chat
+    Note over User: ✓ User logged in and redirected
+
+    Note over Storage,User: Token now stored<br/>for future requests
+```
+
+## Authentication Persistence Sequence Diagrams
+
+These diagrams show the interaction between components during page refreshes.
+
+### Successful Authentication (Page Refresh)
+
+This diagram shows what happens during a page refresh with a valid authentication token.
 
 ```mermaid
 sequenceDiagram
