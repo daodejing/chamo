@@ -2,7 +2,6 @@
 
 import { useQuery } from '@apollo/client/react';
 import { GET_CHANNELS_QUERY } from '../graphql/operations';
-import { getAuthHeader } from '../graphql/client';
 
 interface Channel {
   id: string;
@@ -17,13 +16,10 @@ interface Channel {
 
 /**
  * Hook to fetch channels for the authenticated user's family
+ * Note: Authentication headers are automatically added by Apollo Client's authLink
  */
 export function useChannels() {
-  const { data, loading, error, refetch } = useQuery(GET_CHANNELS_QUERY, {
-    context: {
-      headers: getAuthHeader(),
-    },
-  });
+  const { data, loading, error, refetch } = useQuery(GET_CHANNELS_QUERY);
 
   return {
     channels: (data?.getChannels || []) as Channel[],

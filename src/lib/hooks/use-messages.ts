@@ -10,7 +10,6 @@ import {
   MESSAGE_EDITED_SUBSCRIPTION,
   MESSAGE_DELETED_SUBSCRIPTION,
 } from '../graphql/operations';
-import { getAuthHeader } from '../graphql/client';
 
 interface Message {
   id: string;
@@ -36,6 +35,7 @@ interface UseMessagesOptions {
 
 /**
  * Hook to fetch messages for a channel
+ * Note: Authentication headers are automatically added by Apollo Client's authLink
  */
 export function useMessages({ channelId, limit = 50, cursor }: UseMessagesOptions) {
   const { data, loading, error, fetchMore, refetch } = useQuery(GET_MESSAGES_QUERY, {
@@ -45,9 +45,6 @@ export function useMessages({ channelId, limit = 50, cursor }: UseMessagesOption
         limit,
         cursor,
       },
-    },
-    context: {
-      headers: getAuthHeader(),
     },
     skip: !channelId,
   });
@@ -63,12 +60,10 @@ export function useMessages({ channelId, limit = 50, cursor }: UseMessagesOption
 
 /**
  * Hook to send a message
+ * Note: Authentication headers are automatically added by Apollo Client's authLink
  */
 export function useSendMessage() {
   const [sendMessage, { loading, error }] = useMutation(SEND_MESSAGE_MUTATION, {
-    context: {
-      headers: getAuthHeader(),
-    },
     refetchQueries: ['GetMessages'],
   });
 
@@ -89,12 +84,10 @@ export function useSendMessage() {
 
 /**
  * Hook to edit a message
+ * Note: Authentication headers are automatically added by Apollo Client's authLink
  */
 export function useEditMessage() {
   const [editMessage, { loading, error }] = useMutation(EDIT_MESSAGE_MUTATION, {
-    context: {
-      headers: getAuthHeader(),
-    },
     refetchQueries: ['GetMessages'],
   });
 
@@ -115,12 +108,10 @@ export function useEditMessage() {
 
 /**
  * Hook to delete a message
+ * Note: Authentication headers are automatically added by Apollo Client's authLink
  */
 export function useDeleteMessage() {
   const [deleteMessage, { loading, error }] = useMutation(DELETE_MESSAGE_MUTATION, {
-    context: {
-      headers: getAuthHeader(),
-    },
     refetchQueries: ['GetMessages'],
   });
 
