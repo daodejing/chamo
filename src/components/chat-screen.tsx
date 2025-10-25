@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { Send, Image as ImageIcon, Smile, Languages, Settings, Trash2, Clock, X, Hash, ChevronDown, Edit2, Check, Calendar } from "lucide-react";
+import { Send, Image as ImageIcon, Smile, Languages, Settings, Trash2, Clock, X, Hash, ChevronDown, Edit2, Check, Calendar, LogOut } from "lucide-react";
 import { CalendarView } from "./calendar-view";
 import { PhotoGallery } from "./photo-gallery";
 import { Button } from "@/components/ui/button";
@@ -114,6 +114,7 @@ interface ChatScreenProps {
   currentUserName: string;
   language: Language;
   onSettingsClick: () => void;
+  onLogoutClick: () => void;
   onChannelChange: (channelId: string) => void;
   onSendMessage: (message: string) => void;
   onScheduleMessage: (message: string, scheduledTime: Date) => void;
@@ -133,7 +134,7 @@ interface ChatScreenProps {
   onMovePhotoToFolder: (photoId: string, folderId: string) => void;
 }
 
-export function ChatScreen({ chatName, chatAvatar, chatMembers, messages, channels, currentChannelId, scheduledMessages, calendarEvents, photos, photoFolders, familyMembers, currentUserId, currentUserName, language, onSettingsClick, onChannelChange, onSendMessage, onScheduleMessage, onDeleteMessage, onEditMessage, onCancelScheduledMessage, onAddEvent, onEditEvent, onDeleteEvent, onAddPhoto, onDeletePhoto, onLikePhoto, onAddPhotoComment, onCreateFolder, onDeleteFolder, onRenameFolder, onMovePhotoToFolder }: ChatScreenProps) {
+export function ChatScreen({ chatName, chatAvatar, chatMembers, messages, channels, currentChannelId, scheduledMessages, calendarEvents, photos, photoFolders, familyMembers, currentUserId, currentUserName, language, onSettingsClick, onLogoutClick, onChannelChange, onSendMessage, onScheduleMessage, onDeleteMessage, onEditMessage, onCancelScheduledMessage, onAddEvent, onEditEvent, onDeleteEvent, onAddPhoto, onDeletePhoto, onLikePhoto, onAddPhotoComment, onCreateFolder, onDeleteFolder, onRenameFolder, onMovePhotoToFolder }: ChatScreenProps) {
   const [newMessage, setNewMessage] = useState("");
   const [showTranslation, setShowTranslation] = useState(true);
   const [autoTranslate, setAutoTranslate] = useState(true);
@@ -300,6 +301,10 @@ export function ChatScreen({ chatName, chatAvatar, chatMembers, messages, channe
         )}
         <Button variant="ghost" size="icon" onClick={onSettingsClick} className="text-card-foreground">
           <Settings className="w-5 h-5" />
+        </Button>
+        <Button variant="ghost" onClick={onLogoutClick} className="text-card-foreground">
+          <LogOut className="w-4 h-4 mr-2" />
+          {t("settings.logout", language)}
         </Button>
         </div>
       </div>

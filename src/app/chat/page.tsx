@@ -20,7 +20,7 @@ import { t } from '@/lib/translations';
 
 export default function ChatPage() {
   const router = useRouter();
-  const { user, family, loading: authLoading } = useAuth();
+  const { user, family, loading: authLoading, logout } = useAuth();
   const { language } = useLanguage();
 
   // State
@@ -327,6 +327,19 @@ export default function ChatPage() {
     toast.info('Settings coming soon!');
   };
 
+  // Handler: Logout click
+  const handleLogoutClick = async () => {
+    try {
+      await logout();
+      toast.success(t('toast.logoutSuccess', language));
+      // Redirect to login page after logout
+      window.location.href = '/login';
+    } catch (error) {
+      console.error('Logout error:', error);
+      toast.error('Logout failed');
+    }
+  };
+
   // Handler: Add calendar event
   const handleAddEvent = (event: any) => {
     toast.info('Calendar events will be implemented soon!');
@@ -425,6 +438,7 @@ export default function ChatPage() {
       currentUserName={user?.name || ''}
       language={language}
       onSettingsClick={handleSettingsClick}
+      onLogoutClick={handleLogoutClick}
       onChannelChange={handleChannelChange}
       onSendMessage={handleSendMessage}
       onScheduleMessage={handleScheduleMessage}

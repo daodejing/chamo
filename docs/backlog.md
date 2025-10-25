@@ -60,6 +60,7 @@ See Story 1.2 "Follow-Up Tasks" section for detailed implementation summary.
 |----|------|-------|------|----------|-------|--------|
 | DEBT-001 | 2025-10-20 | 1.2 | Testing | Medium | Backend Dev | Open |
 | DEBT-002 | 2025-10-20 | 1.2 | Security | Medium | Backend Dev | Open |
+| DEBT-003 | 2025-10-25 | 1.3 | UI/UX | High | Frontend Dev | Open |
 
 ### DEBT-001: Missing NestJS Backend Tests
 
@@ -82,6 +83,36 @@ See Story 1.2 "Follow-Up Tasks" section for detailed implementation summary.
 **Recommendation:** Implement GraphQL rate limiting middleware (e.g., `graphql-rate-limit-directive` package)
 
 **Priority:** Medium for MVP, High before public launch
+
+---
+
+### DEBT-003: Logout UI Not Implemented
+
+**Description:** Story 1.3 requires logout functionality with UI button accessible from chat/dashboard, but implementation is incomplete. The logout() function exists in auth context but has no UI trigger.
+
+**Impact:**
+- Users cannot log out via UI (blocking AC5, AC6, AC7 of Story 1.3)
+- E2E test for logout flow is skipped (`tests/e2e/story-1.3-session-persistence.spec.ts:278`)
+- Incomplete session management user experience
+
+**Current State:**
+- ✅ Backend logout mutation exists (`apps/backend/src/auth/auth.resolver.ts:64`)
+- ✅ Frontend logout() function exists (`src/lib/contexts/auth-context.tsx:179-184`)
+- ❌ No logout button in chat page or dashboard layout
+- ❌ Settings button in chat page shows "Settings coming soon!" toast
+
+**Recommendation:**
+1. Add logout button to chat page header/user menu (NOT in settings)
+2. Wire button to call `useAuth().logout()`
+3. Ensure logout clears IndexedDB keys via `clearFamilyKey()` from `lib/e2ee/storage.ts`
+4. Un-skip E2E test in `tests/e2e/story-1.3-session-persistence.spec.ts:278`
+
+**Related Files:**
+- `src/app/chat/page.tsx:326-328` (handleSettingsClick - not implemented)
+- `src/lib/contexts/auth-context.tsx:179-184` (logout function - ready to use)
+- `tests/e2e/story-1.3-session-persistence.spec.ts:278` (skipped test)
+
+**Priority:** High (blocks Story 1.3 acceptance criteria)
 
 ---
 

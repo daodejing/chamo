@@ -102,6 +102,8 @@ export function setAuthToken(token: string | null) {
   if (token) {
     localStorage.setItem('accessToken', token);
   } else {
+    // Clear both access and refresh tokens on logout (AC5)
     localStorage.removeItem('accessToken');
+    localStorage.removeItem('refreshToken');
   }
 }

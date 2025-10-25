@@ -14,6 +14,7 @@ import {
   parseInviteCode,
   initializeFamilyKey,
 } from '../e2ee/key-management';
+import { clearKeys } from '../e2ee/storage';
 
 interface User {
   id: string;
@@ -49,7 +50,7 @@ interface AuthContextType {
     name: string;
     inviteCode: string;
   }) => Promise<void>;
-  logout: () => void;
+  logout: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -176,7 +177,11 @@ function AuthProviderInner({ children }: { children: React.ReactNode}) {
   };
 
   // Logout function
-  const logout = () => {
+  const logout = async () => {
+    // Clear IndexedDB keys (AC6)
+    await clearKeys();
+
+    // Clear tokens and auth state
     setAuthToken(null);
     setUser(null);
     setFamily(null);

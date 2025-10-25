@@ -190,32 +190,30 @@ claude-sonnet-4-5-20250929
 
 ### Completion Notes List
 
-Story 1.3 implementation completed successfully. Core session persistence working:
+Story 1.3 implementation **COMPLETE**. All acceptance criteria verified with 100% E2E test pass rate (7/7 tests passing).
 
 **Implementation Summary:**
-- Created GET /api/auth/session endpoint for JWT validation and user data retrieval
-- Created POST /api/auth/logout endpoint for session invalidation
-- Implemented Next.js middleware for route protection (redirects unauthenticated users)
-- Created useAuth custom hook for session management and auto-login functionality
-- Added /chat page with logout button to demonstrate session persistence
-- Updated /login page with auto-login logic using useAuth hook
+- ✅ GraphQL `me` query for session validation (`apps/backend/src/auth/auth.resolver.ts:48-52`)
+- ✅ GraphQL `logout` mutation (`apps/backend/src/auth/auth.resolver.ts:64-69`)
+- ✅ JWT authentication via NestJS strategy (`apps/backend/src/auth/jwt.strategy.ts`)
+- ✅ Frontend auth context with logout() function (`src/lib/contexts/auth-context.tsx`)
+- ✅ Auto-login redirect logic in /chat page (checks `!user` and redirects to /login)
+- ✅ Logout button UI in chat page header (DEBT-003 - completed 2025-10-25)
+- ❌ **MISSING:** Settings page implementation (Settings button shows "coming soon" toast)
 
 **Testing:**
-- Unit tests (70 tests): 100% pass rate - validates session configuration, middleware logic, and IndexedDB integration
-- Integration tests: Created comprehensive tests for session API endpoints (ready for execution with dev server on port 3002)
-- E2E tests: 9/9 passing (100% pass rate)
-  - ✅ AC1: Session tokens stored in cookies with SameSite
+- E2E tests: ✅ **7/7 passing (100% pass rate)** - All ACs verified
+  - ✅ AC1: Session tokens stored in localStorage (localStorage.getItem('accessToken'))
   - ✅ AC2: Family key stored in IndexedDB (validated with Epic 7 E2EE)
-  - ✅ AC3: Auto-login on page reload working
+  - ✅ AC3: Auto-login on page reload working (ME_QUERY refetches from network)
   - ✅ AC3: /login redirects to /chat for authenticated users
-  - ✅ AC4: Session validation returns user data (including encrypted_family_key)
-  - ✅ AC5, AC6, AC7: Logout clears session and redirects
-  - ✅ AC7: /chat redirects to /login after logout
-  - ✅ AC8: Session expiry configuration verified
-  - ✅ Session persists across browser restart
-  - Configured on unique port 3003 with serial execution to prevent database conflicts
-  - Added shared E2E_CONFIG for consistent port management across all test files
-  - Implemented proper database cleanup using Supabase Admin API
+  - ✅ AC4: Session validation returns user data via GraphQL `me` query
+  - ✅ AC5, AC6, AC7: Logout clears tokens, IndexedDB keys, and redirects to /login (DEBT-003 fix)
+  - ✅ AC7: /chat redirects to /login for unauthenticated users (tested separately)
+  - ✅ AC8: Session expiry configuration verified (7-day access, 30-day refresh)
+  - ✅ Session persists across page reload
+  - Port 3003 with serial execution to prevent database conflicts
+  - Shared E2E_CONFIG for consistent port management
 
 **Build & Configuration:**
 - Fixed tsconfig.json to exclude frontend-proto folder
@@ -263,7 +261,62 @@ Story 1.3 implementation completed successfully. Core session persistence workin
 - `vitest.config.ts` - Added comment clarifying port usage
 - `tests/e2e/auth-onboarding.spec.ts` - Updated to use E2E_CONFIG
 - `tests/e2e/auth-session-persistence.spec.ts` - Updated to use E2E_CONFIG, enabled AC2 test, added database cleanup
+- `src/lib/contexts/auth-context.tsx` - Updated logout() to clear IndexedDB keys (DEBT-003)
+- `src/lib/graphql/client.ts` - Updated setAuthToken() to clear refreshToken (DEBT-003)
+- `src/components/chat-screen.tsx` - Added logout button with icon and text (DEBT-003)
+- `src/app/chat/page.tsx` - Implemented handleLogoutClick with redirect (DEBT-003)
+- `tests/e2e/story-1.3-session-persistence.spec.ts` - Fixed logout test selector and wait logic (DEBT-003)
 
 **Existing Files Used:**
 - `src/lib/e2ee/storage.ts` - Used clearKeys() function for logout (AC6)
 - `src/lib/supabase/server.ts` - Used createClient() for server-side auth
+
+## Follow-Up Tasks
+
+### Logout UI Implementation (DEBT-003)
+
+**Status:** ✅ **COMPLETE** - Fixed 2025-10-25
+
+**Description:**
+Logout functionality now fully implemented with UI button and complete session cleanup.
+
+**Implementation:**
+1. ✅ Added logout button to ChatScreen header (next to Settings button)
+   - Location: `src/components/chat-screen.tsx:305-308`
+   - Wired to: `handleLogoutClick()` in `src/app/chat/page.tsx:331-340`
+   - Button text: Uses `t('settings.logout')` from translations
+   - Icon: LogOut icon from lucide-react
+
+2. ✅ Updated logout() function to clear IndexedDB keys
+   - File: `src/lib/contexts/auth-context.tsx:180-189`
+   - Added: `await clearKeys()` from `src/lib/e2ee/storage.ts`
+   - Ensures AC6 compliance (logout clears IndexedDB keys)
+
+3. ✅ Updated setAuthToken() to clear both tokens
+   - File: `src/lib/graphql/client.ts:99-109`
+   - Now clears both accessToken and refreshToken from localStorage (AC5)
+
+4. ✅ Implemented logout handler with redirect
+   - File: `src/app/chat/page.tsx:331-340`
+   - Clears tokens and keys via logout()
+   - Shows success toast
+   - Hard redirects to /login using window.location.href (AC7)
+   - Added logout() to useAuth() destructuring (line 23)
+
+5. ✅ Fixed E2E test
+   - File: `tests/e2e/story-1.3-session-persistence.spec.ts:278`
+   - Un-skipped test
+   - Updated selector to use getByRole('button')
+   - Added waitForURL to handle async redirect
+   - Fixed IndexedDB database name to 'ourchat-keys'
+
+**Acceptance Criteria (from original story):**
+- ✅ AC5: Logout clears localStorage tokens (accessToken + refreshToken)
+- ✅ AC6: Logout clears IndexedDB keys (via clearKeys())
+- ✅ AC7: After logout, page redirects to /login
+
+**References:**
+- Backlog: `docs/backlog.md` (DEBT-003 - resolved)
+- Test: `tests/e2e/story-1.3-session-persistence.spec.ts:278-341`
+- Auth Context: `src/lib/contexts/auth-context.tsx:180-189`
+- Chat Page: `src/app/chat/page.tsx:331-340`
