@@ -1,21 +1,20 @@
 version: '3.8'
 
 services:
-  mysql:
-    image: mysql:8.0
-    container_name: ourchat_mysql
+  postgres:
+    image: postgres:16-alpine
+    container_name: ourchat_postgres
     restart: unless-stopped
     ports:
-      - "3336:3306"
+      - "5432:5432"
     environment:
-      MYSQL_ROOT_PASSWORD: root_password
-      MYSQL_DATABASE: ourchat_dev
-      MYSQL_USER: ourchat_user
-      MYSQL_PASSWORD: ourchat_password
+      POSTGRES_DB: ourchat_dev
+      POSTGRES_USER: ourchat_user
+      POSTGRES_PASSWORD: ourchat_password
     volumes:
-      - mysql_data:/var/lib/mysql
+      - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-proot_password"]
+      test: ["CMD-SHELL", "pg_isready -U ourchat_user -d ourchat_dev"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -32,7 +31,7 @@ services:
     ports:
       - "4000:4000"
     environment:
-      DATABASE_URL: "mysql://ourchat_user:ourchat_password@mysql:3306/ourchat_dev"
+      DATABASE_URL: "postgresql://ourchat_user:ourchat_password@postgres:5432/ourchat_dev?schema=public"
       JWT_SECRET: "your-secret-key-change-in-production"
       JWT_REFRESH_SECRET: "your-refresh-secret-key-change-in-production"
       NODE_ENV: "development"
@@ -40,7 +39,7 @@ services:
       - ../../:/app
     command: sh -c "cd /app/apps/backend && pnpm prisma generate && pnpm prisma migrate deploy && pnpm start:dev"
     depends_on:
-      mysql:
+      postgres:
         condition: service_healthy
     networks:
       - ourchat_network
@@ -52,7 +51,7 @@ services:
       start_period: 30s
 
 volumes:
-  mysql_data:
+  postgres_data:
     driver: local
 
 networks:

@@ -5,7 +5,7 @@ generator client {
 }
 
 datasource db {
-  provider = "mysql"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
@@ -188,8 +188,8 @@ model CalendarEvent {
   title                 String
   description           String?           @db.Text
   date                  DateTime          @db.Date
-  startTime             DateTime?         @db.Time
-  endTime               DateTime?         @db.Time
+  startTime             DateTime?         @db.Time(6)
+  endTime               DateTime?         @db.Time(6)
   allDay                Boolean           @default(false)
   reminder              Boolean           @default(false)
   reminderMinutes       Int?
