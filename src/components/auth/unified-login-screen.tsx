@@ -56,13 +56,21 @@ export function UnifiedLoginScreen({ onSuccess }: UnifiedLoginScreenProps) {
         await login({ email, password });
         toast.success(t('toast.loginSuccess', language));
       } else if (authMode === 'create') {
-        await registerUser({
+        const family = await registerUser({
           email,
           password,
           name: userName,
           familyName,
         });
-        toast.success(t('toast.familyCreated', language), { duration: 10000 });
+        // Display invite code in toast for sharing (AC3 from Story 1.1)
+        if (family?.inviteCode) {
+          toast.success(`${t('toast.familyCreated', language)}\n\nInvite Code: ${family.inviteCode}`, {
+            duration: 10000,
+            description: 'Share this code with family members to join'
+          });
+        } else {
+          toast.success(t('toast.familyCreated', language), { duration: 10000 });
+        }
       } else if (authMode === 'join') {
         await joinFamily({
           email,
@@ -158,6 +166,7 @@ export function UnifiedLoginScreen({ onSuccess }: UnifiedLoginScreenProps) {
                 <Label htmlFor="userName">{t('login.userName', language)}</Label>
                 <Input
                   id="userName"
+                  name="userName"
                   type="text"
                   placeholder={t('login.userNamePlaceholder', language)}
                   value={userName}
@@ -174,6 +183,7 @@ export function UnifiedLoginScreen({ onSuccess }: UnifiedLoginScreenProps) {
               <Label htmlFor="email">{t('login.email', language)}</Label>
               <Input
                 id="email"
+                name="email"
                 type="email"
                 placeholder="your@email.com"
                 value={email}
@@ -189,6 +199,7 @@ export function UnifiedLoginScreen({ onSuccess }: UnifiedLoginScreenProps) {
               <Label htmlFor="password">{t('login.password', language)}</Label>
               <Input
                 id="password"
+                name="password"
                 type="password"
                 placeholder={t('login.passwordPlaceholder', language)}
                 value={password}
@@ -205,6 +216,7 @@ export function UnifiedLoginScreen({ onSuccess }: UnifiedLoginScreenProps) {
                 <Label htmlFor="familyName">{t('login.familyName', language)}</Label>
                 <Input
                   id="familyName"
+                  name="familyName"
                   type="text"
                   placeholder={t('login.familyNamePlaceholder', language)}
                   value={familyName}
@@ -222,6 +234,7 @@ export function UnifiedLoginScreen({ onSuccess }: UnifiedLoginScreenProps) {
                 <Label htmlFor="inviteCode">{t('login.inviteCode', language)}</Label>
                 <Input
                   id="inviteCode"
+                  name="inviteCode"
                   type="text"
                   placeholder="CODE-XXXX-YYYY"
                   value={inviteCode}

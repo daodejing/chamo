@@ -11,6 +11,8 @@ import {
 } from '../graphql/operations';
 import {
   generateFamilyKey,
+  generateInviteCode,
+  createInviteCodeWithKey,
   parseInviteCode,
   initializeFamilyKey,
 } from '../e2ee/key-management';
@@ -42,7 +44,7 @@ interface AuthContextType {
     password: string;
     name: string;
     familyName: string;
-  }) => Promise<void>;
+  }) => Promise<Family | null>;
   login: (input: { email: string; password: string }) => Promise<void>;
   joinFamily: (input: {
     email: string;
@@ -113,12 +115,15 @@ function AuthProviderInner({ children }: { children: React.ReactNode}) {
     // Generate family encryption key client-side (E2EE)
     const { familyKey, base64Key } = await generateFamilyKey();
 
-    // Call backend with generated key
+    // Generate invite code client-side
+    const inviteCode = generateInviteCode();
+
+    // Call backend with invite code only (key never sent to backend)
     const { data } = await registerMutation({
       variables: {
         input: {
           ...input,
-          familyKeyBase64: base64Key, // Pass base64-encoded key to backend
+          inviteCode, // Send only invite code, not the key
         },
       },
     });
@@ -126,11 +131,25 @@ function AuthProviderInner({ children }: { children: React.ReactNode}) {
     if (data?.register) {
       setAuthToken(data.register.accessToken);
       setUser(data.register.user);
-      setFamily(data.register.family);
 
       // Store family key in IndexedDB for E2EE operations
       await initializeFamilyKey(base64Key);
+
+      // Combine invite code with key for display to user
+      const fullInviteCode = createInviteCodeWithKey(inviteCode, base64Key);
+
+      // Return family data with combined invite code for UI display
+      const familyWithFullCode = {
+        ...data.register.family,
+        inviteCode: fullInviteCode, // CODE:KEY format for sharing
+      };
+
+      setFamily(familyWithFullCode);
+
+      return familyWithFullCode;
     }
+
+    return null;
   };
 
   // Login function
@@ -153,15 +172,17 @@ function AuthProviderInner({ children }: { children: React.ReactNode}) {
     name: string;
     inviteCode: string; // Format: FAMILY-XXXXXXXX:BASE64KEY
   }) => {
-    // Parse invite code to extract family encryption key (E2EE)
+    // Parse invite code to extract code and family encryption key (E2EE)
     const { code, base64Key } = parseInviteCode(input.inviteCode);
 
-    // Call backend with full invite code (backend will parse it too)
+    // Call backend with code only (key never sent to backend)
     const { data } = await joinFamilyMutation({
       variables: {
         input: {
-          ...input,
-          inviteCode: input.inviteCode, // Send full invite code with embedded key
+          email: input.email,
+          password: input.password,
+          name: input.name,
+          inviteCode: code, // Send only code portion, not the key
         },
       },
     });

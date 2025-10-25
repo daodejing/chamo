@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { E2E_CONFIG } from './config';
 import { translations } from '../../src/lib/translations';
+import { generateInviteCode, generateTestFamilyKey, createFullInviteCode } from './test-helpers';
 
 /**
  * Epic 1 - User Onboarding & Authentication
@@ -72,7 +73,7 @@ test.describe('Story 1.3: Session Persistence', () => {
       }
     `;
 
-    const familyKeyBase64 = Buffer.from(`test-key-${testId}`).toString('base64');
+    const inviteCode = generateInviteCode();
 
     const registerResponse = await page.request.post(E2E_CONFIG.GRAPHQL_URL, {
       headers: {
@@ -86,7 +87,7 @@ test.describe('Story 1.3: Session Persistence', () => {
             password,
             familyName,
             name: userName,
-            familyKeyBase64,
+            inviteCode,
           },
         },
       },
@@ -134,7 +135,7 @@ test.describe('Story 1.3: Session Persistence', () => {
     await page.getByText(t('login.switchToCreate')).click();
     await page.waitForTimeout(300);
 
-    const familyKeyBase64 = Buffer.from(`persist-key-${testId}`).toString('base64');
+    // No need for familyKeyBase64 - frontend generates key client-side
 
     // Fill registration form
     await page.locator('#userName').fill(userName);
@@ -207,7 +208,7 @@ test.describe('Story 1.3: Session Persistence', () => {
       }
     `;
 
-    const familyKeyBase64 = Buffer.from(`validate-key-${testId}`).toString('base64');
+    const validateInviteCode = generateInviteCode();
 
     const registerResponse = await page.request.post(E2E_CONFIG.GRAPHQL_URL, {
       headers: {
@@ -221,7 +222,7 @@ test.describe('Story 1.3: Session Persistence', () => {
             password,
             familyName,
             name: userName,
-            familyKeyBase64,
+            inviteCode: validateInviteCode,
           },
         },
       },
@@ -367,7 +368,7 @@ test.describe('Story 1.3: Session Persistence', () => {
     await page.getByText(t('login.switchToCreate')).click();
     await page.waitForTimeout(300);
 
-    const familyKeyBase64 = Buffer.from(`indexeddb-key-${testId}`).toString('base64');
+    // No need for familyKeyBase64 - frontend generates key client-side
 
     await page.locator('#userName').fill(userName);
     await page.locator('#email').fill(email);
@@ -477,7 +478,7 @@ test.describe('Story 1.3: Session Persistence', () => {
       }
     `;
 
-    const familyKeyBase64 = Buffer.from(`expiry-key-${testId}`).toString('base64');
+    const expiryInviteCode = generateInviteCode();
 
     const registerResponse = await page.request.post(E2E_CONFIG.GRAPHQL_URL, {
       headers: {
@@ -491,7 +492,7 @@ test.describe('Story 1.3: Session Persistence', () => {
             password,
             familyName,
             name: userName,
-            familyKeyBase64,
+            inviteCode: expiryInviteCode,
           },
         },
       },

@@ -106,8 +106,8 @@ type Query {
 
 input RegisterInput {
   email: String!
-  familyKeyBase64: String!
   familyName: String!
+  inviteCode: String!
   name: String!
   password: String!
 }

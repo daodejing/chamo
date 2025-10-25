@@ -24,5 +24,5 @@ export class RegisterInput {
 
   @Field()
   @IsString()
-  familyKeyBase64: string; // Base64-encoded family encryption key (generated client-side)
+  inviteCode: string; // Client-generated invite code for family lookup
 }

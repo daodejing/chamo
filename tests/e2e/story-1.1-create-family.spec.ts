@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { E2E_CONFIG } from './config';
 import { translations } from '../../src/lib/translations';
+import { generateInviteCode, generateTestFamilyKey, createFullInviteCode } from './test-helpers';
 
 /**
  * Epic 1 - User Onboarding & Authentication
@@ -104,8 +105,9 @@ test.describe('Story 1.1: Create Family Account', () => {
     expect(family.inviteCode).toBeDefined();
     createdFamilyIds.push(family.id);
 
-    // AC2: Verify invite code format includes encryption key
-    expect(family.inviteCode).toMatch(/^FAMILY-[A-Z0-9]{8}:[A-Za-z0-9+/=]+$/);
+    // AC2: Verify invite code format (backend returns code only, not key)
+    // Format changed to 16 characters for 128-bit entropy
+    expect(family.inviteCode).toMatch(/^FAMILY-[A-Z0-9]{16}$/);
 
     // AC3: Verify user is logged in (JWT token issued)
     expect(accessToken).toBeDefined();
@@ -123,7 +125,7 @@ test.describe('Story 1.1: Create Family Account', () => {
    */
   test('Cannot register with duplicate email', async ({ page }) => {
     const email = `${testId}-duplicate@example.com`;
-    const familyKeyBase64 = Buffer.from('test-duplicate-key-123').toString('base64');
+    const inviteCode = generateInviteCode();
 
     // Create first user via GraphQL
     const registerMutation = `
@@ -147,7 +149,7 @@ test.describe('Story 1.1: Create Family Account', () => {
             password: 'FirstPassword123!',
             familyName: `[${testId}] First Family`,
             name: `[${testId}] First User`,
-            familyKeyBase64,
+            inviteCode,
           },
         },
       },

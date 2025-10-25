@@ -25,7 +25,7 @@ export class AuthResolver {
       input.password,
       input.name,
       input.familyName,
-      input.familyKeyBase64,
+      input.inviteCode,
     );
   }
 

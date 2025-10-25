@@ -31,7 +31,6 @@ model User {
   passwordHash          String
   joinedAt              DateTime          @default(now())
   lastSeenAt            DateTime?
-  encryptedFamilyKey    String            @db.Text // Family key encrypted with user's key
   publicKey             String            @db.Text // E2EE public key (future)
   preferences           Json              @default("{}")
   googleCalendarToken   String?           @db.Text

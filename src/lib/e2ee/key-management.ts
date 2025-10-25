@@ -92,9 +92,28 @@ export async function deriveKeyFromPassword(
 }
 
 /**
+ * Generates a cryptographically secure invite code.
+ * Format: FAMILY-XXXXXXXXXXXXXXXX (128-bit random code)
+ * Security relies on high entropy to prevent guessing.
+ */
+export function generateInviteCode(): string {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // Exclude similar chars (0/O, 1/I)
+  const codeLength = 16; // 128-bit entropy (33^16)
+
+  const randomValues = new Uint8Array(codeLength);
+  crypto.getRandomValues(randomValues);
+
+  const code = Array.from(randomValues, (byte) =>
+    chars.charAt(byte % chars.length)
+  ).join('');
+
+  return `FAMILY-${code}`;
+}
+
+/**
  * Formats invite code with embedded key.
- * Format: FAMILY-{8 random chars}:{base64 key}
- * Example: FAMILY-A3X9K2P1:dGVzdGtleWV4YW1wbGUxMjM0NTY3ODkwMTIzNDU2Nzg5MA==
+ * Format: FAMILY-{16 random chars}:{base64 key}
+ * Example: FAMILY-A3X9K2P1BCDEFGH2:dGVzdGtleWV4YW1wbGUxMjM0NTY3ODkwMTIzNDU2Nzg5MA==
  */
 export function createInviteCodeWithKey(
   inviteCode: string,
