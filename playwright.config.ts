@@ -6,6 +6,7 @@ import { defineConfig, devices } from '@playwright/test';
  */
 export default defineConfig({
   testDir: './tests/e2e',
+  testIgnore: ['**/apps/backend/**', '**/node_modules/**'],
   fullyParallel: false, // Run tests serially to avoid database conflicts
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,

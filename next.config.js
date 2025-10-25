@@ -1,16 +1,12 @@
 /** @type {import('next').NextConfig} */
 
 const nextConfig = {
-  output: 'export', // Enable static export for deployment to Cloudflare Pages
+  // Static export enabled - deploys to Cloudflare Pages for $0/month
+  output: 'export',
   reactStrictMode: true,
   typescript: {
     // Temporarily ignore type errors during build
     ignoreBuildErrors: true,
-  },
-  eslint: {
-    // Warning: This allows production builds to successfully complete even if
-    // your project has ESLint errors.
-    ignoreDuringBuilds: true,
   },
 
   // Turbopack configuration (Next.js 15.5)
