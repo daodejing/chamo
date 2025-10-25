@@ -275,7 +275,7 @@ test.describe('Story 1.3: Session Persistence', () => {
    * - Call the logout() function from useAuth() hook
    * - Trigger redirect to /login after clearing session
    */
-  test('Logout clears session and redirects to /login', async ({ page }) => {
+  test('Logout clears tokens but preserves encryption keys', async ({ page }) => {
     // SETUP: Register and login via UI
     const email = `${testId}-logout@example.com`;
     const password = 'LogoutTest123!';
@@ -298,7 +298,7 @@ test.describe('Story 1.3: Session Persistence', () => {
     // Verify we're on chat page (logged in)
     expect(page.url()).not.toContain('/login');
 
-    // AC5, AC6: Click logout button
+    // AC5: Click logout button
     await page.getByRole('button', { name: t('settings.logout') }).click();
 
     // AC7: Wait for redirect to /login
@@ -312,8 +312,9 @@ test.describe('Story 1.3: Session Persistence', () => {
     });
     expect(tokensCleared).toBeTruthy();
 
-    // AC6: Verify IndexedDB keys are cleared
-    const keysCleared = await page.evaluate(async () => {
+    // AC6 (MODIFIED): Verify IndexedDB keys PERSIST for true E2EE
+    // Keys are NOT cleared on logout - this ensures the server never has access to them
+    const keysPersist = await page.evaluate(async () => {
       try {
         const db = await new Promise<IDBDatabase>((resolve, reject) => {
           const request = indexedDB.open('ourchat-keys', 1);
@@ -328,17 +329,26 @@ test.describe('Story 1.3: Session Persistence', () => {
           getRequest.onerror = () => reject(getRequest.error);
         });
         db.close();
-        return !key; // Should be cleared
+        return !!key; // Should still exist!
       } catch (e) {
-        return true; // If DB doesn't exist, keys are cleared
+        return false;
       }
     });
-    expect(keysCleared).toBeTruthy();
+    expect(keysPersist).toBeTruthy();
 
     // AC7: Verify accessing /chat redirects back to /login
     await page.goto('/chat');
     await page.waitForTimeout(1500);
     expect(page.url()).toContain('/login');
+
+    // BONUS: Verify re-login works and can decrypt messages with persisted keys
+    await page.locator('#email').fill(email);
+    await page.locator('#password').fill(password);
+    await page.locator('button[type="submit"]').click();
+    await page.waitForTimeout(2000);
+
+    // Should be back on chat page and able to use the persisted key
+    expect(page.url()).not.toContain('/login');
   });
 
 

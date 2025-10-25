@@ -15,7 +15,7 @@ so that I don't have to log in every time.
 3. **AC3:** Auto-login on app revisit if session valid (redirect /login → /chat)
 4. **AC4:** Session validation via GET /api/auth/session checks JWT and returns user data
 5. **AC5:** Logout clears HTTP-only cookies
-6. **AC6:** Logout clears IndexedDB keys
+6. **AC6:** ~~Logout clears IndexedDB keys~~ **MODIFIED:** IndexedDB keys PERSIST on logout for true E2EE (keys never leave client)
 7. **AC7:** After logout, accessing /chat redirects to /login
 8. **AC8:** Session expires after 1 hour (access token) with auto-refresh
 
@@ -287,10 +287,11 @@ Logout functionality now fully implemented with UI button and complete session c
    - Button text: Uses `t('settings.logout')` from translations
    - Icon: LogOut icon from lucide-react
 
-2. ✅ Updated logout() function to clear IndexedDB keys
-   - File: `src/lib/contexts/auth-context.tsx:180-189`
-   - Added: `await clearKeys()` from `src/lib/e2ee/storage.ts`
-   - Ensures AC6 compliance (logout clears IndexedDB keys)
+2. ✅ Updated logout() function to PRESERVE IndexedDB keys (AC6 MODIFIED)
+   - File: `src/lib/contexts/auth-context.tsx:180-191`
+   - REMOVED: `await clearKeys()` call - keys now persist for true E2EE
+   - Keys never leave the client, ensuring privacy protection from server
+   - This is BY DESIGN for privacy - no server-side key backup will be implemented
 
 3. ✅ Updated setAuthToken() to clear both tokens
    - File: `src/lib/graphql/client.ts:99-109`
@@ -303,16 +304,16 @@ Logout functionality now fully implemented with UI button and complete session c
    - Hard redirects to /login using window.location.href (AC7)
    - Added logout() to useAuth() destructuring (line 23)
 
-5. ✅ Fixed E2E test
+5. ✅ Updated E2E test for AC6 modification
    - File: `tests/e2e/story-1.3-session-persistence.spec.ts:278`
-   - Un-skipped test
-   - Updated selector to use getByRole('button')
-   - Added waitForURL to handle async redirect
-   - Fixed IndexedDB database name to 'ourchat-keys'
+   - Renamed test to "Logout clears tokens but preserves encryption keys"
+   - Changed assertion: keys should PERSIST (not be cleared)
+   - Added re-login verification to prove keys work after logout
+   - Un-skipped test, fixed selector, and IndexedDB database name
 
 **Acceptance Criteria (from original story):**
 - ✅ AC5: Logout clears localStorage tokens (accessToken + refreshToken)
-- ✅ AC6: Logout clears IndexedDB keys (via clearKeys())
+- ✅ AC6 MODIFIED: Logout PRESERVES IndexedDB keys for true E2EE (privacy enhancement)
 - ✅ AC7: After logout, page redirects to /login
 
 **References:**

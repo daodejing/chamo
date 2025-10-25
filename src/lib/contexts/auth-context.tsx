@@ -178,8 +178,10 @@ function AuthProviderInner({ children }: { children: React.ReactNode}) {
 
   // Logout function
   const logout = async () => {
-    // Clear IndexedDB keys (AC6)
-    await clearKeys();
+    // NOTE: We do NOT clear IndexedDB encryption keys on logout
+    // This preserves true E2EE - keys never leave the client
+    // User can manually clear browser data if they want to remove keys
+    // This is BY DESIGN for privacy - no server-side key backup will be implemented
 
     // Clear tokens and auth state
     setAuthToken(null);
