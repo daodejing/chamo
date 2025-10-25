@@ -1,5 +1,5 @@
 import { Resolver, Mutation, Query, Args, Subscription } from '@nestjs/graphql';
-import { UseGuards } from '@nestjs/common';
+import { UseGuards, Injectable } from '@nestjs/common';
 import { PubSub } from 'graphql-subscriptions';
 import { GqlAuthGuard } from '../auth/guards/gql-auth.guard';
 import { CurrentUser } from '../auth/current-user.decorator';
@@ -10,11 +10,14 @@ import { EditMessageInput } from './dto/edit-message.input';
 import { DeleteMessageInput } from './dto/delete-message.input';
 import { GetMessagesInput } from './dto/get-messages.input';
 
-const pubSub = new PubSub();
-
+@Injectable()
 @Resolver()
 export class MessagesResolver {
-  constructor(private messagesService: MessagesService) {}
+  private readonly pubSub: PubSub;
+
+  constructor(private messagesService: MessagesService) {
+    this.pubSub = new PubSub();
+  }
 
   @Mutation(() => MessageWithUserType)
   @UseGuards(GqlAuthGuard)
@@ -25,7 +28,7 @@ export class MessagesResolver {
     const message = await this.messagesService.sendMessage(user.id, input);
 
     // Publish to subscription
-    pubSub.publish('messageAdded', {
+    this.pubSub.publish('messageAdded', {
       messageAdded: message,
       channelId: message.channelId,
     });
@@ -42,7 +45,7 @@ export class MessagesResolver {
     const message = await this.messagesService.editMessage(user.id, input);
 
     // Publish to subscription
-    pubSub.publish('messageEdited', {
+    this.pubSub.publish('messageEdited', {
       messageEdited: message,
       channelId: message.channelId,
     });
@@ -59,7 +62,7 @@ export class MessagesResolver {
     const result = await this.messagesService.deleteMessage(user.id, input);
 
     // Publish to subscription
-    pubSub.publish('messageDeleted', {
+    this.pubSub.publish('messageDeleted', {
       messageDeleted: {
         messageId: result.messageId,
       },
@@ -83,7 +86,7 @@ export class MessagesResolver {
     },
   })
   messageAdded(@Args('channelId') channelId: string) {
-    return (pubSub as any).asyncIterator('messageAdded');
+    return this.pubSub.asyncIterator('messageAdded');
   }
 
   @Subscription(() => MessageWithUserType, {
@@ -92,7 +95,7 @@ export class MessagesResolver {
     },
   })
   messageEdited(@Args('channelId') channelId: string) {
-    return (pubSub as any).asyncIterator('messageEdited');
+    return this.pubSub.asyncIterator('messageEdited');
   }
 
   @Subscription(() => DeletedMessageType, {
@@ -101,7 +104,7 @@ export class MessagesResolver {
     },
   })
   messageDeleted(@Args('channelId') channelId: string) {
-    return (pubSub as any).asyncIterator('messageDeleted');
+    return this.pubSub.asyncIterator('messageDeleted');
   }
 }
 
