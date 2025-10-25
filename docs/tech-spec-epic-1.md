@@ -1,5 +1,9 @@
 # Tech Spec: Epic 1 - User Onboarding & Authentication
 
+> **⚠️ Architecture Change (2025-10-18):** This spec was written for Supabase + Next.js API routes architecture.
+> **Current implementation uses NestJS + GraphQL + MySQL (Prisma).** See `docs/solution-architecture.md` v2.0 for current stack.
+> API contracts and implementation details below are **for reference only** - actual implementation uses GraphQL mutations.
+
 **Epic ID:** Epic 1
 **Priority:** Critical (MVP Blocker)
 **Story Points:** 8

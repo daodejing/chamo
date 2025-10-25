@@ -16,6 +16,7 @@ export class AuthService {
     password: string,
     name: string,
     familyName: string,
+    familyKeyBase64: string, // Client-generated family key
   ) {
     // Check if email already exists
     const existingUser = await this.prisma.user.findUnique({
@@ -29,12 +30,14 @@ export class AuthService {
     // Hash password
     const passwordHash = await bcrypt.hash(password, 10);
 
-    // Generate invite code (format: CODE-XXXX-YYYY)
-    const inviteCode = this.generateInviteCode();
+    // Generate invite code with embedded family key (format: FAMILY-XXXXXXXX:BASE64KEY)
+    const inviteCodeWithKey = this.generateInviteCodeWithKey(familyKeyBase64);
 
-    // Generate family key (AES-256 32 bytes = 256 bits)
-    const familyKey = this.generateFamilyKey();
-    const encryptedFamilyKey = familyKey; // In production, encrypt with user's key
+    // Parse to extract code portion for database storage
+    const { code: inviteCode } = this.parseInviteCode(inviteCodeWithKey);
+
+    // Store the family key (client-side generated, E2EE model)
+    const encryptedFamilyKey = familyKeyBase64; // Shared family key model (no per-user encryption needed)
 
     // Generate E2EE public key placeholder
     const publicKey = 'placeholder-public-key'; // In production, derive from password
@@ -43,7 +46,7 @@ export class AuthService {
     const family = await this.prisma.family.create({
       data: {
         name: familyName,
-        inviteCode,
+        inviteCode, // Store only code portion (FAMILY-XXXXXXXX) in database
         createdBy: email, // Will update with userId after user creation
         users: {
           create: {
@@ -78,9 +81,15 @@ export class AuthService {
     const accessToken = this.generateAccessToken(user.id, user.familyId);
     const refreshToken = this.generateRefreshToken(user.id);
 
+    // Replace family.inviteCode with full invite code (including embedded key) for admin to share
+    const familyWithFullInviteCode = {
+      ...family,
+      inviteCode: inviteCodeWithKey, // Return full format: FAMILY-XXXXXXXX:BASE64KEY
+    };
+
     return {
       user,
-      family,
+      family: familyWithFullInviteCode,
       accessToken,
       refreshToken,
     };
@@ -90,7 +99,7 @@ export class AuthService {
     email: string,
     password: string,
     name: string,
-    inviteCode: string,
+    inviteCodeWithKey: string, // Format: FAMILY-XXXXXXXX:BASE64KEY
   ) {
     // Check if email already exists
     const existingUser = await this.prisma.user.findUnique({
@@ -101,9 +110,12 @@ export class AuthService {
       throw new ConflictException('Email already registered');
     }
 
-    // Find family by invite code
+    // Parse invite code to extract code and family key
+    const { code, base64Key } = this.parseInviteCode(inviteCodeWithKey);
+
+    // Find family by invite code (code portion only, without key)
     const family = await this.prisma.family.findUnique({
-      where: { inviteCode },
+      where: { inviteCode: code },
       include: { users: true },
     });
 
@@ -119,10 +131,8 @@ export class AuthService {
     // Hash password
     const passwordHash = await bcrypt.hash(password, 10);
 
-    // Get family key from admin (first user)
-    const adminUser = family.users[0];
-    const familyKey = adminUser.encryptedFamilyKey; // In production, decrypt and re-encrypt
-    const encryptedFamilyKey = familyKey;
+    // Use the family key from invite code (E2EE model - shared family key)
+    const encryptedFamilyKey = base64Key;
 
     const publicKey = 'placeholder-public-key'; // In production, derive from password
 
@@ -215,25 +225,47 @@ export class AuthService {
     });
   }
 
-  private generateInviteCode(): string {
-    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // Exclude similar chars
-    const segments = [4, 4]; // CODE-XXXX-YYYY format
-    const code = segments
-      .map((len) =>
-        Array.from({ length: len }, () =>
-          chars.charAt(Math.floor(Math.random() * chars.length)),
-        ).join(''),
-      )
-      .join('-');
-    return `CODE-${code}`;
+  /**
+   * Generates invite code with embedded family encryption key.
+   * Format: FAMILY-XXXXXXXX:BASE64KEY
+   * Example: FAMILY-A3X9K2P1:dGVzdGtleWV4YW1wbGUxMjM0NTY3ODkwMTIzNDU2Nzg5MA==
+   */
+  private generateInviteCodeWithKey(familyKeyBase64: string): string {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // Exclude similar chars (0/O, 1/I)
+    const codeLength = 8; // FAMILY-XXXXXXXX
+    const code = Array.from({ length: codeLength }, () =>
+      chars.charAt(Math.floor(Math.random() * chars.length)),
+    ).join('');
+
+    // Return format: FAMILY-XXXXXXXX:BASE64KEY
+    return `FAMILY-${code}:${familyKeyBase64}`;
   }
 
-  private generateFamilyKey(): string {
-    // Generate 256-bit (32 bytes) random key
-    // In production, use Web Crypto API on client side
-    const bytes = Array.from({ length: 32 }, () =>
-      Math.floor(Math.random() * 256),
-    );
-    return Buffer.from(bytes).toString('base64');
+  /**
+   * Parses invite code to extract code and embedded family key.
+   * @param inviteCodeWithKey - Format: FAMILY-XXXXXXXX:BASE64KEY
+   * @returns Object with code and base64 key separated
+   */
+  private parseInviteCode(inviteCodeWithKey: string): {
+    code: string;
+    base64Key: string;
+  } {
+    const parts = inviteCodeWithKey.split(':');
+
+    if (parts.length !== 2) {
+      throw new UnauthorizedException(
+        'Invalid invite code format. Expected FAMILY-XXXXXXXX:KEY',
+      );
+    }
+
+    const [code, base64Key] = parts;
+
+    if (!code || !base64Key || !code.startsWith('FAMILY-')) {
+      throw new UnauthorizedException(
+        'Invalid invite code format. Expected FAMILY-XXXXXXXX:KEY',
+      );
+    }
+
+    return { code, base64Key };
   }
 }

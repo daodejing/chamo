@@ -154,60 +154,65 @@
   </constraints>
 
   <interfaces>
+    <note>Architecture changed to NestJS + GraphQL (2025-10-18). Original REST API references are obsolete.</note>
     <interface id="interface-1">
-      <name>POST /api/auth/join</name>
-      <kind>REST API</kind>
+      <name>joinFamily GraphQL Mutation</name>
+      <kind>GraphQL Mutation</kind>
       <signature>
-        Request: { email: string, password: string, inviteCode: string, userName: string }
-        Response: { success: true, user: User, family: Family, session: Session }
-        Errors: 400 (validation), 404 (code not found), 403 (family full), 409 (email exists), 500 (server)
+        mutation joinFamily(input: JoinFamilyInput!): AuthResponse!
+        Input: { email: String!, password: String!, name: String!, inviteCode: String! }
+        Response: { user: UserType!, family: FamilyType!, accessToken: String!, refreshToken: String! }
+        Errors: ConflictException (email exists or family full), UnauthorizedException (invalid invite code)
       </signature>
-      <path>/Users/usr0101345/projects/ourchat/docs/tech-spec-epic-1.md#3.2</path>
+      <path>/Users/usr0101345/projects/ourchat/apps/backend/src/schema.gql#60-65</path>
+      <implementation>/Users/usr0101345/projects/ourchat/apps/backend/src/auth/auth.resolver.ts#31-41</implementation>
+      <service>/Users/usr0101345/projects/ourchat/apps/backend/src/auth/auth.service.ts#89-152</service>
     </interface>
     <interface id="interface-2">
-      <name>initializeFamilyKey</name>
-      <kind>Function</kind>
+      <name>useAuth Hook - joinFamily</name>
+      <kind>React Hook</kind>
       <signature>
-        async initializeFamilyKey(base64Key: string): Promise&lt;void&gt;
-        Purpose: Store family encryption key in IndexedDB for client-side E2EE operations
+        const { joinFamily } = useAuth();
+        await joinFamily({ email, password, name, inviteCode });
+        Purpose: Apollo Client wrapper for joinFamily mutation, manages auth state
       </signature>
-      <path>/Users/usr0101345/projects/ourchat/src/lib/e2ee/key-management.ts</path>
+      <path>/Users/usr0101345/projects/ourchat/src/lib/contexts/auth-context.tsx#41-46</path>
     </interface>
     <interface id="interface-3">
-      <name>validateInviteCodeFormat</name>
-      <kind>Function</kind>
+      <name>JoinFamilyInput</name>
+      <kind>GraphQL Input Type</kind>
       <signature>
-        validateInviteCodeFormat(code: string): boolean
-        Purpose: Regex validation of invite code format (FAMILY-XXXX:BASE64KEY)
+        input JoinFamilyInput {
+          email: String!
+          password: String!
+          name: String!
+          inviteCode: String!
+        }
+        Purpose: Input validation for joinFamily mutation
       </signature>
-      <path>/Users/usr0101345/projects/ourchat/src/lib/auth/invite-codes.ts</path>
+      <path>/Users/usr0101345/projects/ourchat/apps/backend/src/auth/dto/join-family.input.ts</path>
     </interface>
     <interface id="interface-4">
-      <name>joinSchema</name>
-      <kind>Zod Schema</kind>
+      <name>Prisma Database - Family model</name>
+      <kind>Database Model (Prisma)</kind>
       <signature>
-        z.object({ email: z.string().email(), password: z.string().min(8), inviteCode: z.string().regex(/^FAMILY-.../), userName: z.string().min(2).max(50) })
-        Purpose: Input validation for join API and form
+        model Family {
+          id: String, name: String, inviteCode: String @unique, maxMembers: Int, users: User[]
+        }
+        Query: prisma.family.findUnique({ where: { inviteCode }, include: { users: true } })
       </signature>
-      <path>/Users/usr0101345/projects/ourchat/src/lib/validators/auth.ts</path>
+      <path>/Users/usr0101345/projects/ourchat/apps/backend/prisma/schema.prisma</path>
     </interface>
     <interface id="interface-5">
-      <name>Supabase Database - families table</name>
-      <kind>Database Table</kind>
+      <name>Prisma Database - User model</name>
+      <kind>Database Model (Prisma)</kind>
       <signature>
-        Table: families (id, name, invite_code, max_members, created_by, created_at, updated_at)
-        Query: SELECT * FROM families WHERE invite_code = $1
+        model User {
+          id: String, email: String @unique, name: String, role: Role, familyId: String, encryptedFamilyKey: String, passwordHash: String
+        }
+        Insert: prisma.user.create({ data: { email, name, passwordHash, role: Role.MEMBER, familyId, encryptedFamilyKey } })
       </signature>
-      <path>/Users/usr0101345/projects/ourchat/docs/solution-architecture.md#3</path>
-    </interface>
-    <interface id="interface-6">
-      <name>Supabase Database - users table</name>
-      <kind>Database Table</kind>
-      <signature>
-        Table: users (id, email, name, role, family_id, encrypted_family_key, preferences, joined_at, created_at)
-        Insert: INSERT INTO users (email, name, role, family_id, encrypted_family_key) VALUES (...)
-      </signature>
-      <path>/Users/usr0101345/projects/ourchat/docs/solution-architecture.md#3</path>
+      <path>/Users/usr0101345/projects/ourchat/apps/backend/prisma/schema.prisma</path>
     </interface>
   </interfaces>
 

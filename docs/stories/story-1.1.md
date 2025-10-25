@@ -145,6 +145,27 @@ Testing files:
 - [Source: docs/solution-architecture.md#5 End-to-End Encryption Implementation]
 - [Source: docs/epic-alignment-matrix.md#Epic 1 Row]
 
+## Architecture Change Note
+
+**Date:** 2025-10-20
+**Change:** Implementation uses **NestJS + GraphQL** instead of Next.js API routes + Supabase Auth
+
+**Actual Implementation:**
+- **Backend:** GraphQL mutation `register` (`apps/backend/src/auth/auth.resolver.ts:21-29`)
+- **Service:** `AuthService.register()` (`apps/backend/src/auth/auth.service.ts:14-87`)
+- **Database:** MySQL via Prisma ORM (`apps/backend/prisma/schema.prisma`)
+- **Frontend:** Apollo Client via `useAuth()` hook (`src/lib/contexts/auth-context.tsx`)
+- **UI:** Unified login screen with create mode (`src/components/auth/unified-login-screen.tsx:58-65`)
+
+**Original Documentation References (Now Obsolete):**
+- ~~POST /api/auth/register~~ → GraphQL `mutation register`
+- ~~Supabase Auth~~ → JWT via NestJS (@nestjs/jwt)
+- ~~Supabase client~~ → Apollo Client + Prisma
+
+**Architecture Documentation:**
+- See `docs/solution-architecture.md` v2.0 (updated 2025-10-18) for current NestJS + GraphQL architecture
+- See `apps/backend/src/schema.gql` for GraphQL schema definitions
+
 ## Dev Agent Record
 
 ### Context Reference

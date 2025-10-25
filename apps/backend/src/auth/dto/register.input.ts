@@ -21,4 +21,8 @@ export class RegisterInput {
   @IsString()
   @MinLength(2)
   familyName: string;
+
+  @Field()
+  @IsString()
+  familyKeyBase64: string; // Base64-encoded family encryption key (generated client-side)
 }

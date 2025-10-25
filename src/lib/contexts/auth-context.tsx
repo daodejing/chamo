@@ -9,6 +9,11 @@ import {
   JOIN_FAMILY_MUTATION,
   ME_QUERY,
 } from '../graphql/operations';
+import {
+  generateFamilyKey,
+  parseInviteCode,
+  initializeFamilyKey,
+} from '../e2ee/key-management';
 
 interface User {
   id: string;
@@ -104,14 +109,26 @@ function AuthProviderInner({ children }: { children: React.ReactNode}) {
     name: string;
     familyName: string;
   }) => {
+    // Generate family encryption key client-side (E2EE)
+    const { familyKey, base64Key } = await generateFamilyKey();
+
+    // Call backend with generated key
     const { data } = await registerMutation({
-      variables: { input },
+      variables: {
+        input: {
+          ...input,
+          familyKeyBase64: base64Key, // Pass base64-encoded key to backend
+        },
+      },
     });
 
     if (data?.register) {
       setAuthToken(data.register.accessToken);
       setUser(data.register.user);
       setFamily(data.register.family);
+
+      // Store family key in IndexedDB for E2EE operations
+      await initializeFamilyKey(base64Key);
     }
   };
 
@@ -133,16 +150,28 @@ function AuthProviderInner({ children }: { children: React.ReactNode}) {
     email: string;
     password: string;
     name: string;
-    inviteCode: string;
+    inviteCode: string; // Format: FAMILY-XXXXXXXX:BASE64KEY
   }) => {
+    // Parse invite code to extract family encryption key (E2EE)
+    const { code, base64Key } = parseInviteCode(input.inviteCode);
+
+    // Call backend with full invite code (backend will parse it too)
     const { data } = await joinFamilyMutation({
-      variables: { input },
+      variables: {
+        input: {
+          ...input,
+          inviteCode: input.inviteCode, // Send full invite code with embedded key
+        },
+      },
     });
 
     if (data?.joinFamily) {
       setAuthToken(data.joinFamily.accessToken);
       setUser(data.joinFamily.user);
       setFamily(data.joinFamily.family);
+
+      // Store family key in IndexedDB for E2EE operations
+      await initializeFamilyKey(base64Key);
     }
   };
 

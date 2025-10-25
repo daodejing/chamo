@@ -1,0 +1,16 @@
+FROM node:20-alpine
+
+# Install pnpm
+RUN npm install -g pnpm
+
+# Set working directory
+WORKDIR /app
+
+# Install dependencies will happen via volume mount to use host's node_modules
+# This way we leverage the host's already installed packages
+
+# Expose GraphQL port
+EXPOSE 4000
+
+# Default command - will be overridden by docker-compose
+CMD ["pnpm", "start:dev"]

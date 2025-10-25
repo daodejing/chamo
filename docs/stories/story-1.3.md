@@ -153,6 +153,29 @@ Testing files:
 - [Source: docs/PRD.md#6 Epics & User Stories - Epic 1: US-1.3]
 - [Source: docs/tech-spec-epic-1.md#6.2 Session Management - JWT Storage & CSRF Protection]
 
+## Architecture Change Note
+
+**Date:** 2025-10-20
+**Change:** Implementation uses **NestJS + GraphQL + JWT** instead of Next.js API routes + Supabase Auth
+
+**Actual Implementation:**
+- **Backend:** GraphQL query `me` for session validation (`apps/backend/src/auth/auth.resolver.ts:48-52`)
+- **Backend:** GraphQL mutation `logout` (`apps/backend/src/auth/auth.resolver.ts:61-67`)
+- **Service:** JWT validation via NestJS strategy (`apps/backend/src/auth/jwt.strategy.ts`)
+- **Frontend:** Apollo Client manages auth state via `useAuth()` hook (`src/lib/contexts/auth-context.tsx`)
+- **Token Storage:** localStorage (managed by Apollo Client) instead of HTTP-only cookies
+- **Session Persistence:** JWT tokens with 7-day expiry, refresh token with 30-day expiry
+
+**Original Documentation References (Now Obsolete):**
+- ~~GET /api/auth/session~~ → GraphQL `query me` + Apollo Client cache
+- ~~POST /api/auth/logout~~ → GraphQL `mutation logout` (client-side token deletion)
+- ~~HTTP-only cookies~~ → localStorage (Apollo Client manages tokens)
+- ~~Supabase Auth auto-refresh~~ → JWT with manual refresh logic
+
+**Architecture Documentation:**
+- See `docs/solution-architecture.md` v2.0 (updated 2025-10-18) for current NestJS + GraphQL architecture
+- See `apps/backend/src/schema.gql` for GraphQL schema definitions
+
 ## Dev Agent Record
 
 ### Context Reference

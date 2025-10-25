@@ -199,7 +199,7 @@ export const GET_MESSAGES_QUERY = gql`
 // ============================================================================
 
 export const MESSAGE_ADDED_SUBSCRIPTION = gql`
-  subscription MessageAdded($channelId: ID!) {
+  subscription MessageAdded($channelId: String!) {
     messageAdded(channelId: $channelId) {
       id
       channelId
@@ -219,7 +219,7 @@ export const MESSAGE_ADDED_SUBSCRIPTION = gql`
 `;
 
 export const MESSAGE_EDITED_SUBSCRIPTION = gql`
-  subscription MessageEdited($channelId: ID!) {
+  subscription MessageEdited($channelId: String!) {
     messageEdited(channelId: $channelId) {
       id
       channelId
@@ -239,7 +239,7 @@ export const MESSAGE_EDITED_SUBSCRIPTION = gql`
 `;
 
 export const MESSAGE_DELETED_SUBSCRIPTION = gql`
-  subscription MessageDeleted($channelId: ID!) {
+  subscription MessageDeleted($channelId: String!) {
     messageDeleted(channelId: $channelId) {
       messageId
     }
