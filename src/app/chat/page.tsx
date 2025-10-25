@@ -401,8 +401,8 @@ export default function ChatPage() {
     name: c.name,
     description: c.description || '',
     icon: '💬',
-    createdAt: c.createdAt || new Date().toISOString(),
-    createdBy: c.createdBy || 'system',
+    createdAt: new Date(c.createdAt || new Date()).toISOString(),
+    createdBy: c.createdById || 'system',
   }));
 
   // Get family info

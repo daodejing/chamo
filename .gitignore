@@ -60,3 +60,4 @@ Thumbs.db
 
 # Prototype (reference only, has own git repo)
 frontend-proto/
+out/

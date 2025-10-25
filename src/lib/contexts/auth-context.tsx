@@ -9,6 +9,12 @@ import {
   JOIN_FAMILY_MUTATION,
   ME_QUERY,
 } from '../graphql/operations';
+import type {
+  RegisterMutation,
+  LoginMutation,
+  JoinFamilyMutation,
+  MeQuery,
+} from '../graphql/generated/graphql';
 import {
   generateFamilyKey,
   generateInviteCode,
@@ -22,15 +28,15 @@ interface User {
   id: string;
   email: string;
   name: string;
-  avatar: string | null;
-  role: 'ADMIN' | 'MEMBER';
+  avatar?: string | null;
+  role: string;
   familyId: string;
 }
 
 interface Family {
   id: string;
   name: string;
-  avatar: string | null;
+  avatar?: string | null;
   inviteCode: string;
   maxMembers: number;
 }
@@ -69,7 +75,7 @@ function AuthProviderInner({ children }: { children: React.ReactNode}) {
   }, []);
 
   // Query current user - only on client-side where localStorage exists
-  const { data, loading, error, refetch } = useQuery(ME_QUERY, {
+  const { data, loading, error, refetch } = useQuery<MeQuery>(ME_QUERY, {
     skip: !isClient, // Skip until we're on client-side
     fetchPolicy: 'network-only', // Always fetch from network, ignore cache
     errorPolicy: 'all', // Allow partial results even if query errors
@@ -93,7 +99,7 @@ function AuthProviderInner({ children }: { children: React.ReactNode}) {
 
     if (data?.me) {
       setUser(data.me);
-      setFamily(data.me.family);
+      setFamily(data.me.family || null);
     } else {
       setUser(null);
       setFamily(null);
@@ -101,9 +107,9 @@ function AuthProviderInner({ children }: { children: React.ReactNode}) {
   }, [data, error, loading, isClient]);
 
   // Mutations
-  const [registerMutation] = useMutation(REGISTER_MUTATION);
-  const [loginMutation] = useMutation(LOGIN_MUTATION);
-  const [joinFamilyMutation] = useMutation(JOIN_FAMILY_MUTATION);
+  const [registerMutation] = useMutation<RegisterMutation>(REGISTER_MUTATION);
+  const [loginMutation] = useMutation<LoginMutation>(LOGIN_MUTATION);
+  const [joinFamilyMutation] = useMutation<JoinFamilyMutation>(JOIN_FAMILY_MUTATION);
 
   // Register function
   const register = async (input: {

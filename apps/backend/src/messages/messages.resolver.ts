@@ -86,7 +86,7 @@ export class MessagesResolver {
     },
   })
   messageAdded(@Args('channelId') channelId: string) {
-    return this.pubSub.asyncIterator('messageAdded');
+    return (this.pubSub as any).asyncIterator('messageAdded');
   }
 
   @Subscription(() => MessageWithUserType, {
@@ -95,7 +95,7 @@ export class MessagesResolver {
     },
   })
   messageEdited(@Args('channelId') channelId: string) {
-    return this.pubSub.asyncIterator('messageEdited');
+    return (this.pubSub as any).asyncIterator('messageEdited');
   }
 
   @Subscription(() => DeletedMessageType, {
@@ -104,7 +104,7 @@ export class MessagesResolver {
     },
   })
   messageDeleted(@Args('channelId') channelId: string) {
-    return this.pubSub.asyncIterator('messageDeleted');
+    return (this.pubSub as any).asyncIterator('messageDeleted');
   }
 }
 

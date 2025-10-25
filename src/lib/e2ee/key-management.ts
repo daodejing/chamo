@@ -75,7 +75,7 @@ export async function deriveKeyFromPassword(
   const derivedKey = await crypto.subtle.deriveKey(
     {
       name: 'PBKDF2',
-      salt,
+      salt: salt as BufferSource,
       iterations: 100000, // OWASP recommendation
       hash: 'SHA-256',
     },

@@ -56,6 +56,8 @@ interface CalendarEvent {
   userName: string;
   color: string;
   allDay: boolean;
+  reminder: boolean;
+  reminderMinutes?: number;
 }
 
 interface PhotoFolder {

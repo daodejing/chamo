@@ -1,0 +1,9 @@
+# Cloudflare Pages Security Headers
+# These headers are applied to all routes
+
+/*
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' http://localhost:4000 ws://localhost:4000 wss://*.onrender.com https://*.onrender.com https://api.groq.com https://www.googleapis.com; frame-ancestors 'none';
+  X-Frame-Options: DENY
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: camera=(), microphone=(), geolocation=()

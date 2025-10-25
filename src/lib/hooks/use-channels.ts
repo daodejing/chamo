@@ -2,6 +2,7 @@
 
 import { useQuery } from '@apollo/client/react';
 import { GET_CHANNELS_QUERY } from '../graphql/operations';
+import type { GetChannelsQuery } from '../graphql/generated/graphql';
 
 interface Channel {
   id: string;
@@ -11,7 +12,7 @@ interface Channel {
   icon: string | null;
   createdById: string;
   isDefault: boolean;
-  createdAt: Date;
+  createdAt: string;
 }
 
 /**
@@ -19,7 +20,7 @@ interface Channel {
  * Note: Authentication headers are automatically added by Apollo Client's authLink
  */
 export function useChannels() {
-  const { data, loading, error, refetch } = useQuery(GET_CHANNELS_QUERY);
+  const { data, loading, error, refetch } = useQuery<GetChannelsQuery>(GET_CHANNELS_QUERY);
 
   return {
     channels: (data?.getChannels || []) as Channel[],

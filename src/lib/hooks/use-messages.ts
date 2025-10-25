@@ -1,6 +1,7 @@
 'use client';
 
 import { useQuery, useMutation, useSubscription } from '@apollo/client/react';
+import type { GetMessagesQuery } from '../graphql/generated/graphql';
 import {
   GET_MESSAGES_QUERY,
   SEND_MESSAGE_MUTATION,
@@ -16,10 +17,10 @@ interface Message {
   channelId: string;
   userId: string;
   encryptedContent: string;
-  timestamp: Date;
+  timestamp: string;
   isEdited: boolean;
-  editedAt: Date | null;
-  createdAt: Date;
+  editedAt: string | null;
+  createdAt: string;
   user: {
     id: string;
     name: string;
@@ -38,7 +39,7 @@ interface UseMessagesOptions {
  * Note: Authentication headers are automatically added by Apollo Client's authLink
  */
 export function useMessages({ channelId, limit = 50, cursor }: UseMessagesOptions) {
-  const { data, loading, error, fetchMore, refetch } = useQuery(GET_MESSAGES_QUERY, {
+  const { data, loading, error, fetchMore, refetch } = useQuery<GetMessagesQuery>(GET_MESSAGES_QUERY, {
     variables: {
       input: {
         channelId,
