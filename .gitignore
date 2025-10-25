@@ -2,12 +2,15 @@
 node_modules
 .pnp
 .pnp.js
+.pnpm-store
 
 # Testing
 coverage
 *.log
 playwright-report
 test-results
+.playwright-mcp
+*.zip
 
 # Next.js
 .next
@@ -50,6 +53,10 @@ Thumbs.db
 *.pem
 *.zip
 *.pdf
+
+# Generated files
+**/generated/
+**/__generated__/
 
 # Prototype (reference only, has own git repo)
 frontend-proto/
