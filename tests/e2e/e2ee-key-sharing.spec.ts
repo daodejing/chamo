@@ -2,30 +2,28 @@ import { test, expect } from '@playwright/test';
 import { translations } from '../../src/lib/translations';
 
 /**
- * REGRESSION TEST: Invite Code Display Bug
+ * E2EE KEY SHARING TEST
  *
- * This test replicates the bug where the UI displays an invite code
- * without the FAMILY- prefix, making it impossible for users to join.
+ * Tests the end-to-end encryption key sharing mechanism via invite codes.
+ * Verifies that:
+ * 1. Admin creates family and encryption key is stored in their IndexedDB
+ * 2. Invite code displays in correct format: FAMILY-XXXXXXXX:BASE64KEY
+ * 3. Member joins using the invite code
+ * 4. Encryption key is automatically stored in member's IndexedDB
+ * 5. Both admin and member have the same encryption key (critical for E2EE)
  *
- * Bug Description:
- * - User creates a family via UI
- * - Toast displays invite code as: "ZJ7VXQ5NTUNV4BX8:xiNf08K7..."
- * - But correct format should be: "FAMILY-ZJ7VXQ5NTUNV4BX8:xiNf08K7..."
- * - When another user tries to join with the displayed code, it fails
- *
- * Expected Behavior:
- * - Toast should display the full invite code in format: FAMILY-XXXXXXXX:BASE64KEY
- * - Users should be able to copy the displayed code and successfully join
+ * This ensures the key sharing is completely transparent to users while
+ * maintaining end-to-end encryption security.
  */
 
 const t = (key: keyof typeof translations.en): string => {
   return translations.en[key];
 };
 
-test.describe('Invite Code Display Bug Regression', () => {
-  const testId = `bug-invite-${Date.now()}`;
+test.describe('E2EE Key Sharing via Invite Codes', () => {
+  const testId = `e2ee-key-${Date.now()}`;
 
-  test('UI should display full invite code with FAMILY- prefix and key', async ({ page }) => {
+  test('Admin and member both receive encryption key transparently', async ({ page }) => {
     // STEP 1: Create a family via the UI
     await page.goto('/login');
     await expect(page.getByText(t('login.title'))).toBeVisible();
@@ -75,8 +73,45 @@ test.describe('Invite Code Display Bug Regression', () => {
     // ASSERTION 3: The full format should be FAMILY-XXXXXXXX:BASE64KEY
     expect(displayedInviteCode).toMatch(/^FAMILY-[A-Z0-9]{16}:[A-Za-z0-9+/=]+$/);
 
+    // ASSERTION 4: Verify the ADMIN's encryption key was stored in IndexedDB
+    const [_, adminKeyFromInviteCode] = displayedInviteCode.split(':');
+    const adminStoredKey = await page.evaluate(async () => {
+      const dbName = 'ourchat-keys';
+      const storeName = 'keys';
+
+      return new Promise((resolve, reject) => {
+        const request = indexedDB.open(dbName);
+
+        request.onsuccess = () => {
+          const db = request.result;
+          const transaction = db.transaction([storeName], 'readonly');
+          const store = transaction.objectStore(storeName);
+          const getRequest = store.get('familyKey');
+
+          getRequest.onsuccess = async () => {
+            const cryptoKey = getRequest.result;
+            if (cryptoKey) {
+              // Export the CryptoKey to base64 for comparison
+              const rawKey = await crypto.subtle.exportKey('raw', cryptoKey);
+              const base64Key = btoa(String.fromCharCode(...new Uint8Array(rawKey)));
+              resolve(base64Key);
+            } else {
+              resolve(null);
+            }
+          };
+          getRequest.onerror = () => reject(getRequest.error);
+        };
+
+        request.onerror = () => reject(request.error);
+      });
+    });
+
+    expect(adminStoredKey, 'Admin encryption key should be stored in IndexedDB').toBeTruthy();
+    expect(adminStoredKey, 'Admin stored key should match invite code key').toBe(adminKeyFromInviteCode);
+    console.log('Admin encryption key verified in IndexedDB');
+
     // STEP 3: Attempt to join with the displayed invite code
-    // Clear authentication state to simulate a new user
+    // Clear authentication state to simulate a new user logging in
     await page.context().clearCookies();
     await page.evaluate(() => {
       localStorage.clear();
@@ -127,9 +162,53 @@ test.describe('Invite Code Display Bug Regression', () => {
     expect(joinData.user.email).toBe(memberEmail);
     expect(joinData.user.role).toBe('MEMBER');
     expect(joinData.family.name).toBe(familyName);
+
+    // ASSERTION 6: Verify the MEMBER's encryption key was stored in IndexedDB
+    // This is critical for E2EE - the key must be transparently saved
+    const memberStoredKey = await page.evaluate(async () => {
+      const dbName = 'ourchat-keys';
+      const storeName = 'keys';
+
+      return new Promise((resolve, reject) => {
+        const request = indexedDB.open(dbName);
+
+        request.onsuccess = () => {
+          const db = request.result;
+          const transaction = db.transaction([storeName], 'readonly');
+          const store = transaction.objectStore(storeName);
+          const getRequest = store.get('familyKey');
+
+          getRequest.onsuccess = async () => {
+            const cryptoKey = getRequest.result;
+            if (cryptoKey) {
+              // Export the CryptoKey to base64 for comparison
+              const rawKey = await crypto.subtle.exportKey('raw', cryptoKey);
+              const base64Key = btoa(String.fromCharCode(...new Uint8Array(rawKey)));
+              resolve(base64Key);
+            } else {
+              resolve(null);
+            }
+          };
+          getRequest.onerror = () => reject(getRequest.error);
+        };
+
+        request.onerror = () => reject(request.error);
+      });
+    });
+
+    expect(memberStoredKey, 'Member encryption key should be stored in IndexedDB').toBeTruthy();
+    console.log('Member encryption key verified in IndexedDB');
+
+    // ASSERTION 7: Verify the stored key matches the key from the invite code
+    const memberKeyFromInviteCode = displayedInviteCode.split(':')[1];
+    expect(memberStoredKey, 'Member stored key should match invite code key').toBe(memberKeyFromInviteCode);
+
+    // ASSERTION 8: Verify admin and member have the SAME encryption key (critical for E2EE)
+    expect(memberStoredKey, 'Admin and member must have identical encryption keys for E2EE').toBe(adminStoredKey);
+    console.log('✓ E2EE key sharing successful: Admin and member have identical keys');
   });
 
-  test('Displayed invite code format validation', async ({ page }) => {
+  test('Invite code format includes encryption key', async ({ page }) => {
     await page.goto('/login');
     await expect(page.getByText(t('login.title'))).toBeVisible();
 
