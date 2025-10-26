@@ -1,6 +1,8 @@
-# OurChat Staging Deployment Setup Guide
+# Chamo Staging Deployment Setup Guide
 
-This guide walks you through setting up the complete staging environment for OurChat using free-tier cloud services. Total cost: **$0/month**.
+This guide walks you through setting up the complete staging environment for Chamo using free-tier cloud services. Total cost: **$0/month**.
+
+> **Note**: The repository is named `ourchat` but the official app name is **Chamo**.
 
 ## Architecture Overview
 
@@ -20,7 +22,7 @@ graph TB
     subgraph "Cloudflare"
         Pages[Cloudflare Pages<br/>Static Hosting]
         CDN[Global CDN<br/>Edge Network]
-        DNS[DNS/SSL<br/>ourchat-staging.pages.dev]
+        DNS[DNS/SSL<br/>chamo-staging.pages.dev]
     end
 
     subgraph "Render"
@@ -121,7 +123,7 @@ The staging stack consists of:
 
 1. In the Neon Console, you'll see your default project
 2. Click **Create Project** or use the default project
-3. Name it `ourchat-staging`
+3. Name it `chamo-staging`
 4. Select a region (choose closest to your users)
 5. Click **Create Project**
 
@@ -130,7 +132,7 @@ The staging stack consists of:
 1. In your project dashboard, click **Connection Details**
 2. Copy the **Connection String** - it looks like:
    ```
-   postgresql://username:password@ep-xxxxx.region.aws.neon.tech/ourchat_staging?sslmode=require
+   postgresql://username:password@ep-xxxxx.region.aws.neon.tech/chamo_staging?sslmode=require
    ```
 3. **Save this** - you'll need it for:
    - `STAGING_DATABASE_URL` (GitHub Secret)
@@ -162,7 +164,7 @@ The staging stack consists of:
 4. Configure the service:
 
    **Basic Settings:**
-   - **Name**: `ourchat-backend-staging`
+   - **Name**: `chamo-backend-staging`
    - **Region**: Choose closest to your users
    - **Branch**: `main`
    - **Root Directory**: `apps/backend`
@@ -180,7 +182,7 @@ The staging stack consists of:
    DATABASE_URL=<your-neon-connection-string>
    JWT_SECRET=<generate-with-openssl-rand-base64-32>
    REFRESH_TOKEN_SECRET=<generate-with-openssl-rand-base64-32>
-   CORS_ALLOWED_ORIGINS=https://ourchat-staging.pages.dev,http://localhost:3002
+   CORS_ALLOWED_ORIGINS=https://chamo-staging.pages.dev,http://localhost:3002
    NODE_ENV=staging
    PORT=4000
    ```
@@ -190,16 +192,16 @@ The staging stack consists of:
 ### 2.3 Get Service URLs
 
 After deployment completes:
-1. Copy your service URL (e.g., `https://ourchat-backend-staging.onrender.com`)
+1. Copy your service URL (e.g., `https://chamo-backend-staging.onrender.com`)
 2. **Save these URLs**:
-   - `STAGING_BACKEND_URL`: `https://ourchat-backend-staging.onrender.com`
-   - `STAGING_GRAPHQL_HTTP_URL`: `https://ourchat-backend-staging.onrender.com/graphql`
+   - `STAGING_BACKEND_URL`: `https://chamo-backend-staging.onrender.com`
+   - `STAGING_GRAPHQL_HTTP_URL`: `https://chamo-backend-staging.onrender.com/graphql`
 
 ### 2.4 Get Deploy Hook
 
 1. In your service settings, go to **Settings** → **Deploy Hook**
 2. Click **Create Deploy Hook**
-3. Name it `GitHub Actions`
+3. Name it `GitHub Actions - Chamo`
 4. Copy the webhook URL
 5. **Save as**: `RENDER_DEPLOY_HOOK_URL` (GitHub Secret)
 
@@ -237,8 +239,8 @@ After deployment completes:
 
    **Environment Variables** (click Add variable):
    ```
-   NEXT_PUBLIC_GRAPHQL_HTTP_URL=https://ourchat-backend-staging.onrender.com/graphql
-   NEXT_PUBLIC_GRAPHQL_WS_URL=wss://ourchat-backend-staging.onrender.com/graphql
+   NEXT_PUBLIC_GRAPHQL_HTTP_URL=https://chamo-backend-staging.onrender.com/graphql
+   NEXT_PUBLIC_GRAPHQL_WS_URL=wss://chamo-backend-staging.onrender.com/graphql
    NEXT_PUBLIC_GROQ_API_KEY=<your-groq-api-key>
    NODE_VERSION=20
    ```
@@ -248,7 +250,7 @@ After deployment completes:
 ### 3.3 Get Deployment URLs
 
 After build completes:
-1. Your site will be at `https://ourchat-staging.pages.dev`
+1. Your site will be at `https://chamo-staging.pages.dev`
 2. **Save as**: `STAGING_FRONTEND_URL` (GitHub Secret)
 
 ### 3.4 Get API Token for GitHub Actions
@@ -256,7 +258,7 @@ After build completes:
 1. Go to **My Profile** → **API Tokens**
 2. Click **Create Token**
 3. Use template: **Edit Cloudflare Workers**
-4. Token name: `GitHub Actions - OurChat`
+4. Token name: `GitHub Actions - Chamo`
 5. Permissions:
    - Account > Cloudflare Pages > Edit
 6. Account Resources: Include > Your Account
@@ -291,7 +293,7 @@ After build completes:
 
 1. Go to **API Keys** in the left sidebar
 2. Click **Create API Key**
-3. Name it `OurChat Staging`
+3. Name it `Chamo Staging`
 4. Copy the API key
 5. **Save as**: `GROQ_API_KEY` (GitHub Secret)
 
@@ -311,21 +313,21 @@ After build completes:
 
    **Database:**
    ```
-   STAGING_DATABASE_URL=postgresql://username:password@ep-xxxxx.region.aws.neon.tech/ourchat_staging?sslmode=require
+   STAGING_DATABASE_URL=postgresql://username:password@ep-xxxxx.region.aws.neon.tech/chamo_staging?sslmode=require
    ```
 
    **Backend (Render):**
    ```
    RENDER_DEPLOY_HOOK_URL=https://api.render.com/deploy/srv-xxxxx
-   STAGING_BACKEND_URL=https://ourchat-backend-staging.onrender.com
-   STAGING_GRAPHQL_HTTP_URL=https://ourchat-backend-staging.onrender.com/graphql
+   STAGING_BACKEND_URL=https://chamo-backend-staging.onrender.com
+   STAGING_GRAPHQL_HTTP_URL=https://chamo-backend-staging.onrender.com/graphql
    ```
 
    **Frontend (Cloudflare):**
    ```
    CLOUDFLARE_API_TOKEN=<your-cloudflare-api-token>
    CLOUDFLARE_ACCOUNT_ID=<your-cloudflare-account-id>
-   STAGING_FRONTEND_URL=https://ourchat-staging.pages.dev
+   STAGING_FRONTEND_URL=https://chamo-staging.pages.dev
    ```
 
    **Optional:**
@@ -354,7 +356,7 @@ Add to Render environment variables (not GitHub Secrets).
 
 ```bash
 # Set DATABASE_URL temporarily
-export DATABASE_URL="postgresql://username:password@ep-xxxxx.region.aws.neon.tech/ourchat_staging?sslmode=require"
+export DATABASE_URL="postgresql://username:password@ep-xxxxx.region.aws.neon.tech/chamo_staging?sslmode=require"
 
 # Run migrations
 cd apps/backend
@@ -399,15 +401,15 @@ pnpm prisma studio
 After deployment:
 ```bash
 # Check backend health
-curl https://ourchat-backend-staging.onrender.com/health
+curl https://chamo-backend-staging.onrender.com/health
 
 # Check GraphQL endpoint
-curl -X POST https://ourchat-backend-staging.onrender.com/graphql \
+curl -X POST https://chamo-backend-staging.onrender.com/graphql \
   -H "Content-Type: application/json" \
   -d '{"query":"{ __typename }"}'
 
 # Check frontend
-curl https://ourchat-staging.pages.dev
+curl https://chamo-staging.pages.dev
 ```
 
 ---
