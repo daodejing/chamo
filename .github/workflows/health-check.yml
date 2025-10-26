@@ -1,0 +1,130 @@
+name: Health Check Monitoring
+
+on:
+  schedule:
+    # Run every 15 minutes
+    - cron: '*/15 * * * *'
+  workflow_dispatch: # Allow manual trigger
+
+jobs:
+  health-check:
+    name: Check Staging Health
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Check Frontend Availability
+        id: frontend-check
+        continue-on-error: true
+        env:
+          FRONTEND_URL: ${{ secrets.STAGING_FRONTEND_URL }}
+        run: |
+          response=$(curl -s -o /dev/null -w "%{http_code}" "$FRONTEND_URL" --max-time 10)
+          if [ "$response" -eq 200 ]; then
+            echo "✅ Frontend is accessible (HTTP $response)"
+            echo "status=success" >> $GITHUB_OUTPUT
+          else
+            echo "❌ Frontend is not accessible (HTTP $response)"
+            echo "status=failure" >> $GITHUB_OUTPUT
+            exit 1
+          fi
+
+      - name: Check Backend Health Endpoint
+        id: backend-check
+        continue-on-error: true
+        env:
+          BACKEND_URL: ${{ secrets.STAGING_BACKEND_URL }}
+        run: |
+          response=$(curl -s "$BACKEND_URL/health" --max-time 30)
+
+          if echo "$response" | grep -q -E '"status":"(ok|healthy)"'; then
+            echo "✅ Backend health check passed"
+            echo "status=success" >> $GITHUB_OUTPUT
+          else
+            echo "❌ Backend health check failed"
+            echo "Response: $response"
+            echo "status=failure" >> $GITHUB_OUTPUT
+            exit 1
+          fi
+
+      - name: Check GraphQL Endpoint
+        id: graphql-check
+        continue-on-error: true
+        env:
+          GRAPHQL_URL: ${{ secrets.STAGING_GRAPHQL_HTTP_URL }}
+        run: |
+          response=$(curl -s -X POST "$GRAPHQL_URL" \
+            -H "Content-Type: application/json" \
+            -d '{"query":"{ __typename }"}' \
+            --max-time 30)
+
+          if echo "$response" | grep -q "__typename"; then
+            echo "✅ GraphQL endpoint is responding"
+            echo "status=success" >> $GITHUB_OUTPUT
+          else
+            echo "❌ GraphQL endpoint check failed"
+            echo "Response: $response"
+            echo "status=failure" >> $GITHUB_OUTPUT
+            exit 1
+          fi
+
+      - name: Evaluate Health Status
+        if: always()
+        env:
+          FRONTEND_STATUS: ${{ steps.frontend-check.outputs.status }}
+          BACKEND_STATUS: ${{ steps.backend-check.outputs.status }}
+          GRAPHQL_STATUS: ${{ steps.graphql-check.outputs.status }}
+        run: |
+          echo "Frontend: $FRONTEND_STATUS"
+          echo "Backend: $BACKEND_STATUS"
+          echo "GraphQL: $GRAPHQL_STATUS"
+
+          if [ "$FRONTEND_STATUS" == "success" ] && [ "$BACKEND_STATUS" == "success" ] && [ "$GRAPHQL_STATUS" == "success" ]; then
+            echo "✅ All health checks passed"
+            exit 0
+          else
+            echo "❌ One or more health checks failed"
+            exit 1
+          fi
+
+      - name: Create alert issue on consecutive failures
+        if: failure()
+        uses: actions/github-script@v7
+        env:
+          FRONTEND_STATUS: ${{ steps.frontend-check.outputs.status }}
+          BACKEND_STATUS: ${{ steps.backend-check.outputs.status }}
+          GRAPHQL_STATUS: ${{ steps.graphql-check.outputs.status }}
+        with:
+          script: |
+            // Check for recent health check failures
+            const { data: issues } = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              labels: 'health-check-alert',
+              state: 'open',
+              sort: 'created',
+              direction: 'desc',
+              per_page: 1
+            });
+
+            // Only create new issue if no open alert exists from last 24 hours
+            const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+            const hasRecentAlert = issues.length > 0 &&
+              new Date(issues[0].created_at) > oneDayAgo;
+
+            if (!hasRecentAlert) {
+              const frontendStatus = process.env.FRONTEND_STATUS || 'unknown';
+              const backendStatus = process.env.BACKEND_STATUS || 'unknown';
+              const graphqlStatus = process.env.GRAPHQL_STATUS || 'unknown';
+
+              const issue = await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title: `🚨 Staging Environment Health Check Failure`,
+                body: `⚠️  Staging environment health check failed at ${new Date().toISOString()}\n\n**Failed Checks:**\n- Frontend: ${frontendStatus}\n- Backend: ${backendStatus}\n- GraphQL: ${graphqlStatus}\n\n**Action Required:**\nPlease investigate the staging environment.\n\nWorkflow run: ${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
+                labels: ['health-check-alert', 'staging', 'urgent']
+              });
+              console.log(`Created alert issue #${issue.data.number}`);
+            } else {
+              console.log('Recent alert already exists, skipping issue creation');
+            }

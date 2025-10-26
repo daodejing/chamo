@@ -64,12 +64,11 @@ export function UnifiedLoginScreen({ onSuccess }: UnifiedLoginScreenProps) {
         });
         // Display invite code in toast for sharing (AC3 from Story 1.1)
         if (family?.inviteCode) {
-          toast.success(
-            `${t('toast.familyCreated', language)}\n\nInvite Code:\n${family.inviteCode}\n\nShare this code with family members to join`,
-            {
-              duration: 10000,
-            }
-          );
+          toast.success(family.inviteCode, {
+            duration: 10000,
+            description: t('toast.familyCreated', language),
+            className: 'invite-code-toast',
+          });
         } else {
           toast.success(t('toast.familyCreated', language), { duration: 10000 });
         }

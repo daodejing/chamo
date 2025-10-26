@@ -1,0 +1,212 @@
+<story-context id="bmad/bmm/workflows/4-implementation/story-context/template" v="1.0">
+  <metadata>
+    <epicId>8</epicId>
+    <storyId>1</storyId>
+    <title>Set up CI/CD Pipeline and Staging Deployment</title>
+    <status>Draft</status>
+    <generatedAt>2025-10-26</generatedAt>
+    <generator>BMAD Story Context Workflow</generator>
+    <sourceStoryPath>/Users/usr0101345/projects/ourchat/docs/stories/story-8.1.md</sourceStoryPath>
+  </metadata>
+
+  <story>
+    <asA>developer</asA>
+    <iWant>automated CI/CD pipeline with GitHub Actions</iWant>
+    <soThat>code changes are tested and deployed to staging automatically</soThat>
+    <tasks>- [ ] Task 1: Create GitHub Actions CI workflow (AC: #1, #2)
+  - [ ] Subtask 1.1: Create `.github/workflows/ci.yml`
+  - [ ] Subtask 1.2: Configure matrix testing for Node.js versions (20.x)
+  - [ ] Subtask 1.3: Add frontend unit tests job (Vitest)
+  - [ ] Subtask 1.4: Add backend unit tests job (Jest/Vitest)
+  - [ ] Subtask 1.5: Add integration tests job
+  - [ ] Subtask 1.6: Add E2E tests job (Playwright)
+  - [ ] Subtask 1.7: Configure test result reporting and artifacts
+  - [ ] Subtask 1.8: Set up required status checks for PR merges
+
+- [ ] Task 2: Create staging deployment workflow (AC: #3, #4, #5)
+  - [ ] Subtask 2.1: Create `.github/workflows/deploy-staging.yml`
+  - [ ] Subtask 2.2: Configure Cloudflare Pages deployment for frontend
+  - [ ] Subtask 2.3: Configure Render deployment for backend
+  - [ ] Subtask 2.4: Add Prisma migration step to backend deployment
+  - [ ] Subtask 2.5: Configure environment variables as GitHub secrets
+  - [ ] Subtask 2.6: Add post-deployment health check job
+  - [ ] Subtask 2.7: Add deployment status notifications (success/failure)
+
+- [ ] Task 3: Configure staging environment infrastructure (AC: #3, #4)
+  - [ ] Subtask 3.1: Create Neon PostgreSQL staging database
+  - [ ] Subtask 3.2: Set up Render staging service for NestJS backend
+  - [ ] Subtask 3.3: Set up Cloudflare Pages staging project
+  - [ ] Subtask 3.4: Configure Cloudflare R2 bucket for staging photos
+  - [ ] Subtask 3.5: Set up CORS configuration for staging domains
+  - [ ] Subtask 3.6: Document staging URLs and access credentials
+
+- [ ] Task 4: Create environment variable management (AC: #3)
+  - [ ] Subtask 4.1: Create `.env.staging.template` with all required variables
+  - [ ] Subtask 4.2: Document environment variables in README
+  - [ ] Subtask 4.3: Add GitHub secrets for sensitive values
+  - [ ] Subtask 4.4: Create script to validate environment variables
+  - [ ] Subtask 4.5: Add fail-fast validation for missing env vars
+
+- [ ] Task 5: Implement health check endpoints and monitoring (AC: #5, #6)
+  - [ ] Subtask 5.1: Create `/health` endpoint in NestJS backend
+  - [ ] Subtask 5.2: Add database connectivity check to health endpoint
+  - [ ] Subtask 5.3: Create `.github/workflows/health-check.yml` for scheduled monitoring
+  - [ ] Subtask 5.4: Configure health check to run every 15 minutes
+  - [ ] Subtask 5.5: Add GitHub Issues alert on health check failure
+  - [ ] Subtask 5.6: Create simple frontend health check page
+
+- [ ] Task 6: Set up deployment logging and observability (AC: #7)
+  - [ ] Subtask 6.1: Configure Render logging with 30-day retention
+  - [ ] Subtask 6.2: Set up Cloudflare Pages deployment logs
+  - [ ] Subtask 6.3: Add structured logging to GitHub Actions workflows
+  - [ ] Subtask 6.4: Create deployment history tracking
+  - [ ] Subtask 6.5: Add rollback documentation and procedures
+
+- [ ] Task 7: Configure Next.js for static export (if needed) (AC: #3)
+  - [ ] Subtask 7.1: Update `next.config.js` with `output: 'export'`
+  - [ ] Subtask 7.2: Add `images: { unoptimized: true }` configuration
+  - [ ] Subtask 7.3: Test static build locally (`npm run build`)
+  - [ ] Subtask 7.4: Verify all routes work without server dependencies
+  - [ ] Subtask 7.5: Update GraphQL endpoint URLs for staging
+
+- [ ] Task 8: Write deployment documentation (AC: All)
+  - [ ] Subtask 8.1: Create `docs/deployment-guide.md`
+  - [ ] Subtask 8.2: Document manual deployment procedures
+  - [ ] Subtask 8.3: Document rollback procedures
+  - [ ] Subtask 8.4: Document environment setup for new developers
+  - [ ] Subtask 8.5: Create troubleshooting guide for common deployment issues
+
+- [ ] Task 9: Test complete CI/CD pipeline end-to-end (AC: All)
+  - [ ] Subtask 9.1: Create test PR with passing tests
+  - [ ] Subtask 9.2: Verify all CI checks pass
+  - [ ] Subtask 9.3: Merge to main and verify staging deployment
+  - [ ] Subtask 9.4: Verify database migration applied
+  - [ ] Subtask 9.5: Verify health checks pass
+  - [ ] Subtask 9.6: Test health check monitoring and alerting</tasks>
+  </story>
+
+  <acceptanceCriteria>1. **AC1:** GitHub Actions runs all tests (unit, integration, E2E) on every pull request
+2. **AC2:** Pull requests are blocked from merging if any tests fail
+3. **AC3:** Successful merges to main branch trigger automatic deployment to staging environment
+4. **AC4:** Database migrations are automatically applied to staging database during deployment
+5. **AC5:** Staging deployment health check verifies frontend and backend are accessible
+6. **AC6:** Basic uptime monitoring alerts team if staging goes down
+7. **AC7:** Deployment logs are accessible and retained for 30 days</acceptanceCriteria>
+
+  <artifacts>
+    <docs>
+      <doc path="/Users/usr0101345/projects/ourchat/docs/architecture/cloud-deployment-options.md" title="Cloud Deployment Options" section="Deployment Option 2">
+        Recommended free forever stack: Cloudflare Pages (frontend static hosting), Render free tier (NestJS backend with cold starts), Neon PostgreSQL (0.5GB free, serverless), Cloudflare R2 (object storage). Cost: $0/month for staging. Migration guides included for MySQL to PostgreSQL and Next.js static export configuration. CORS setup for separated frontend/backend domains.
+      </doc>
+      <doc path="/Users/usr0101345/projects/ourchat/docs/architecture/cloud-deployment-options.md" title="Cloud Deployment Options" section="Phased Deployment Strategy">
+        Phase 1 (MVP): $0/month using free tiers, accept cold starts on Render. Phase 2 (Production): $27/month with Render Starter ($7) + Neon Launch ($19). Upgrade triggers: cold starts impacting UX, need better performance, storing &gt;0.5GB data. Break-even analysis: 6 paying families at $5/month covers production costs.
+      </doc>
+      <doc path="/Users/usr0101345/projects/ourchat/docs/architecture/cloud-deployment-options.md" title="Cloud Deployment Options" section="Static Export Analysis">
+        OurChat can use Next.js static export because: no API routes exist, middleware disabled, all components client-side ("use client"), Apollo Client handles data fetching. What you lose: SSR (not used), API routes (don't exist), middleware (disabled). What you keep: client routing, React components, GraphQL, client auth, WebSocket. Configuration: output: 'export', images.unoptimized: true. Saves $20/month vs Vercel Pro.
+      </doc>
+      <doc path="/Users/usr0101345/projects/ourchat/docs/solution-architecture.md" title="Solution Architecture" section="System Architecture">
+        NestJS + GraphQL backend with Apollo Server, JWT authentication, Prisma ORM for PostgreSQL. Frontend: Next.js 15 + React 19 + Apollo Client. Monorepo structure with apps/backend and src/ frontend. Docker Compose for local dev with MySQL 8.0 (migrated to PostgreSQL for prod). Real-time via GraphQL subscriptions (WebSocket).
+      </doc>
+      <doc path="https://docs.github.com/actions" title="GitHub Actions Documentation" section="Workflow Syntax">
+        YAML-based workflow configuration. Triggers: on.push, on.pull_request, on.workflow_dispatch, on.schedule (cron). Jobs run in parallel by default, use needs for dependencies. Matrix strategy for testing multiple versions. Secrets accessible via ${{ secrets.SECRET_NAME }}. Artifacts for uploading test results/build outputs.
+      </doc>
+      <doc path="https://developers.cloudflare.com/pages" title="Cloudflare Pages Documentation" section="Deploy via Wrangler">
+        CLI deployment: wrangler pages deploy [directory]. Environment variables via dashboard or wrangler.toml. Custom domains, automatic SSL. Build command and output directory configurable. GitHub integration for auto-deploy on push. Preview deployments for PRs. Zero egress fees, unlimited bandwidth.
+      </doc>
+      <doc path="https://render.com/docs" title="Render Documentation" section="Deploy Hooks">
+        Deploy via API: POST https://api.render.com/deploy/srv-XXXXX. Environment variables via dashboard. Auto-deploy from Git. Dockerfile or native runtime support. Health checks for zero-downtime deploys. Free tier: 750hrs/month, auto-suspend after 15min inactivity, 30-60s cold start. Logs retained for 7 days (free), 30 days (paid).
+      </doc>
+      <doc path="https://neon.tech/docs" title="Neon PostgreSQL Documentation" section="Connection Pooling">
+        Connection string format: postgresql://user:password@ep-name.region.aws.neon.tech/dbname?sslmode=require. Pooled connection for serverless: add ?pgbouncer=true. Free tier: 0.5GB storage, 191.9 compute hours/month, auto-suspend after 5min inactivity. Database branching for staging/production isolation.
+      </doc>
+      <doc path="/Users/usr0101345/projects/ourchat/apps/backend/prisma/schema.prisma" title="Prisma Schema" section="Datasource">
+        Current provider: postgresql. Migration command: prisma migrate deploy (production) or prisma migrate dev (development). Migration files in prisma/migrations/. Connection string from DATABASE_URL environment variable. Shadow database not needed for production migrations.
+      </doc>
+    </docs>
+    <code>
+      <artifact path="/Users/usr0101345/projects/ourchat/package.json" kind="config" symbol="scripts" lines="1-50" reason="Contains test scripts that CI workflow will invoke: test, test:e2e, build commands for frontend and backend" />
+      <artifact path="/Users/usr0101345/projects/ourchat/apps/backend/package.json" kind="config" symbol="scripts" lines="1-30" reason="Backend test and build scripts for CI pipeline" />
+      <artifact path="/Users/usr0101345/projects/ourchat/next.config.js" kind="config" symbol="nextConfig" lines="1-50" reason="Will be modified to add static export configuration for Cloudflare Pages deployment" />
+      <artifact path="/Users/usr0101345/projects/ourchat/apps/backend/src/main.ts" kind="module" symbol="bootstrap" lines="1-50" reason="Will add /health endpoint for deployment health checks and monitoring" />
+      <artifact path="/Users/usr0101345/projects/ourchat/apps/backend/prisma/schema.prisma" kind="schema" symbol="datasource db" lines="1-20" reason="PostgreSQL datasource configuration, already migrated, used in deployment migrations" />
+      <artifact path="/Users/usr0101345/projects/ourchat/playwright.config.ts" kind="config" symbol="defineConfig" lines="1-50" reason="Playwright E2E test configuration used by CI pipeline" />
+      <artifact path="/Users/usr0101345/projects/ourchat/vitest.config.ts" kind="config" symbol="defineConfig" lines="1-30" reason="Vitest unit test configuration for frontend tests in CI" />
+    </code>
+    <dependencies>
+      <node>
+        <package>@cloudflare/wrangler</package>
+        <version>^3.0.0</version>
+        <usage>CLI tool for deploying to Cloudflare Pages from GitHub Actions workflows</usage>
+      </node>
+      <node>
+        <package>@playwright/test</package>
+        <version>^1.49.1</version>
+        <usage>Already installed. E2E testing framework used in CI pipeline to validate deployment</usage>
+      </node>
+      <node>
+        <package>vitest</package>
+        <version>^2.1.8</version>
+        <usage>Already installed. Unit testing framework for frontend tests in CI</usage>
+      </node>
+      <node>
+        <package>prisma</package>
+        <version>^6.17.1</version>
+        <usage>Already installed. Database migration tool for applying schema changes during deployment</usage>
+      </node>
+    </dependencies>
+  </artifacts>
+
+  <constraints>
+    <constraint>Use Deployment Option 2 from cloud deployment docs (Cloudflare Pages + Render + Neon PostgreSQL) for $0/month staging costs</constraint>
+    <constraint>All GitHub Actions workflows must complete within 15 minutes to stay within free tier limits (2000 minutes/month)</constraint>
+    <constraint>Database migrations must be idempotent and safe to re-run (use Prisma migrate deploy, not migrate dev)</constraint>
+    <constraint>No secrets or credentials in Git repository or workflow logs (use GitHub Secrets, mask sensitive output)</constraint>
+    <constraint>Static export required for Cloudflare Pages deployment (add output: 'export' to next.config.js)</constraint>
+    <constraint>Health check endpoint must validate database connectivity, not just return 200 OK</constraint>
+    <constraint>CI pipeline must fail fast: stop on first test failure to save minutes and provide quick feedback</constraint>
+    <constraint>Deployment workflows only trigger on main branch pushes, never on PRs (staging deployment is post-merge)</constraint>
+    <constraint>CORS must be configured for specific staging domains only (no wildcard * allowed for security)</constraint>
+    <constraint>Free tier Render has cold starts (30-60s): health checks must accommodate this, not fail immediately</constraint>
+    <constraint>E2E tests in CI must use headless mode (no browser UI) and clean up test data after completion</constraint>
+    <constraint>Logs must be structured and include timestamps, job names, and deployment identifiers for debugging</constraint>
+  </constraints>
+  <interfaces>
+    <interface name="GitHub Actions workflow_dispatch" kind="event" signature="Manual workflow trigger with optional inputs" path=".github/workflows/*.yml">
+      Allows manual deployment trigger from GitHub UI. Useful for redeploying staging without code changes or testing deployment process. Can include input parameters for environment selection or deployment options.
+    </interface>
+    <interface name="GitHub Actions secrets" kind="config" signature="Encrypted environment variables" path="GitHub repository settings">
+      Required secrets: CLOUDFLARE_API_TOKEN (Pages deployment), RENDER_API_KEY (backend deployment), DATABASE_URL (Neon PostgreSQL), JWT_SECRET, REFRESH_TOKEN_SECRET, NEXT_PUBLIC_GRAPHQL_HTTP_URL, NEXT_PUBLIC_GRAPHQL_WS_URL. Never logged or exposed in workflow runs.
+    </interface>
+    <interface name="Cloudflare Pages API" kind="api" signature="POST /accounts/:id/pages/projects/:name/deployments" path="Cloudflare API">
+      Deploy static site to Cloudflare Pages. Requires API token. Upload directory contents (Next.js 'out' folder). Returns deployment ID and URL. Automatic SSL, global CDN distribution. Preview deployments for branches.
+    </interface>
+    <interface name="Render Deploy Hook" kind="api" signature="POST https://api.render.com/deploy/:service-id" path="Render API">
+      Trigger backend deployment. Requires API key. Pulls latest code from Git, runs build, applies Prisma migrations, restarts service. Zero-downtime rolling deploy. Health check validation before completing.
+    </interface>
+    <interface name="/health endpoint" kind="api" signature="GET /health returns {status, database, timestamp}" path="apps/backend/src/main.ts">
+      Backend health check endpoint. Returns JSON with application status, database connectivity check, and timestamp. Used by deployment workflows to verify successful deployment and by monitoring to detect outages.
+    </interface>
+    <interface name="Prisma migrate deploy" kind="cli" signature="prisma migrate deploy --schema=./prisma/schema.prisma" path="apps/backend">
+      Apply pending migrations to database. Idempotent: safe to run multiple times. Used in deployment workflow before starting backend. Reads DATABASE_URL from environment. Exits with error code if migration fails.
+    </interface>
+  </interfaces>
+  <tests>
+    <standards>
+      CI pipeline testing validates deployment process itself, not application functionality (that's covered by existing unit/integration/E2E tests). Test workflow execution by creating test PRs. Validate health checks return correct status codes. Verify database migrations applied correctly in staging. Test cold start behavior on Render free tier. Validate CORS configuration allows staging frontend to access backend. Test environment variable injection from GitHub Secrets. Verify deployment logs accessible and properly structured. Test rollback procedure manually (not automated yet). Monitor CI execution time stays under 15 minutes.
+    </standards>
+    <locations>
+      <location>Tests are within GitHub Actions workflows themselves (success/failure of workflow = test result)</location>
+      <location>Manual testing checklist in docs/deployment-guide.md</location>
+      <location>Health check validation in .github/workflows/deploy-staging.yml</location>
+    </locations>
+    <ideas>
+      <idea ac="AC1">Create test PR with intentionally failing unit test, verify CI workflow fails and blocks merge</idea>
+      <idea ac="AC2">Verify GitHub branch protection rules configured to require CI passing before merge</idea>
+      <idea ac="AC3">Merge passing PR to main, verify staging deployment workflow triggers automatically within 1 minute</idea>
+      <idea ac="AC4">Add new Prisma migration, merge to main, verify migration applied to staging database (check Neon dashboard)</idea>
+      <idea ac="AC5">After staging deploy, curl health check endpoint, verify frontend accessible at Cloudflare Pages URL</idea>
+      <idea ac="AC6">Manually stop Render backend, verify health check workflow detects failure within 15 minutes and creates GitHub Issue</idea>
+      <idea ac="AC7">Check Render dashboard logs, verify 30-day retention policy configured, verify logs contain structured JSON</idea>
+    </ideas>
+  </tests>
+</story-context>

@@ -46,22 +46,17 @@ test.describe('E2EE Key Sharing via Invite Codes', () => {
     // Submit the form
     await page.locator('button[type="submit"]').click();
 
-    // STEP 2: Extract the invite code from the toast notification
-    // Wait for the success toast to appear
+    // STEP 2: Get the invite code directly from the toast
+    // Wait for the invite code toast to appear
     await page.waitForTimeout(2000); // Give time for toast to render
 
-    // The toast should contain "Invite Code: FAMILY-XXXXXXXX:BASE64KEY"
-    const toastLocator = page.locator('[data-sonner-toast]').filter({ hasText: 'Invite Code:' });
+    // Select the toast by its specific className
+    const toastLocator = page.locator('.invite-code-toast');
     await expect(toastLocator).toBeVisible({ timeout: 10000 });
 
-    const toastText = await toastLocator.textContent();
-    console.log('Toast text:', toastText);
-
-    // Extract the invite code from the toast
-    const inviteCodeMatch = toastText?.match(/Invite Code:\s*([^\n]+)/);
-    expect(inviteCodeMatch, 'Toast should contain an invite code').toBeTruthy();
-
-    const displayedInviteCode = inviteCodeMatch![1].trim();
+    // Get the toast title which contains the invite code
+    const titleLocator = toastLocator.locator('[data-title]');
+    const displayedInviteCode = await titleLocator.textContent();
     console.log('Displayed invite code:', displayedInviteCode);
 
     // ASSERTION 1: The displayed invite code should have the FAMILY- prefix

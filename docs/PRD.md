@@ -516,6 +516,25 @@ Build a purpose-built family platform that:
 
 ---
 
+### Epic 8: Production Deployment & CI/CD
+
+**Priority:** High (Infrastructure)
+**Story Points:** 8
+
+**User Stories:**
+
+**US-8.1** As a developer, I want automated CI/CD pipeline so that code changes are tested and deployed automatically
+**Acceptance Criteria:**
+- GitHub Actions runs all tests on every PR
+- PRs blocked from merging if tests fail
+- Successful merges to main trigger staging deployment
+- Database migrations applied automatically
+- Health checks verify deployment success
+- Deployment logs retained for 30 days
+- Basic uptime monitoring alerts team
+
+---
+
 ## 7. Technical Constraints
 
 ### Architecture
