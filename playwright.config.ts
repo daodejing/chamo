@@ -34,8 +34,9 @@ export default defineConfig({
   ],
 
   // Start dev server on unique port 3003 for E2E tests
+  // Uses E2E_TEST env variable to trigger custom distDir in next.config.js
   webServer: {
-    command: 'pnpm next dev --port 3003',
+    command: 'E2E_TEST=true pnpm next dev --port 3003',
     url: 'http://localhost:3003',
     reuseExistingServer: !process.env.CI, // Reuse if already running (local dev only)
     timeout: 120000, // 2 minutes for first-time compilation

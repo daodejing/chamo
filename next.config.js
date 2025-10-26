@@ -1,6 +1,8 @@
 /** @type {import('next').NextConfig} */
 
 const nextConfig = {
+  // Use separate build directory for E2E tests to avoid lock file conflicts
+  distDir: process.env.E2E_TEST ? '.next-test' : '.next',
   // Static export enabled - deploys to Cloudflare Pages for $0/month
   output: 'export',
   reactStrictMode: true,
