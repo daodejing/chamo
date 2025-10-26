@@ -4,12 +4,14 @@ A privacy-first family collaboration platform with end-to-end encryption, real-t
 
 ## Tech Stack
 
-- **Frontend:** Next.js 15.5, React 19.2, TypeScript 5.9, TailwindCSS 3.4
-- **Backend:** Supabase (PostgreSQL, Realtime, Storage, Auth)
-- **Deployment:** Vercel (Next.js), Supabase Cloud
+- **Frontend:** Next.js 16.0, React 19, TypeScript 5.9, TailwindCSS 3.4
+- **Backend:** NestJS 10.x, GraphQL (Apollo Server), TypeORM
+- **Database:** PostgreSQL (Docker local, Neon cloud)
+- **Deployment:** Cloudflare Pages (frontend), Render (backend)
+- **CI/CD:** GitHub Actions (automated testing & deployment)
 - **E2EE:** Web Crypto API (AES-256-GCM)
 - **Translation:** Groq API (Llama 3.1 70B)
-- **Package Manager:** pnpm 10.x
+- **Package Manager:** pnpm 9.x
 
 ## Prerequisites
 
@@ -17,7 +19,7 @@ Before you begin, ensure you have the following installed:
 
 - **Node.js** 20.x or higher
 - **pnpm** 9.x or higher (`npm install -g pnpm`)
-- **Docker Desktop** (for local Supabase)
+- **Docker Desktop** or **Colima** (for local PostgreSQL + backend)
 - **Git**
 
 ## Development Setup
@@ -37,9 +39,8 @@ pnpm install
 
 ### 3. Configure Colima Docker Socket (macOS with Colima only)
 
-If you're using Colima instead of Docker Desktop, you need to set the `DOCKER_HOST` environment variable:
+If you're using Colima instead of Docker Desktop, the `.envrc` file is already configured:
 
-**Option 1: Using direnv (recommended)**
 ```bash
 # Install direnv if not already installed
 brew install direnv
@@ -51,39 +52,20 @@ brew install direnv
 # Allow the .envrc file in the project directory
 cd ourchat
 direnv allow
-
-# Now DOCKER_HOST will be automatically set when you cd into the project
 ```
 
-**Option 2: Manual export (alternative)**
-```bash
-export DOCKER_HOST=unix:///Users/$USER/.colima/default/docker.sock
-```
+### 4. Start Local Development Stack
 
-### 4. Start Supabase Local Development
-
-This command starts a local Supabase instance using Docker Compose (may take 5-10 minutes on first run):
+Start PostgreSQL and NestJS backend using Docker Compose:
 
 ```bash
-pnpm dlx supabase start
+docker-compose up -d
 ```
 
-After completion, you'll see output like:
-
-```
-Started supabase local development setup.
-
-         API URL: http://localhost:54321
-     GraphQL URL: http://localhost:54321/graphql/v1
-          DB URL: postgresql://postgres:postgres@localhost:54322/postgres
-      Studio URL: http://localhost:54323
-    Inbucket URL: http://localhost:54324
-      JWT secret: your-super-secret-jwt-token-with-at-least-32-characters-long
-        anon key: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
-service_role key: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
-```
-
-**Save these values!** You'll need them for the next step.
+This starts:
+- **PostgreSQL** on port 3306 (MySQL protocol for compatibility)
+- **NestJS Backend** on port 4000 with GraphQL endpoint
+- **GraphQL Playground** at http://localhost:4000/graphql
 
 ### 5. Configure Environment Variables
 
@@ -93,24 +75,15 @@ Copy the example environment file:
 cp .env.local.example .env.local
 ```
 
-Edit `.env.local` with the values from Supabase start:
+Edit `.env.local`:
 
 ```bash
-# Supabase Configuration (from supabase start output)
-NEXT_PUBLIC_SUPABASE_URL=http://localhost:54321
-NEXT_PUBLIC_SUPABASE_ANON_KEY=<your-anon-key-from-supabase-start>
-SUPABASE_SERVICE_ROLE_KEY=<your-service-role-key-from-supabase-start>
+# GraphQL Backend
+NEXT_PUBLIC_GRAPHQL_HTTP_URL=http://localhost:4000/graphql
+NEXT_PUBLIC_GRAPHQL_WS_URL=ws://localhost:4000/graphql
 
 # Groq API (for LLM translation) - Get from https://console.groq.com
 NEXT_PUBLIC_GROQ_API_KEY=gsk_your-groq-api-key-here
-
-# Google OAuth (for Calendar integration) - Get from https://console.cloud.google.com
-GOOGLE_CLIENT_ID=your-google-client-id.apps.googleusercontent.com
-GOOGLE_CLIENT_SECRET=your-google-client-secret
-
-# NextAuth (generate a secret: openssl rand -base64 32)
-NEXTAUTH_URL=http://localhost:3000
-NEXTAUTH_SECRET=your-nextauth-secret-here
 
 # Environment
 NODE_ENV=development
@@ -119,10 +92,12 @@ NODE_ENV=development
 ### 6. Apply Database Migrations
 
 ```bash
-pnpm dlx supabase db reset
+cd apps/backend
+pnpm prisma migrate dev
+cd ../..
 ```
 
-This creates all tables, indexes, and RLS policies defined in `supabase/migrations/`.
+This creates all tables and indexes defined in Prisma schema.
 
 ### 7. Start Next.js Development Server
 
@@ -131,6 +106,35 @@ pnpm dev
 ```
 
 Open [http://localhost:3002](http://localhost:3002) in your browser.
+
+## CI/CD Pipeline
+
+This project includes automated CI/CD workflows powered by GitHub Actions:
+
+### Continuous Integration (`.github/workflows/ci.yml`)
+Runs on every push and pull request:
+- ✅ Frontend unit tests
+- ✅ Backend unit tests
+- ✅ Integration tests
+- ✅ E2E Playwright tests
+- ✅ Build verification
+- ✅ ESLint checks
+
+### Staging Deployment (`.github/workflows/deploy-staging.yml`)
+Automatically deploys to staging on every push to `main`:
+- 🚀 Frontend → Cloudflare Pages
+- 🚀 Backend → Render
+- ✅ Database migrations (Prisma)
+- ✅ Health checks
+
+### Health Monitoring (`.github/workflows/health-check.yml`)
+Runs every 15 minutes to monitor staging environment:
+- 🏥 Frontend availability check
+- 🏥 Backend health endpoint check
+- 🏥 GraphQL endpoint check
+- 🚨 Creates GitHub Issues on failures
+
+See [.env.staging.template](.env.staging.template) for deployment setup instructions.
 
 ## Project Structure
 
@@ -178,43 +182,46 @@ pnpm type-check              # Run TypeScript type checking
 pnpm format                  # Format code with Prettier
 
 # Testing
-pnpm test                    # Run unit & integration tests (Vitest)
-pnpm test:ui                 # Run tests with UI
-pnpm test:coverage           # Run tests with coverage
 pnpm test:e2e                # Run E2E tests (Playwright)
 pnpm test:e2e:ui             # Run E2E tests with UI mode
 pnpm test:e2e:debug          # Debug E2E tests
 
-# Supabase
-pnpm supabase:start          # Start local Supabase
-pnpm supabase:stop           # Stop local Supabase
-pnpm supabase:reset          # Reset database (apply migrations)
-pnpm dlx supabase status     # Check Supabase status
-pnpm dlx supabase db diff    # Generate migration from changes
-pnpm dlx supabase migration new <name>  # Create new migration
+# Database (Prisma)
+cd apps/backend
+pnpm prisma migrate dev      # Create & apply migration
+pnpm prisma migrate deploy   # Apply migrations (production)
+pnpm prisma studio           # Open Prisma Studio GUI
+pnpm prisma generate         # Regenerate Prisma Client
+
+# Docker
+docker-compose up -d         # Start backend + database
+docker-compose down          # Stop all services
+docker-compose logs -f       # View logs
 ```
 
 ## Development Workflow
 
-### Hybrid Approach
+### Monorepo Structure
 
-This project uses a **hybrid development approach**:
+This project uses **pnpm workspaces**:
 
-- **Next.js on host** (runs on your machine for fast hot reload)
-- **Supabase in Docker** (isolated, production-like environment)
+- **Frontend** (`/src`) - Next.js application (runs on host)
+- **Backend** (`/apps/backend`) - NestJS + GraphQL (runs in Docker)
+- **Database** - PostgreSQL (runs in Docker)
 
-### Database Migrations
+### Database Migrations (Prisma)
 
 1. **Create a new migration:**
    ```bash
-   pnpm dlx supabase migration new add_user_preferences
+   cd apps/backend
+   pnpm prisma migrate dev --name add_user_preferences
    ```
 
-2. **Edit the migration** in `supabase/migrations/`
+2. **The migration is automatically applied** to your local database
 
-3. **Apply the migration:**
+3. **Regenerate types:**
    ```bash
-   pnpm dlx supabase db reset
+   pnpm prisma generate
    ```
 
 ### Adding shadcn/ui Components
@@ -228,65 +235,47 @@ pnpm dlx shadcn@latest add input
 
 ### Testing Strategy
 
-**Test Database Configuration:**
-- All tests (unit, integration, E2E) use the **same Supabase instance** on port 54321
-- Tests clean up their own data after each run using `afterAll` hooks
-- Vitest configuration automatically injects test environment variables
-- Auth users may accumulate (401 errors expected), but main tables are cleaned up
-- Run `pnpm supabase:reset` periodically to fully reset the database
+**E2E Testing with Playwright:**
 
-**Running Unit & Integration Tests:**
+Playwright E2E tests run against the local development environment:
+
 ```bash
-# Run all tests (requires dev server on port 3002)
-pnpm dev          # Terminal 1: Start server
-pnpm test         # Terminal 2: Run tests
+# Ensure backend is running
+docker-compose up -d
+
+# Run all E2E tests (auto-starts frontend on port 3003)
+pnpm test:e2e
 
 # Run specific test file
-pnpm test src/tests/integration/auth/register-flow.test.ts
-
-# Run with UI
-pnpm test:ui
-
-# Run with coverage
-pnpm test:coverage
-```
-
-**Running E2E Tests:**
-
-Playwright E2E tests automatically start their own dev server if not already running.
-
-```bash
-# Run all E2E tests
-pnpm test:e2e
+pnpm test:e2e tests/e2e/auth-onboarding.spec.ts
 
 # Run specific browser
 pnpm test:e2e --project=firefox
 pnpm test:e2e --project=chromium
 
 # Run in headed mode (see browser)
-pnpm test:e2e --project=firefox --headed
+pnpm test:e2e --headed
 
 # Debug mode (step through tests)
 pnpm test:e2e:debug
+
+# Run with specific grep pattern
+pnpm test:e2e --grep "AC3"
 ```
 
-**E2E Test Harness Page:**
-Visit http://localhost:3002/test-e2ee to manually test E2EE functions in the browser.
+**Test Harness:**
+- Visit http://localhost:3002/test-e2ee to manually test E2EE functions
 
 **Test Locations:**
-- Unit tests: `tests/unit/` and `src/tests/unit/`
-- Integration tests: `src/tests/integration/`
 - E2E tests: `tests/e2e/`
 
 **Test Coverage:**
-- Message encryption (US-7.1)
-- File encryption (US-7.2)
-- Performance < 20ms (US-7.3)
-- Key storage in IndexedDB
-- Invite code distribution
-- Zero-knowledge verification
-- Registration flow validation
-- Database operations
+- Authentication & onboarding flows
+- E2EE key sharing between family members
+- Invite code generation and usage
+- Message encryption/decryption
+- Multi-user concurrent sessions
+- Form validation and error handling
 
 ## Architecture Overview
 
@@ -297,11 +286,12 @@ Visit http://localhost:3002/test-e2ee to manually test E2EE functions in the bro
 - **Storage:** Client-side IndexedDB
 - **Security:** Zero-knowledge (server cannot decrypt)
 
-### Real-Time Messaging
+### GraphQL API
 
-- **Protocol:** Supabase Realtime (WebSocket)
-- **Channels:** Per-channel subscriptions
-- **Flow:** Encrypt → Send → Store → Broadcast → Decrypt
+- **Server:** NestJS + Apollo Server
+- **Schema:** Code-first with TypeGraphQL decorators
+- **Subscriptions:** WebSocket for real-time updates
+- **Authentication:** JWT tokens in Authorization header
 
 ### Translation
 
@@ -311,40 +301,59 @@ Visit http://localhost:3002/test-e2ee to manually test E2EE functions in the bro
 
 ## Useful Links
 
-- **Supabase Studio:** http://localhost:54323 (when running locally)
-- **Architecture Docs:** `/docs/solution-architecture.md`
+- **GraphQL Playground:** http://localhost:4000/graphql (when running locally)
+- **Frontend:** http://localhost:3002
+- **E2EE Test Harness:** http://localhost:3002/test-e2ee
+- **Architecture Docs:** `/docs/architecture/`
 - **PRD:** `/docs/PRD.md`
-- **Tech Specs:** `/docs/tech-spec-epic-*.md`
+- **User Stories:** `/docs/stories/`
+- **GitHub Repository:** https://github.com/daodejing/ourchat
 
 ## Troubleshooting
 
-### Supabase won't start
+### Backend won't start
 
 ```bash
 # Stop all containers
-pnpm dlx supabase stop
+docker-compose down
 
 # Remove volumes and restart
 docker-compose down -v
-pnpm dlx supabase start
+docker-compose up -d
 ```
 
 ### Port conflicts
 
-If ports 54321-54324 are in use, edit `supabase/config.toml` to change ports.
+If ports 3306 or 4000 are in use:
+- Edit `docker-compose.yml` to change ports
+- Update `NEXT_PUBLIC_GRAPHQL_HTTP_URL` in `.env.local`
 
 ### TypeScript errors after schema changes
 
 ```bash
-# Regenerate Supabase types
-pnpm dlx supabase gen types typescript --local > src/types/database.ts
+# Regenerate Prisma types
+cd apps/backend
+pnpm prisma generate
 ```
 
-### Hot reload not working
+### GraphQL schema changes not reflecting
 
 ```bash
-# Restart Next.js dev server
-pnpm dev
+# Restart backend
+docker-compose restart backend
+
+# Check backend logs
+docker-compose logs -f backend
+```
+
+### Database connection issues
+
+```bash
+# Check if MySQL is running
+docker-compose ps
+
+# Check backend can connect
+docker-compose logs backend | grep -i mysql
 ```
 
 ## Contributing
