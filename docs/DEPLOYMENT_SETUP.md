@@ -2,13 +2,101 @@
 
 This guide walks you through setting up the complete staging environment for OurChat using free-tier cloud services. Total cost: **$0/month**.
 
-## Overview
+## Architecture Overview
+
+```mermaid
+graph TB
+    subgraph "Developer Machine"
+        Dev[Developer]
+        Git[Git Push to main]
+    end
+
+    subgraph "GitHub"
+        Repo[daodejing/ourchat<br/>Repository]
+        Actions[GitHub Actions<br/>CI/CD Workflows]
+        Secrets[Encrypted Secrets<br/>- API Tokens<br/>- DB URLs<br/>- JWT Secrets]
+    end
+
+    subgraph "Cloudflare"
+        Pages[Cloudflare Pages<br/>Static Hosting]
+        CDN[Global CDN<br/>Edge Network]
+        DNS[DNS/SSL<br/>ourchat-staging.pages.dev]
+    end
+
+    subgraph "Render"
+        Backend[NestJS Backend<br/>Web Service]
+        Container[Docker Container<br/>Node.js 20]
+        GraphQL[GraphQL API<br/>/graphql endpoint]
+    end
+
+    subgraph "Neon"
+        DB[(PostgreSQL<br/>Serverless DB)]
+        Branches[Database Branches<br/>main/dev/test]
+    end
+
+    subgraph "External Services"
+        Groq[Groq API<br/>LLM Translation<br/>Llama 3.1 70B]
+    end
+
+    subgraph "End Users"
+        Browser[Web Browser<br/>Chrome/Firefox/Safari]
+    end
+
+    %% Developer Flow
+    Dev -->|1. Code & Push| Git
+    Git -->|2. Trigger| Repo
+    Repo -->|3. Run Workflows| Actions
+    Actions -->|4. Read| Secrets
+
+    %% CI/CD to Cloudflare
+    Actions -->|5a. Deploy Frontend<br/>wrangler deploy| Pages
+    Pages -->|Serve via| CDN
+    CDN -->|HTTPS| DNS
+
+    %% CI/CD to Render
+    Actions -->|5b. Trigger Deploy<br/>webhook| Backend
+    Backend -->|Run in| Container
+    Container -->|Expose| GraphQL
+
+    %% Database Connections
+    Actions -->|6. Run Migrations<br/>prisma migrate| DB
+    Backend -->|7. Query/Mutate<br/>Prisma ORM| DB
+    DB -.->|Branching| Branches
+
+    %% User Access Flow
+    Browser -->|8. HTTPS Request| DNS
+    DNS -->|Serve Static Files| Browser
+    Browser -->|9. GraphQL Query/Mutation<br/>HTTP/WebSocket| GraphQL
+    GraphQL -->|Process| Backend
+
+    %% Translation
+    Browser -->|10. Translation Request| Groq
+    Groq -->|Translated Text| Browser
+
+    %% Styling
+    classDef github fill:#24292e,stroke:#fff,stroke-width:2px,color:#fff
+    classDef cloudflare fill:#f38020,stroke:#fff,stroke-width:2px,color:#fff
+    classDef render fill:#46E3B7,stroke:#fff,stroke-width:2px,color:#000
+    classDef neon fill:#00e5cc,stroke:#fff,stroke-width:2px,color:#000
+    classDef groq fill:#7c3aed,stroke:#fff,stroke-width:2px,color:#fff
+    classDef user fill:#3b82f6,stroke:#fff,stroke-width:2px,color:#fff
+
+    class Repo,Actions,Secrets github
+    class Pages,CDN,DNS cloudflare
+    class Backend,Container,GraphQL render
+    class DB,Branches neon
+    class Groq groq
+    class Browser user
+```
+
+## Stack Components
 
 The staging stack consists of:
 - **Frontend**: Cloudflare Pages (Next.js static export)
 - **Backend**: Render Web Service (NestJS + GraphQL)
 - **Database**: Neon PostgreSQL (serverless)
 - **CI/CD**: GitHub Actions (automated deployments)
+- **Translation**: Groq API (optional)
 
 ---
 
