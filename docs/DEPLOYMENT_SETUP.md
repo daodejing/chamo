@@ -449,20 +449,70 @@ This is expected on Render free tier (15-30 seconds). Consider:
 
 ---
 
+## Network Security & Architecture
+
+### Database Connectivity
+
+**Important**: Neon and Render do **not** share a private network on the free tier.
+
+**How it works:**
+- Render backend connects to Neon database over the **public internet**
+- All connections are encrypted with **SSL/TLS** (`?sslmode=require`)
+- Neon enforces strong passwords (60-bit entropy)
+- Connection uses certificate verification (`verify-full` mode recommended)
+
+**Security Measures:**
+- ✅ End-to-end encryption (TLS 1.2+)
+- ✅ Strong authentication (random 32+ character passwords)
+- ✅ Certificate validation prevents MITM attacks
+- ⚠️ Database endpoint is publicly addressable (but protected)
+
+**Is this secure for staging?**
+Yes! The free tier setup is secure enough for staging because:
+1. All data in transit is encrypted
+2. Authentication prevents unauthorized access
+3. Performance impact is minimal for low traffic
+
+### Upgrade Options for Production
+
+If you need enhanced security for production:
+
+**Option 1: IP Allowlist** (Neon Scale $19/month)
+- Whitelist only Render's IP addresses
+- Still uses public internet but restricts access
+- Blocks connection attempts from unauthorized IPs
+
+**Option 2: Private Networking** (Enterprise)
+- AWS PrivateLink between Neon and Render
+- Traffic stays on AWS backbone (never touches public internet)
+- Requires Professional plans on both services
+- Best security, lowest latency
+
 ## Cost Summary
 
 | Service | Free Tier | Limits |
 |---------|-----------|--------|
-| Neon PostgreSQL | $0/month | 3 GiB, shared compute |
+| Neon PostgreSQL | $0/month | 3 GiB, shared compute, **public endpoint** |
 | Render Web Service | $0/month | 750 hours, cold starts |
 | Cloudflare Pages | $0/month | Unlimited bandwidth, 500 builds |
 | GitHub Actions | $0/month | 2,000 minutes |
 | **Total** | **$0/month** | Suitable for staging |
 
 ### Upgrade Path (Production)
-- Render Starter: $7/month (no cold starts)
-- Neon Launch: $19/month (better performance)
-- **Production Total**: ~$27/month
+
+**Basic Production** (~$27/month):
+- Render Starter: $7/month (no cold starts, persistent instances)
+- Neon Launch: $19/month (better performance, more storage)
+
+**Secure Production** (~$65/month):
+- Render Professional: $25/month (private networking capability)
+- Neon Scale: $19/month (IP allowlist, higher limits)
+- Enhanced monitoring & support
+
+**Enterprise Production** (Custom pricing):
+- AWS PrivateLink integration
+- Dedicated compute resources
+- 24/7 support
 
 ---
 
