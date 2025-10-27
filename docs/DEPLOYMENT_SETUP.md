@@ -2,7 +2,7 @@
 
 This guide walks you through setting up the complete staging environment for Chamo using free-tier cloud services. Total cost: **$0/month**.
 
-> **Note**: The repository is named `ourchat` but the official app name is **Chamo**.
+> **Note**: The repository is named `chamo` and the official app name is **Chamo**.
 
 ## Architecture Overview
 
@@ -14,7 +14,7 @@ graph TB
     end
 
     subgraph "GitHub"
-        Repo[daodejing/ourchat<br/>Repository]
+        Repo[daodejing/chamo<br/>Repository]
         Actions[GitHub Actions<br/>CI/CD Workflows]
         Secrets[Encrypted Secrets<br/>- API Tokens<br/>- DB URLs<br/>- JWT Secrets]
     end
@@ -104,7 +104,7 @@ The staging stack consists of:
 
 ## Prerequisites
 
-- GitHub account with access to `daodejing/ourchat` repository
+- GitHub account with access to `daodejing/chamo` repository
 - Email address for account signups
 - ~30 minutes for complete setup
 
@@ -160,7 +160,7 @@ The staging stack consists of:
 
 1. From the Render Dashboard, click **New +** → **Web Service**
 2. Choose **Build and deploy from a Git repository**
-3. Click **Connect** next to `daodejing/ourchat`
+3. Click **Connect** next to `daodejing/chamo`
 4. Configure the service:
 
    **Basic Settings:**
@@ -228,7 +228,7 @@ After deployment completes:
 2. Click **Create application** → **Pages**
 3. Click **Connect to Git**
 4. Choose **GitHub** and authorize Cloudflare
-5. Select `daodejing/ourchat` repository
+5. Select `daodejing/chamo` repository
 6. Configure build settings:
 
    **Build Configuration:**
@@ -307,7 +307,7 @@ After build completes:
 
 ### 5.1 Add Repository Secrets
 
-1. Go to https://github.com/daodejing/ourchat
+1. Go to https://github.com/daodejing/chamo
 2. Click **Settings** → **Secrets and variables** → **Actions**
 3. Click **New repository secret** for each:
 
@@ -392,7 +392,7 @@ pnpm prisma studio
 
 ### 7.2 Monitor Deployment
 
-1. Go to https://github.com/daodejing/ourchat/actions
+1. Go to https://github.com/daodejing/chamo/actions
 2. Click on the running workflow
 3. Watch the deployment progress
 
@@ -532,4 +532,4 @@ For issues with:
 - **Neon**: https://neon.tech/docs/introduction/support
 - **Render**: https://render.com/docs/support
 - **Cloudflare**: https://developers.cloudflare.com/support/
-- **This project**: Create an issue at https://github.com/daodejing/ourchat/issues
+- **This project**: Create an issue at https://github.com/daodejing/chamo/issues

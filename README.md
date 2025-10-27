@@ -27,8 +27,8 @@ Before you begin, ensure you have the following installed:
 ### 1. Clone the Repository
 
 ```bash
-git clone git@github.com:daodejing/ourchat.git
-cd ourchat
+git clone git@github.com:daodejing/chamo.git
+cd chamo
 ```
 
 ### 2. Install Dependencies
@@ -50,7 +50,7 @@ brew install direnv
 # For zsh: echo 'eval "$(direnv hook zsh)"' >> ~/.zshrc
 
 # Allow the .envrc file in the project directory
-cd ourchat
+cd chamo
 direnv allow
 ```
 
@@ -139,7 +139,7 @@ See [.env.staging.template](.env.staging.template) for deployment setup instruct
 ## Project Structure
 
 ```
-ourchat/
+chamo/
 ├── src/
 │   ├── app/                 # Next.js 15 App Router
 │   │   ├── (auth)/          # Auth pages (login)
@@ -307,7 +307,7 @@ pnpm test:e2e --grep "AC3"
 - **Architecture Docs:** `/docs/architecture/`
 - **PRD:** `/docs/PRD.md`
 - **User Stories:** `/docs/stories/`
-- **GitHub Repository:** https://github.com/daodejing/ourchat
+- **GitHub Repository:** https://github.com/daodejing/chamo
 
 ## Troubleshooting
 
