@@ -64,9 +64,10 @@ export function UnifiedLoginScreen({ onSuccess }: UnifiedLoginScreenProps) {
         });
         // Display invite code in toast for sharing (AC3 from Story 1.1)
         if (family?.inviteCode) {
+          // Display full invite code (FAMILY-XXXXXXXX:BASE64KEY) for sharing
+          // Members need both parts: code for backend, key for decryption
           toast.success(family.inviteCode, {
             duration: 10000,
-            description: t('toast.familyCreated', language),
             className: 'invite-code-toast',
           });
         } else {

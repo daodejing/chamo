@@ -142,7 +142,7 @@ function AuthProviderInner({ children }: { children: React.ReactNode}) {
       await initializeFamilyKey(base64Key);
 
       // Combine invite code with key for display to user
-      const fullInviteCode = createInviteCodeWithKey(inviteCode, base64Key);
+      const fullInviteCode = createInviteCodeWithKey(data.register.family.inviteCode, base64Key);
 
       // Return family data with combined invite code for UI display
       const familyWithFullCode = {
@@ -151,7 +151,6 @@ function AuthProviderInner({ children }: { children: React.ReactNode}) {
       };
 
       setFamily(familyWithFullCode);
-
       return familyWithFullCode;
     }
 

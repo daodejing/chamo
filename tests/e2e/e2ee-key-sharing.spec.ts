@@ -46,7 +46,7 @@ test.describe('E2EE Key Sharing via Invite Codes', () => {
     // Submit the form
     await page.locator('button[type="submit"]').click();
 
-    // STEP 2: Get the invite code directly from the toast
+    // STEP 2: Get the invite code as a user would see it
     // Wait for the invite code toast to appear
     await page.waitForTimeout(2000); // Give time for toast to render
 
@@ -54,21 +54,22 @@ test.describe('E2EE Key Sharing via Invite Codes', () => {
     const toastLocator = page.locator('.invite-code-toast');
     await expect(toastLocator).toBeVisible({ timeout: 10000 });
 
-    // Get the toast title which contains the invite code
-    const titleLocator = toastLocator.locator('[data-title]');
-    const displayedInviteCode = await titleLocator.textContent();
+    // Simulate what a user would see when they try to copy the toast content
+    // Get ALL text content that would be selected if user clicks the toast
+    const allToastText = await toastLocator.textContent();
+    console.log('All toast text (what user would copy):', allToastText);
+
+    // The invite code should be the ONLY thing displayed (no extra text)
+    // If there's extra text, users will copy garbage along with the code
+    const displayedInviteCode = allToastText!.trim();
     console.log('Displayed invite code:', displayedInviteCode);
 
-    // ASSERTION 1: The displayed invite code should have the FAMILY- prefix
-    expect(displayedInviteCode).toMatch(/^FAMILY-/);
+    // ASSERTION 1: The toast should display the FULL invite code (code + key)
+    // Format: FAMILY-XXXXXXXXXXXXXXXX:BASE64KEY
+    // This is critical - members need the key to decrypt messages
+    expect(displayedInviteCode, 'Toast should display full invite code with encryption key').toMatch(/^FAMILY-[A-Z0-9]{16}:[A-Za-z0-9+/=]+$/);
 
-    // ASSERTION 2: The displayed invite code should contain a colon (separating code and key)
-    expect(displayedInviteCode).toContain(':');
-
-    // ASSERTION 3: The full format should be FAMILY-XXXXXXXX:BASE64KEY
-    expect(displayedInviteCode).toMatch(/^FAMILY-[A-Z0-9]{16}:[A-Za-z0-9+/=]+$/);
-
-    // ASSERTION 4: Verify the ADMIN's encryption key was stored in IndexedDB
+    // ASSERTION 2: Verify the ADMIN's encryption key was stored in IndexedDB
     const [_, adminKeyFromInviteCode] = displayedInviteCode.split(':');
     const adminStoredKey = await page.evaluate(async () => {
       const dbName = 'ourchat-keys';
@@ -194,11 +195,11 @@ test.describe('E2EE Key Sharing via Invite Codes', () => {
     expect(memberStoredKey, 'Member encryption key should be stored in IndexedDB').toBeTruthy();
     console.log('Member encryption key verified in IndexedDB');
 
-    // ASSERTION 7: Verify the stored key matches the key from the invite code
+    // ASSERTION 3: Verify the stored key matches the key from the invite code
     const memberKeyFromInviteCode = displayedInviteCode.split(':')[1];
     expect(memberStoredKey, 'Member stored key should match invite code key').toBe(memberKeyFromInviteCode);
 
-    // ASSERTION 8: Verify admin and member have the SAME encryption key (critical for E2EE)
+    // ASSERTION 4: Verify admin and member have the SAME encryption key (critical for E2EE)
     expect(memberStoredKey, 'Admin and member must have identical encryption keys for E2EE').toBe(adminStoredKey);
     console.log('✓ E2EE key sharing successful: Admin and member have identical keys');
   });
@@ -218,14 +219,12 @@ test.describe('E2EE Key Sharing via Invite Codes', () => {
     await page.locator('#familyName').fill(`${testId} Format Test Family`);
     await page.locator('button[type="submit"]').click();
 
-    // Wait for toast
+    // Wait for toast and get the invite code
     await page.waitForTimeout(2000);
-    const toastLocator = page.locator('[data-sonner-toast]').filter({ hasText: 'Invite Code:' });
+    const toastLocator = page.locator('.invite-code-toast');
     await expect(toastLocator).toBeVisible({ timeout: 10000 });
 
-    const toastText = await toastLocator.textContent();
-    const inviteCodeMatch = toastText?.match(/Invite Code:\s*([^\n]+)/);
-    const displayedCode = inviteCodeMatch![1].trim();
+    const displayedCode = (await toastLocator.textContent())!.trim();
 
     // Log for debugging
     console.log('Format test - Displayed code:', displayedCode);
@@ -242,13 +241,8 @@ test.describe('E2EE Key Sharing via Invite Codes', () => {
       console.log('Key part is base64:', /^[A-Za-z0-9+/=]+$/.test(keyPart));
     }
 
-    // These assertions will fail if the bug exists
-    expect(displayedCode.startsWith('FAMILY-'),
-      `Invite code should start with FAMILY- but got: ${displayedCode}`
-    ).toBeTruthy();
-
-    expect(displayedCode.includes(':'),
-      `Invite code should contain : separator but got: ${displayedCode}`
-    ).toBeTruthy();
+    // Verify the invite code has the correct format: FAMILY-XXXXXXXX:BASE64KEY
+    expect(displayedCode, 'Invite code should match FAMILY-CODE:KEY format')
+      .toMatch(/^FAMILY-[A-Z0-9]{16}:[A-Za-z0-9+/=]+$/);
   });
 });
