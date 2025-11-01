@@ -16,8 +16,16 @@ import { GraphQLWsLink } from '@apollo/client/link/subscriptions';
 import { getMainDefinition } from '@apollo/client/utilities';
 import { createClient } from 'graphql-ws';
 
-const GRAPHQL_HTTP_URL = process.env.NEXT_PUBLIC_GRAPHQL_URL || 'http://localhost:4000/graphql';
-const GRAPHQL_WS_URL = process.env.NEXT_PUBLIC_GRAPHQL_WS_URL || 'ws://localhost:4000/graphql';
+// Validate required environment variables at build/runtime
+if (!process.env.NEXT_PUBLIC_GRAPHQL_HTTP_URL) {
+  throw new Error('NEXT_PUBLIC_GRAPHQL_HTTP_URL is required but not set');
+}
+if (!process.env.NEXT_PUBLIC_GRAPHQL_WS_URL) {
+  throw new Error('NEXT_PUBLIC_GRAPHQL_WS_URL is required but not set');
+}
+
+const GRAPHQL_HTTP_URL = process.env.NEXT_PUBLIC_GRAPHQL_HTTP_URL;
+const GRAPHQL_WS_URL = process.env.NEXT_PUBLIC_GRAPHQL_WS_URL;
 
 // HTTP Link for queries and mutations
 const httpLink = new HttpLink({
