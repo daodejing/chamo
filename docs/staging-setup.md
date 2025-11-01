@@ -149,7 +149,10 @@ NEXT_PUBLIC_GRAPHQL_WS_URL=wss://chamo-xpkp.onrender.com/graphql
 NEXT_PUBLIC_GROQ_API_KEY=<your-groq-api-key>
 NODE_VERSION=20
 ```
-**Important**: Replace `chamo-xpkp.onrender.com` with your actual Render service URL from Step 2.4.
+**Important**:
+- Replace `chamo-xpkp.onrender.com` with your actual Render service URL from Step 2.4.
+- These environment variables are REQUIRED - the build will fail if they're not set (no fallback to localhost)
+- For local development, use `.env.development` (already configured with localhost defaults)
 
 ### 3.3 Deploy
 
