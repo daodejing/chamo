@@ -27,6 +27,39 @@ if (!process.env.NEXT_PUBLIC_GRAPHQL_WS_URL) {
 const GRAPHQL_HTTP_URL = process.env.NEXT_PUBLIC_GRAPHQL_HTTP_URL;
 const GRAPHQL_WS_URL = process.env.NEXT_PUBLIC_GRAPHQL_WS_URL;
 
+/**
+ * Resolves the WebSocket endpoint so it works in both HTTP and HTTPS deployments.
+ * - Supports absolute ws:// / wss:// URLs
+ * - Upgrades ws:// → wss:// when the app runs over HTTPS to avoid mixed-content blocking
+ * - Never downgrades wss:// → ws:// (browsers allow HTTP pages to connect to secure WebSockets)
+ * - Handles relative paths (e.g. `/graphql`) by inferring the host from the current location
+ */
+function resolveWsUrl(rawUrl: string): string {
+  if (typeof window === 'undefined') {
+    return rawUrl;
+  }
+
+  if (!rawUrl) {
+    return rawUrl;
+  }
+
+  // Allow using a relative path like `/graphql`
+  if (rawUrl.startsWith('/')) {
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    return `${protocol}//${window.location.host}${rawUrl}`;
+  }
+
+  // Only upgrade ws:// → wss:// when page is HTTPS (to avoid mixed-content blocking)
+  // Never downgrade wss:// → ws:// (browsers allow HTTP → WSS connections)
+  const isHttpsPage = window.location.protocol === 'https:';
+
+  if (isHttpsPage && rawUrl.startsWith('ws://')) {
+    return `wss://${rawUrl.slice('ws://'.length)}`;
+  }
+
+  return rawUrl;
+}
+
 // HTTP Link for queries and mutations
 const httpLink = new HttpLink({
   uri: GRAPHQL_HTTP_URL,
@@ -51,7 +84,7 @@ const httpLinkWithAuth = from([authLink, httpLink]);
 // WebSocket Link for subscriptions
 const wsLink = typeof window !== 'undefined' ? new GraphQLWsLink(
   createClient({
-    url: GRAPHQL_WS_URL,
+    url: resolveWsUrl(GRAPHQL_WS_URL),
     connectionParams: () => {
       const token = localStorage.getItem('accessToken');
       return {

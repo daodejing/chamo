@@ -129,6 +129,7 @@ export default function ChatPage() {
         })
       );
 
+      // Use query result as source of truth, removing any temp optimistic messages
       setDisplayMessages(decrypted);
     };
 
@@ -156,10 +157,13 @@ export default function ChatPage() {
         };
 
         setDisplayMessages((prev) => {
-          // Avoid duplicates
-          if (prev.some((m) => m.id === newMessage.id)) {
+          // Avoid duplicates - check if message already exists
+          const exists = prev.some((m) => m.id === newMessage.id);
+          if (exists) {
+            console.log('[Subscription] Skipping duplicate message:', newMessage.id);
             return prev;
           }
+          console.log('[Subscription] Adding new message:', newMessage.id);
           return [...prev, newMessage];
         });
       } catch (error) {
@@ -235,18 +239,9 @@ export default function ChatPage() {
       setDisplayMessages((prev) => [...prev, optimisticMessage]);
 
       // Send via GraphQL
-      const result = await send(currentChannelId, encryptedContent);
+      await send(currentChannelId, encryptedContent);
 
-      if (result) {
-        // Replace optimistic message with real one
-        setDisplayMessages((prev) =>
-          prev.map((m) =>
-            m.id === optimisticMessage.id
-              ? { ...optimisticMessage, id: result.id }
-              : m
-          )
-        );
-      }
+      // Query will refetch and replace the optimistic message automatically
     } catch (error) {
       console.error('Send message error:', error);
       toast.error('Failed to send message');
