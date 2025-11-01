@@ -35,6 +35,9 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Install Wrangler
+        run: pnpm add -Dw wrangler
+
       - name: Build frontend for staging
         run: pnpm build
         env:
@@ -48,7 +51,7 @@ jobs:
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: pages deploy out --project-name=ourchat-staging
+          command: pages deploy out --project-name=chamo
 
       - name: Comment deployment URL on PR
         if: github.event_name == 'pull_request'
