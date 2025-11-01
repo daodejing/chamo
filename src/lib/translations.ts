@@ -472,13 +472,14 @@ export const translations = {
 };
 
 export function t(key: string, lang: Language, replacements?: { [key: string]: string | number }): string {
-  let text = translations[lang][key as keyof typeof translations.ja] || key;
-  
+  const translationMap = translations[lang] as Record<string, string>;
+  let text = translationMap[key] || key;
+
   if (replacements) {
     Object.entries(replacements).forEach(([placeholder, value]) => {
       text = text.replace(`{${placeholder}}`, String(value));
     });
   }
-  
+
   return text;
 }

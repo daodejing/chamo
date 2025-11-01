@@ -77,7 +77,7 @@ export function useSendMessage() {
         },
       },
     });
-    return result.data?.sendMessage as Message;
+    return (result.data?.sendMessage || undefined) as Message | undefined;
   };
 
   return { send, loading, error };
@@ -101,7 +101,7 @@ export function useEditMessage() {
         },
       },
     });
-    return result.data?.editMessage as Message;
+    return (result.data?.editMessage || undefined) as Message | undefined;
   };
 
   return { edit, loading, error };
@@ -124,7 +124,7 @@ export function useDeleteMessage() {
         },
       },
     });
-    return result.data?.deleteMessage;
+    return result.data?.deleteMessage || undefined;
   };
 
   return { remove, loading, error };
@@ -165,9 +165,9 @@ export function useMessageSubscription(channelId: string) {
   });
 
   return {
-    messageAdded: addedData?.messageAdded as Message | undefined,
-    messageEdited: editedData?.messageEdited as Message | undefined,
-    messageDeleted: deletedData?.messageDeleted as { messageId: string } | undefined,
+    messageAdded: (addedData?.messageAdded || undefined) as Message | undefined,
+    messageEdited: (editedData?.messageEdited || undefined) as Message | undefined,
+    messageDeleted: (deletedData?.messageDeleted || undefined) as { messageId: string } | undefined,
     loading: addedLoading || editedLoading || deletedLoading,
     error: addedError || editedError || deletedError,
   };

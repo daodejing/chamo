@@ -79,6 +79,10 @@ jobs:
       - name: Generate GraphQL types
         run: pnpm codegen
 
+      - name: Generate Prisma Client
+        working-directory: ./apps/backend
+        run: pnpm prisma generate
+
       - name: Run backend unit tests
         working-directory: ./apps/backend
         run: pnpm test
@@ -150,7 +154,7 @@ jobs:
           JWT_SECRET: test-secret-key
           REFRESH_TOKEN_SECRET: test-refresh-secret
           NODE_ENV: test
-        run: pnpm test:integration
+        run: pnpm test:e2e
 
       - name: Upload test results
         if: always()
@@ -191,9 +195,7 @@ jobs:
         run: pnpm exec playwright install --with-deps chromium
 
       - name: Start services with Docker Compose
-        run: docker compose up -d
-        env:
-          COMPOSE_FILE: docker-compose.yml
+        run: docker compose -f apps/backend/docker-compose.yml up -d
 
       - name: Wait for services to be ready
         run: |
@@ -227,7 +229,7 @@ jobs:
 
       - name: Cleanup services
         if: always()
-        run: docker compose down -v
+        run: docker compose -f apps/backend/docker-compose.yml down -v
 
   # Build Validation
   build-check:
@@ -261,6 +263,10 @@ jobs:
         env:
           NEXT_PUBLIC_GRAPHQL_HTTP_URL: https://staging-api.example.com/graphql
           NEXT_PUBLIC_GRAPHQL_WS_URL: wss://staging-api.example.com/graphql
+
+      - name: Generate Prisma Client
+        working-directory: ./apps/backend
+        run: pnpm prisma generate
 
       - name: Build backend
         working-directory: ./apps/backend
