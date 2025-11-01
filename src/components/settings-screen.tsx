@@ -9,6 +9,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
 import { Language, t } from "@/lib/translations";
+import { LanguageSelector } from "@/components/settings/language-selector";
+import { TranslationLanguageSelector } from "@/components/settings/translation-language-selector";
 
 interface FamilyMember {
   id: string;
@@ -115,7 +117,7 @@ export function SettingsScreen({ userName, userEmail, userAvatar, familyName, fa
 
       <div className="flex-1 overflow-y-auto">
         <div className="p-4 space-y-4 pb-8 max-w-full">
-          {/* Language Section */}
+          {/* Language Preferences Section */}
           <Card className="rounded-[20px] shadow-lg overflow-hidden">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -124,30 +126,25 @@ export function SettingsScreen({ userName, userEmail, userAvatar, familyName, fa
               </CardTitle>
               <CardDescription>{t("settings.languageDescription", language)}</CardDescription>
             </CardHeader>
-            <CardContent className="overflow-hidden">
-              <div className="flex gap-2 w-full">
-                <Button
-                  variant={language === "ja" ? "default" : "outline"}
-                  onClick={() => onLanguageChange("ja")}
-                  className={`flex-1 rounded-xl ${
-                    language === "ja" 
-                      ? "bg-gradient-to-r from-[#B5179E] to-[#8B38BA] text-white" 
-                      : ""
-                  }`}
-                >
-                  {t("settings.japanese", language)}
-                </Button>
-                <Button
-                  variant={language === "en" ? "default" : "outline"}
-                  onClick={() => onLanguageChange("en")}
-                  className={`flex-1 rounded-xl ${
-                    language === "en" 
-                      ? "bg-gradient-to-r from-[#B5179E] to-[#8B38BA] text-white" 
-                      : ""
-                  }`}
-                >
-                  {t("settings.english", language)}
-                </Button>
+            <CardContent className="space-y-4">
+              {/* App Language Selector */}
+              <div className="space-y-2">
+                <Label>{t("settings.appLanguage", language)}</Label>
+                <LanguageSelector />
+                <p className="text-sm text-muted-foreground">
+                  {t("settings.appLanguageHelp", language)}
+                </p>
+              </div>
+
+              <Separator />
+
+              {/* Translation Language Selector */}
+              <div className="space-y-2">
+                <Label>{t("settings.translateMessagesTo", language)}</Label>
+                <TranslationLanguageSelector defaultValue="en" />
+                <p className="text-sm text-muted-foreground">
+                  {t("settings.translateMessagesToHelp", language)}
+                </p>
               </div>
             </CardContent>
           </Card>

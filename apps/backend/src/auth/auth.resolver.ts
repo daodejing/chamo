@@ -4,6 +4,7 @@ import { AuthService } from './auth.service';
 import { RegisterInput } from './dto/register.input';
 import { JoinFamilyInput } from './dto/join-family.input';
 import { LoginInput } from './dto/login.input';
+import { UpdateUserPreferencesInput } from './dto/update-user-preferences.input';
 import { AuthResponse, UserType } from './types/auth-response.type';
 import { FamilyType } from './types/family.type';
 import { GqlAuthGuard } from './guards/gql-auth.guard';
@@ -65,5 +66,29 @@ export class AuthResolver {
     // In a full implementation, this would invalidate the token
     // For now, client will just delete the token
     return true;
+  }
+
+  @Mutation(() => UserType)
+  @UseGuards(GqlAuthGuard)
+  async updateUserPreferences(
+    @CurrentUser() user: User,
+    @Args('input') input: UpdateUserPreferencesInput,
+  ): Promise<UserType> {
+    // Get current preferences
+    const currentPreferences = (user.preferences as Record<string, any>) || {};
+
+    // Merge with new preferences
+    const updatedPreferences = {
+      ...currentPreferences,
+      ...(input.preferredLanguage !== undefined && { preferredLanguage: input.preferredLanguage }),
+    };
+
+    // Update user preferences in database
+    const updatedUser = await this.prisma.user.update({
+      where: { id: user.id },
+      data: { preferences: updatedPreferences },
+    });
+
+    return updatedUser as UserType;
   }
 }

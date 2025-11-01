@@ -68,7 +68,9 @@ export const translations = {
     "toast.folderCreated": "フォルダ「{name}」を作成しました",
     "toast.folderDeleted": "フォルダを削除しました",
     "toast.folderRenamed": "フォルダ名を変更しました",
-    
+    "toast.languageChanging": "新しい言語を適用するためにリロードしています",
+    "toast.translationLanguageUpdated": "翻訳言語を更新しました",
+
     // Chat Screen
     "chat.members": "メンバー",
     "chat.translation": "翻訳設定",
@@ -123,6 +125,10 @@ export const translations = {
     "settings.large": "大",
     "settings.language": "言語",
     "settings.languageDescription": "アプリの表示言語を変更",
+    "settings.appLanguage": "アプリの言語",
+    "settings.appLanguageHelp": "アプリのメニューやボタンの表示言語を選択します。変更後、ページが再読み込みされます。",
+    "settings.translateMessagesTo": "メッセージの翻訳先",
+    "settings.translateMessagesToHelp": "他の家族のメッセージを自動翻訳する言語を選択します。",
     "settings.japanese": "日本語",
     "settings.english": "English",
     "settings.profile": "プロフィール",
@@ -241,6 +247,8 @@ export const translations = {
     "login.title": "Family Chat",
     "login.subtitle.login": "Login to get started",
     "login.subtitle.signup": "Create an account",
+    "login.subtitle.create": "Create Family Account",
+    "login.subtitle.join": "Join Family",
     "login.email": "Email Address",
     "login.inviteCode": "Invite Code",
     "login.inviteCodeDescription": "Enter the invite code shared by your family",
@@ -301,7 +309,9 @@ export const translations = {
     "toast.folderCreated": "Folder \"{name}\" created",
     "toast.folderDeleted": "Folder deleted",
     "toast.folderRenamed": "Folder renamed",
-    
+    "toast.languageChanging": "Reloading to apply new language",
+    "toast.translationLanguageUpdated": "Translation language updated successfully",
+
     // Chat Screen
     "chat.members": "members",
     "chat.translation": "Translation Settings",
@@ -356,6 +366,10 @@ export const translations = {
     "settings.large": "Large",
     "settings.language": "Language",
     "settings.languageDescription": "Change app display language",
+    "settings.appLanguage": "App Language",
+    "settings.appLanguageHelp": "Select the language for app menus and buttons. The page will reload after changing.",
+    "settings.translateMessagesTo": "Translate Messages To",
+    "settings.translateMessagesToHelp": "Choose which language to automatically translate family messages into.",
     "settings.japanese": "日本語",
     "settings.english": "English",
     "settings.profile": "Profile",

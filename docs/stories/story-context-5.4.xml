@@ -1,0 +1,366 @@
+<story-context id="bmad/bmm/workflows/4-implementation/story-context/story-5.4" v="1.0">
+  <metadata>
+    <epicId>5</epicId>
+    <storyId>4</storyId>
+    <title>Customize Language Settings</title>
+    <status>Draft</status>
+    <generatedAt>2025-11-01</generatedAt>
+    <generator>BMAD Story Context Workflow</generator>
+    <sourceStoryPath>/Users/usr0101345/projects/ourchat/docs/stories/story-5.4.md</sourceStoryPath>
+  </metadata>
+
+  <story>
+    <asA>a family member</asA>
+    <iWant>to customize language settings</iWant>
+    <soThat>the app feels natural and I can read messages in my preferred language</soThat>
+    <tasks>
+      <task id="1" ac="1,3,5">
+        <description>Implement UI language selector component</description>
+        <subtasks>
+          <subtask id="1.1">Create LanguageSelector component with dropdown for English/Japanese</subtask>
+          <subtask id="1.2">Wire LanguageSelector to existing LanguageContext</subtask>
+          <subtask id="1.3">Implement page reload logic when UI language changes</subtask>
+          <subtask id="1.4">Add toast notification before reload</subtask>
+        </subtasks>
+      </task>
+      <task id="2" ac="2,5">
+        <description>Implement message translation language selector</description>
+        <subtasks>
+          <subtask id="2.1">Create TranslationLanguageSelector component with 20+ language options</subtask>
+          <subtask id="2.2">Store preferredLanguage in user preferences (backend GraphQL mutation)</subtask>
+          <subtask id="2.3">Update immediately without page reload</subtask>
+          <subtask id="2.4">Add toast notification</subtask>
+        </subtasks>
+      </task>
+      <task id="3" ac="3">
+        <description>Create or update translation files</description>
+        <subtasks>
+          <subtask id="3.1">Audit existing translations.ts for coverage</subtask>
+          <subtask id="3.2">Add missing Japanese translations for all UI strings</subtask>
+          <subtask id="3.3">Verify all components use t() function</subtask>
+          <subtask id="3.4">Test translation coverage</subtask>
+        </subtasks>
+      </task>
+      <task id="4" ac="4">
+        <description>Implement date/time localization</description>
+        <subtasks>
+          <subtask id="4.1">Create date formatting utility with locale support</subtask>
+          <subtask id="4.2">Use Intl.DateTimeFormat for language-aware formatting</subtask>
+          <subtask id="4.3">Update all date displays to use localization utility</subtask>
+          <subtask id="4.4">Test with both English and Japanese locales</subtask>
+        </subtasks>
+      </task>
+      <task id="5" ac="1,2">
+        <description>Integrate language selectors into Settings screen</description>
+        <subtasks>
+          <subtask id="5.1">Add PreferencesSection to Settings screen if not exists</subtask>
+          <subtask id="5.2">Add LanguageSelector under "App Language" label</subtask>
+          <subtask id="5.3">Add TranslationLanguageSelector under "Translate Messages To" label</subtask>
+          <subtask id="5.4">Add descriptive help text for each selector</subtask>
+          <subtask id="5.5">Ensure settings persist to backend</subtask>
+        </subtasks>
+      </task>
+      <task id="6" ac="2">
+        <description>Backend integration for translation language preference</description>
+        <subtasks>
+          <subtask id="6.1">Verify user preferences schema includes preferredLanguage field</subtask>
+          <subtask id="6.2">Create or update GraphQL mutation: updateUserPreferences</subtask>
+          <subtask id="6.3">Update ME_QUERY to return user preferences including preferredLanguage</subtask>
+          <subtask id="6.4">Test mutation with all 20+ language codes</subtask>
+        </subtasks>
+      </task>
+      <task id="7" ac="All">
+        <description>Write unit tests for language components</description>
+      </task>
+      <task id="8" ac="All">
+        <description>Write integration tests for language persistence</description>
+      </task>
+      <task id="9" ac="All">
+        <description>Write E2E tests for language switching</description>
+      </task>
+    </tasks>
+  </story>
+
+  <acceptanceCriteria>
+    <criterion id="AC1">
+      <description>Switch app UI language in settings (English/Japanese for MVP)</description>
+      <testable>true</testable>
+    </criterion>
+    <criterion id="AC2">
+      <description>Set preferred language for message translation (20+ languages: en, ja, es, fr, de, zh, ko, pt, ru, ar, it, nl, pl, tr, vi, th, id, hi, sv, no)</description>
+      <testable>true</testable>
+    </criterion>
+    <criterion id="AC3">
+      <description>All UI text, labels, buttons translated based on UI language setting</description>
+      <testable>true</testable>
+    </criterion>
+    <criterion id="AC4">
+      <description>Date/time formats localized based on UI language</description>
+      <testable>true</testable>
+    </criterion>
+    <criterion id="AC5">
+      <description>UI language changes require page reload, message translation language updates immediately</description>
+      <testable>true</testable>
+    </criterion>
+  </acceptanceCriteria>
+
+  <artifacts>
+    <docs>
+      <doc>
+        <path>docs/tech-spec-epic-5.md</path>
+        <title>Tech Spec: Epic 5 - Settings & Customization</title>
+        <section>4.2 - Language Settings Implementation</section>
+        <snippet>
+          UI Language: React Context (LanguageContext), localStorage for persistence ('appLanguage' key)
+          Translation Language: Backend JSONB column (preferredLanguage field)
+          Library: Custom translation utility (src/lib/translations.ts)
+          Supported UI Languages (MVP): English (en), Japanese (ja)
+          Supported Translation Languages (20+): en, ja, es, fr, de, zh, ko, pt, ru, ar, it, nl, pl, tr, vi, th, id, hi, sv, no
+        </snippet>
+      </doc>
+      <doc>
+        <path>docs/tech-spec-epic-5.md</path>
+        <title>Tech Spec: Epic 5 - Settings & Customization</title>
+        <section>7 - Translation Files</section>
+        <snippet>
+          English translations in en.json, Japanese translations in ja.json
+          Key-based system: e.g., t('settings.appLanguage')
+          Fallback to English if key missing in target language
+        </snippet>
+      </doc>
+      <doc>
+        <path>docs/PRD.md</path>
+        <title>Product Requirements Document</title>
+        <section>FR-6.3 - UI Language Requirement</section>
+        <snippet>Switch UI language: Japanese, English (controls app interface)</snippet>
+      </doc>
+      <doc>
+        <path>docs/PRD.md</path>
+        <title>Product Requirements Document</title>
+        <section>FR-6.3a - Translation Language Requirement</section>
+        <snippet>Set preferred translation language: 20+ languages (controls message translation target)</snippet>
+      </doc>
+      <doc>
+        <path>docs/PRD.md</path>
+        <title>Product Requirements Document</title>
+        <section>Appendix B - UserPreferences Data Model</section>
+        <snippet>
+          UserPreferences {
+            uiLanguage: "en" | "ja"
+            preferredLanguage: TranslationLanguage (20+ language codes)
+          }
+        </snippet>
+      </doc>
+    </docs>
+
+    <code>
+      <file>
+        <path>src/lib/contexts/language-context.tsx</path>
+        <kind>context</kind>
+        <symbol>LanguageContext, LanguageProvider, useLanguage</symbol>
+        <lines>1-44</lines>
+        <reason>Existing React Context for UI language state management. Already implements localStorage persistence and provides setLanguage function. Should be reused for UI language selector.</reason>
+      </file>
+      <file>
+        <path>src/lib/translations.ts</path>
+        <kind>utility</kind>
+        <symbol>Language, translations, t()</symbol>
+        <lines>1-486</lines>
+        <reason>Existing translation system with complete English and Japanese translations. Contains all UI strings. Should be audited for completeness and extended if needed.</reason>
+      </file>
+      <file>
+        <path>src/components/settings-screen.tsx</path>
+        <kind>component</kind>
+        <symbol>SettingsScreen</symbol>
+        <lines>119-153</lines>
+        <reason>Settings screen already has a Language Section (lines 118-153) with basic toggle between Japanese and English. This implementation can be enhanced or replaced with new language selectors.</reason>
+      </file>
+    </code>
+
+    <dependencies>
+      <node>
+        <package>react</package>
+        <version>^19.0.0</version>
+        <usage>React Context API for LanguageContext</usage>
+      </node>
+      <node>
+        <package>next</package>
+        <version>^16.0.0</version>
+        <usage>Next.js framework for page routing and reloading</usage>
+      </node>
+      <node>
+        <package>@apollo/client</package>
+        <version>^4.0.7</version>
+        <usage>GraphQL client for updateUserPreferences mutation</usage>
+      </node>
+      <node>
+        <package>@radix-ui/react-select</package>
+        <version>^2.2.6</version>
+        <usage>Select dropdown component for language selectors</usage>
+      </node>
+      <node>
+        <package>sonner</package>
+        <version>^1.7.0</version>
+        <usage>Toast notifications for language change feedback</usage>
+      </node>
+      <node>
+        <package>date-fns</package>
+        <version>^4.1.0</version>
+        <usage>Date formatting utilities (may be used for localization)</usage>
+      </node>
+    </dependencies>
+  </artifacts>
+
+  <constraints>
+    <constraint>
+      <type>Architecture</type>
+      <description>UI language stored in localStorage (LanguageContext pattern), message translation language stored in backend user preferences JSONB</description>
+    </constraint>
+    <constraint>
+      <type>User Experience</type>
+      <description>Page reload required for UI language changes (re-render entire app). No reload required for translation language changes (server-side preference).</description>
+    </constraint>
+    <constraint>
+      <type>Translation System</type>
+      <description>Use existing t() function from src/lib/translations.ts. All UI strings must use translation keys, no hardcoded strings.</description>
+    </constraint>
+    <constraint>
+      <type>MVP Scope</type>
+      <description>UI languages limited to English and Japanese for MVP. Message translation supports 20+ languages.</description>
+    </constraint>
+    <constraint>
+      <type>Date Localization</type>
+      <description>Use browser's Intl.DateTimeFormat API for language-aware date/time formatting. Locale derived from LanguageContext.</description>
+    </constraint>
+    <constraint>
+      <type>Backend Integration</type>
+      <description>GraphQL mutation (updateUserPreferences) must support preferredLanguage field. ME_QUERY must return user preferences.</description>
+    </constraint>
+  </constraints>
+
+  <interfaces>
+    <interface>
+      <name>LanguageContext</name>
+      <kind>React Context</kind>
+      <signature>
+        interface LanguageContextType {
+          language: Language;
+          setLanguage: (lang: Language) => void;
+        }
+      </signature>
+      <path>src/lib/contexts/language-context.tsx</path>
+      <usage>Access and update UI language state</usage>
+    </interface>
+    <interface>
+      <name>useLanguage</name>
+      <kind>React Hook</kind>
+      <signature>
+        function useLanguage(): LanguageContextType
+      </signature>
+      <path>src/lib/contexts/language-context.tsx</path>
+      <usage>Hook to access language context in components</usage>
+    </interface>
+    <interface>
+      <name>t()</name>
+      <kind>Translation Function</kind>
+      <signature>
+        function t(key: string, lang: Language, replacements?: { [key: string]: string | number }): string
+      </signature>
+      <path>src/lib/translations.ts</path>
+      <usage>Translate UI strings using key-based lookup with optional variable replacements</usage>
+    </interface>
+    <interface>
+      <name>updateUserPreferences</name>
+      <kind>GraphQL Mutation</kind>
+      <signature>
+        mutation updateUserPreferences($preferredLanguage: String) {
+          updateUserPreferences(preferredLanguage: $preferredLanguage) {
+            id
+            preferences
+          }
+        }
+      </signature>
+      <path>apps/backend/src/users/users.resolver.ts (to be verified/created)</path>
+      <usage>Update user's preferred translation language in backend</usage>
+    </interface>
+    <interface>
+      <name>ME_QUERY</name>
+      <kind>GraphQL Query</kind>
+      <signature>
+        query Me {
+          me {
+            id
+            email
+            name
+            preferences {
+              preferredLanguage
+            }
+          }
+        }
+      </signature>
+      <path>src/lib/graphql/queries.ts (to be verified)</path>
+      <usage>Fetch user preferences including translation language</usage>
+    </interface>
+  </interfaces>
+
+  <tests>
+    <standards>
+      Testing framework: Vitest for unit/integration tests, Playwright for E2E tests
+      Unit tests: Test components in isolation (LanguageSelector, TranslationLanguageSelector, date formatting utility)
+      Integration tests: Test language persistence (localStorage for UI language, backend for translation language)
+      E2E tests: Test full user flows (switch language, verify UI updates, verify persistence across sessions)
+      Coverage target: 95% for new language-related code
+      Test files location: tests/unit/, tests/integration/, tests/e2e/
+    </standards>
+
+    <locations>
+      <location>tests/unit/components/language-selector.test.tsx</location>
+      <location>tests/unit/utils/date-format.test.ts</location>
+      <location>tests/integration/language-persistence.test.ts</location>
+      <location>tests/e2e/story-5.4-language-settings.spec.ts</location>
+    </locations>
+
+    <ideas>
+      <test criterion="AC1">
+        <description>Unit test: LanguageSelector renders dropdown with English and Japanese options</description>
+        <approach>Mount component, verify dropdown contains both language options, simulate selection, verify setLanguage called</approach>
+      </test>
+      <test criterion="AC1">
+        <description>E2E test: Switch UI language to Japanese, verify page reload, verify all UI text in Japanese</description>
+        <approach>Navigate to settings, click Japanese button, wait for reload, verify key UI elements use Japanese strings</approach>
+      </test>
+      <test criterion="AC2">
+        <description>Unit test: TranslationLanguageSelector renders dropdown with 20+ language options</description>
+        <approach>Mount component, verify dropdown contains all 20+ languages, simulate selection, verify mutation called</approach>
+      </test>
+      <test criterion="AC2">
+        <description>Integration test: updateUserPreferences mutation persists translation language to backend</description>
+        <approach>Call mutation with language code, verify backend updates user preferences, query user preferences to confirm</approach>
+      </test>
+      <test criterion="AC3">
+        <description>Unit test: All translation keys exist for both English and Japanese</description>
+        <approach>Parse translations.ts, verify all keys present in both en and ja objects, flag any missing keys</approach>
+      </test>
+      <test criterion="AC4">
+        <description>Unit test: Date formatting utility produces correct locale-specific formats</description>
+        <approach>Format date with 'en' locale (expect "Oct 13, 2025"), format same date with 'ja' locale (expect "2025年10月13日")</approach>
+      </test>
+      <test criterion="AC4">
+        <description>E2E test: Date/time formats change when UI language changes</description>
+        <approach>Switch language to Japanese, verify dates in chat/calendar display in Japanese format, switch to English, verify English format</approach>
+      </test>
+      <test criterion="AC5">
+        <description>E2E test: UI language change triggers page reload</description>
+        <approach>Switch UI language, listen for page navigation/reload event, verify page reloads and language persists</approach>
+      </test>
+      <test criterion="AC5">
+        <description>E2E test: Translation language change does NOT trigger page reload</description>
+        <approach>Switch translation language, verify no page reload (check page state persists), verify toast notification shown</approach>
+      </test>
+      <test criterion="All">
+        <description>E2E test: Language settings persist after logout/login</description>
+        <approach>Set UI language to Japanese and translation language to Spanish, logout, login, verify both settings persisted</approach>
+      </test>
+    </ideas>
+  </tests>
+</story-context>
