@@ -66,12 +66,13 @@ export function UnifiedLoginScreen({ onSuccess }: UnifiedLoginScreenProps) {
         if (family?.inviteCode) {
           // Display full invite code (FAMILY-XXXXXXXX:BASE64KEY) for sharing
           // Members need both parts: code for backend, key for decryption
+          // Persist until user explicitly closes it (critical information)
           toast.success(family.inviteCode, {
-            duration: 10000,
+            duration: Infinity,
             className: 'invite-code-toast',
           });
         } else {
-          toast.success(t('toast.familyCreated', language), { duration: 10000 });
+          toast.success(t('toast.familyCreated', language), { duration: Infinity });
         }
       } else if (authMode === 'join') {
         await joinFamily({
