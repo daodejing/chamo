@@ -93,12 +93,25 @@ export function UnifiedLoginScreen({
           const shareLink = origin
             ? `${origin}/join#code=${encodeURIComponent(inviteCode)}`
             : '';
+
+          // Create dismiss callback that will be populated with toast ID
+          const dismissToast = { current: () => {} };
+
           const toastContent = (
             <div className="flex flex-col gap-2">
               <div className="flex items-start justify-between gap-2">
                 <div className="font-semibold">
                   Family Created! Share this invite code:
                 </div>
+                <Button
+                  type="button"
+                  size="icon"
+                  variant="ghost"
+                  onClick={() => dismissToast.current()}
+                  className="h-7 w-7 text-muted-foreground hover:text-foreground shrink-0"
+                >
+                  <X className="h-4 w-4" />
+                </Button>
               </div>
               <div className="flex items-center gap-2">
                 <code className="flex-1 bg-muted px-3 py-2 rounded text-sm font-mono select-text">
@@ -155,10 +168,15 @@ export function UnifiedLoginScreen({
               )}
             </div>
           );
-          toast.success(toastContent, {
+
+          // Show toast and capture ID for manual dismissal
+          const toastId = toast.success(toastContent, {
             duration: Infinity,
             className: 'invite-code-toast',
           });
+
+          // Set dismiss callback now that we have the toast ID
+          dismissToast.current = () => toast.dismiss(toastId);
         } else {
           toast.success(t('toast.familyCreated', language), { duration: Infinity });
         }
