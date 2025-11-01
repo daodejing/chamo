@@ -105,7 +105,7 @@ jobs:
           RENDER_DEPLOY_HOOK_URL: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
         run: |
           response=$(curl -X POST "$RENDER_DEPLOY_HOOK_URL" -w "%{http_code}" -o /dev/null -s)
-          if [ "$response" -eq 200 ] || [ "$response" -eq 201 ]; then
+          if [ "$response" -eq 200 ] || [ "$response" -eq 201 ] || [ "$response" -eq 202 ]; then
             echo "✅ Render deployment triggered successfully"
           else
             echo "❌ Failed to trigger Render deployment (HTTP $response)"
