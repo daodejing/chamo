@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { MessageCircle, Fingerprint } from 'lucide-react';
+import { MessageCircle, Fingerprint, Copy } from 'lucide-react';
 import { toast } from 'sonner';
 import { t } from '@/lib/translations';
 import { useLanguage } from '@/lib/contexts/language-context';
@@ -67,10 +67,35 @@ export function UnifiedLoginScreen({ onSuccess }: UnifiedLoginScreenProps) {
           // Display full invite code (FAMILY-XXXXXXXX:BASE64KEY) for sharing
           // Members need both parts: code for backend, key for decryption
           // Persist until user explicitly closes it (critical information)
-          toast.success(family.inviteCode, {
-            duration: Infinity,
-            className: 'invite-code-toast',
-          });
+          const inviteCode = family.inviteCode;
+          toast.success(
+            <div className="flex flex-col gap-2">
+              <div className="font-semibold">Family Created! Share this invite code:</div>
+              <div className="flex items-center gap-2">
+                <code className="flex-1 bg-muted px-3 py-2 rounded text-sm font-mono select-text">
+                  {inviteCode}
+                </code>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={async () => {
+                    await navigator.clipboard.writeText(inviteCode);
+                    toast.success('Copied to clipboard!', { duration: 2000 });
+                  }}
+                  className="shrink-0"
+                >
+                  <Copy className="w-4 h-4" />
+                </Button>
+              </div>
+              <div className="text-xs text-muted-foreground">
+                This code contains the family ID and encryption key. Keep it safe!
+              </div>
+            </div>,
+            {
+              duration: Infinity,
+              className: 'invite-code-toast',
+            }
+          );
         } else {
           toast.success(t('toast.familyCreated', language), { duration: Infinity });
         }
