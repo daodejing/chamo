@@ -89,7 +89,7 @@ Click **Advanced** and add these environment variables:
 DATABASE_URL=<your-neon-dev-branch-connection-string>
 JWT_SECRET=<generate-below>
 REFRESH_TOKEN_SECRET=<generate-below>
-CORS_ALLOWED_ORIGINS=https://chamo-staging.pages.dev,http://localhost:3002
+CORS_ALLOWED_ORIGINS=https://chamo-6b9.pages.dev,http://localhost:3002
 NODE_ENV=staging
 PORT=4000
 ```
@@ -155,7 +155,8 @@ NODE_VERSION=20
 
 1. Click **Save and Deploy**
 2. Wait for build to complete (~3-5 minutes)
-3. Your site URL: `https://chamo-staging.pages.dev`
+3. Your site URL will be shown (e.g., `https://chamo-6b9.pages.dev`)
+   - **Note**: Cloudflare generates a unique URL, not necessarily matching the project name
 4. **Save as**: `STAGING_FRONTEND_URL`
 
 ### 3.4 Get API Token
@@ -196,11 +197,11 @@ STAGING_BACKEND_URL=https://chamo-xpkp.onrender.com
 STAGING_GRAPHQL_HTTP_URL=https://chamo-xpkp.onrender.com/graphql
 ```
 
-**Frontend (Cloudflare):**
+**Frontend (Cloudflare - use your actual URL):**
 ```
 CLOUDFLARE_API_TOKEN=<cloudflare-api-token>
 CLOUDFLARE_ACCOUNT_ID=<cloudflare-account-id>
-STAGING_FRONTEND_URL=https://chamo-staging.pages.dev
+STAGING_FRONTEND_URL=https://chamo-6b9.pages.dev
 ```
 
 **Optional:**
@@ -281,8 +282,8 @@ curl -X POST https://chamo-xpkp.onrender.com/graphql \
 # Expected response:
 # {"data":{"__typename":"Query"}}
 
-# Check frontend
-curl -I https://chamo-staging.pages.dev
+# Check frontend (replace with your actual Cloudflare Pages URL)
+curl -I https://chamo-6b9.pages.dev
 
 # Expected: HTTP/2 200
 ```
