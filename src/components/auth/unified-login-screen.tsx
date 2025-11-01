@@ -99,15 +99,6 @@ export function UnifiedLoginScreen({
                 <div className="font-semibold">
                   Family Created! Share this invite code:
                 </div>
-                <Button
-                  type="button"
-                  size="icon"
-                  variant="ghost"
-                  onClick={dismissToast}
-                  className="h-7 w-7 text-muted-foreground hover:text-foreground shrink-0"
-                >
-                  <X className="h-4 w-4" />
-                </Button>
               </div>
               <div className="flex items-center gap-2">
                 <code className="flex-1 bg-muted px-3 py-2 rounded text-sm font-mono select-text">
