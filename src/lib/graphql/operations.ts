@@ -22,6 +22,9 @@ export const REGISTER_MUTATION = gql`
         avatar
         role
         familyId
+        preferences {
+          preferredLanguage
+        }
       }
       family {
         id
@@ -46,6 +49,9 @@ export const LOGIN_MUTATION = gql`
         avatar
         role
         familyId
+        preferences {
+          preferredLanguage
+        }
       }
       family {
         id
@@ -70,6 +76,9 @@ export const JOIN_FAMILY_MUTATION = gql`
         avatar
         role
         familyId
+        preferences {
+          preferredLanguage
+        }
       }
       family {
         id
@@ -77,6 +86,17 @@ export const JOIN_FAMILY_MUTATION = gql`
         avatar
         inviteCode
         maxMembers
+      }
+    }
+  }
+`;
+
+export const UPDATE_USER_PREFERENCES_MUTATION = gql`
+  mutation UpdateUserPreferences($input: UpdateUserPreferencesInput!) {
+    updateUserPreferences(input: $input) {
+      id
+      preferences {
+        preferredLanguage
       }
     }
   }
@@ -91,6 +111,9 @@ export const ME_QUERY = gql`
       avatar
       role
       familyId
+      preferences {
+        preferredLanguage
+      }
       family {
         id
         name

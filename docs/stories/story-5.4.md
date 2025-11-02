@@ -168,37 +168,42 @@ claude-sonnet-4-5-20250929
 
 ### Debug Log References
 
-N/A - Initial story creation
+- 2025-03-09: Replaced the placeholder settings toast with a full-screen `SettingsScreen` overlay matching the frontend prototype and wiring both language selectors into context/state.
+- 2025-03-09: Persisted translation language via new backend `UserPreferencesType`, GraphQL resolver updates, and Apollo-generated types while localizing timestamps through the shared date-format utility.
+- 2025-03-09: Ran `pnpm vitest tests/integration/language-persistence.test.ts` and `pnpm vitest tests/unit/components/language-selector.test.tsx` (both passed).
 
 ### Completion Notes List
 
-- [x] All language selectors implemented and functional
-- [x] All UI strings translated to Japanese
-- [x] Date/time localization working correctly
-- [x] Language preferences persist across sessions (UI in localStorage, translation in backend)
-- [x] All tests passing (104 tests: unit, integration, E2E)
+- [x] Settings overlay mirrors the prototype layout with functional Language and Translation selectors.
+- [x] Translation language preference persists instantly through GraphQL mutation + Auth context updates.
+- [x] Chat, settings, calendar, and gallery timestamps now rely on `formatDate*` utilities for locale-aware rendering.
+- [x] Targeted Vitest suites validated persistence logic and selector behavior.
 
 ### File List
 
 **New Files Created:**
-- `src/components/settings/language-selector.tsx`
-- `src/components/settings/translation-language-selector.tsx`
-- `src/lib/utils/date-format.ts`
-- `tests/unit/components/language-selector.test.tsx`
-- `tests/unit/utils/date-format.test.ts`
-- `tests/integration/language-persistence.test.ts`
-- `tests/e2e/story-5.4-language-settings.spec.ts`
+- `apps/backend/src/auth/types/user-preferences.type.ts`
 
 **Modified Files:**
-- `src/lib/translations.ts` (add Japanese translations)
-- `src/components/settings-screen.tsx` (add language selectors)
-- `src/lib/contexts/language-context.tsx` (reload logic if needed)
-- `apps/backend/src/users/users.resolver.ts` (updateUserPreferences mutation)
-- `apps/backend/src/users/dto/update-user-preferences.dto.ts` (preferredLanguage field)
+- `apps/backend/src/auth/auth.resolver.ts`
+- `apps/backend/src/auth/types/auth-response.type.ts`
+- `apps/backend/src/schema.gql`
+- `src/lib/graphql/operations.ts`
+- `src/lib/graphql/generated/graphql.ts`
+- `src/lib/contexts/auth-context.tsx`
+- `src/components/settings/translation-language-selector.tsx`
+- `src/components/settings-screen.tsx`
+- `src/app/chat/page.tsx`
+- `src/components/chat-screen.tsx`
+- `src/components/photo-gallery.tsx`
+- `src/components/calendar-view.tsx`
+- `src/lib/translations.ts`
+- `tests/integration/language-persistence.test.ts`
 
 **Existing Files Used:**
-- `src/lib/contexts/language-context.tsx` (LanguageProvider, useLanguage hook)
-- `src/lib/translations.ts` (Translation system)
+- `src/lib/utils/date-format.ts` (shared localization helpers)
+- `frontend-proto/src/components/settings-screen.tsx` (design reference)
+- `frontend-proto/src/components/chat-screen.tsx` (prototype behavior reference)
 
 ### Change Log
 
@@ -215,4 +220,12 @@ N/A - Initial story creation
 - Integrated both selectors into Settings screen with clear labels and help text
 - Implemented backend updateUserPreferences GraphQL mutation
 - Created comprehensive test suite: 104 tests (unit, integration, E2E) - all passing
+- Status: Ready for Review
+
+**2025-03-09 (Prototype-aligned refinement):**
+- Wired Chat settings icon to launch the prototype-aligned `SettingsScreen` overlay and hydrated selectors from backend data.
+- Added backend `UserPreferencesType`, GraphQL schema updates, and Apollo typings to surface `preferences.preferredLanguage` to the client.
+- Updated Auth context and translation selector to optimistically persist language changes with localized success/error toasts.
+- Replaced ad-hoc `toLocale*` usage with `formatDate`, `formatTime`, and `formatDateTime` utilities across chat, settings, calendar, and photo gallery.
+- Executed targeted Vitest suites for language persistence and selector interactions.
 - Status: Ready for Review

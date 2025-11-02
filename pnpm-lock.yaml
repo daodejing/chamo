@@ -150,7 +150,7 @@ importers:
         specifier: ^7.65.0
         version: 7.65.0(react@19.2.0)
       react-qr-code:
-        specifier: ^2.0.15
+        specifier: ^2.0.18
         version: 2.0.18(react@19.2.0)
       react-resizable-panels:
         specifier: ^3.0.6

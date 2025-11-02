@@ -6,10 +6,11 @@
 
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { ChatScreen } from '@/components/chat-screen';
+import { SettingsScreen } from '@/components/settings-screen';
 import { useMessages, useSendMessage, useEditMessage, useDeleteMessage, useMessageSubscription } from '@/lib/hooks/use-messages';
 import { useChannels } from '@/lib/hooks/use-channels';
 import { useAuth } from '@/lib/contexts/auth-context';
@@ -17,6 +18,53 @@ import { useLanguage } from '@/lib/contexts/language-context';
 import { encryptMessage, decryptMessage } from '@/lib/e2ee/encryption';
 import { getFamilyKey } from '@/lib/e2ee/key-management';
 import { t } from '@/lib/translations';
+import { formatDateTime } from '@/lib/utils/date-format';
+import type { TranslationLanguage } from '@/components/settings/translation-language-selector';
+
+type SettingsFamilyMember = {
+  id: string;
+  name: string;
+  email: string;
+  avatar: string;
+  role: 'admin' | 'member';
+  joinedAt: string;
+};
+
+type SettingsChannel = {
+  id: string;
+  name: string;
+  description: string;
+  icon: string;
+  createdAt: string;
+  createdBy: string;
+};
+
+const SUPPORTED_TRANSLATION_LANGUAGES: TranslationLanguage[] = [
+  'en',
+  'ja',
+  'es',
+  'fr',
+  'de',
+  'zh',
+  'ko',
+  'pt',
+  'ru',
+  'ar',
+  'it',
+  'nl',
+  'pl',
+  'tr',
+  'vi',
+  'th',
+  'id',
+  'hi',
+  'sv',
+  'no',
+];
+
+const isSupportedTranslationLanguage = (value: unknown): value is TranslationLanguage => {
+  return typeof value === 'string' && SUPPORTED_TRANSLATION_LANGUAGES.includes(value as TranslationLanguage);
+};
 
 export default function ChatPage() {
   const router = useRouter();
@@ -29,6 +77,22 @@ export default function ChatPage() {
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [familyKey, setFamilyKey] = useState<CryptoKey | null>(null);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [settingsFamilyName, setSettingsFamilyName] = useState(family?.name ?? '');
+  const [settingsFamilyAvatar, setSettingsFamilyAvatar] = useState(family?.avatar ?? '');
+  const [settingsMaxMembers, setSettingsMaxMembers] = useState(family?.maxMembers ?? 0);
+  const [isDarkMode, setIsDarkMode] = useState(false);
+  const [fontSize, setFontSize] = useState<'small' | 'medium' | 'large'>('medium');
+  const [quietHoursEnabled, setQuietHoursEnabled] = useState(false);
+  const [quietHoursStart, setQuietHoursStart] = useState('22:00');
+  const [quietHoursEnd, setQuietHoursEnd] = useState('07:00');
+  const [googleConnected, setGoogleConnected] = useState(false);
+  const [googleEmail, setGoogleEmail] = useState<string | null>(null);
+  const [lastSyncTime, setLastSyncTime] = useState<Date | null>(null);
+  const [autoSync, setAutoSync] = useState(false);
+  const [preferredTranslationLanguage, setPreferredTranslationLanguage] = useState<TranslationLanguage>('en');
+  const [settingsChannels, setSettingsChannels] = useState<SettingsChannel[]>([]);
+  const [settingsFamilyMembers, setSettingsFamilyMembers] = useState<SettingsFamilyMember[]>([]);
 
   // GraphQL hooks
   const { channels, loading: channelsLoading } = useChannels();
@@ -41,6 +105,109 @@ export default function ChatPage() {
 
   // Subscribe to real-time updates
   const { messageAdded, messageEdited, messageDeleted } = useMessageSubscription(currentChannelId || '');
+
+  // Sync settings data when panel is open and source data changes
+  useEffect(() => {
+    if (!isSettingsOpen) {
+      return;
+    }
+
+    const nextFamilyName = family?.name ?? '';
+    const nextFamilyAvatar = family?.avatar ?? '';
+    const nextMaxMembers = family?.maxMembers ?? 0;
+
+    setSettingsFamilyName((prev) => (prev === nextFamilyName ? prev : nextFamilyName));
+    setSettingsFamilyAvatar((prev) => (prev === nextFamilyAvatar ? prev : nextFamilyAvatar));
+    setSettingsMaxMembers((prev) => (prev === nextMaxMembers ? prev : nextMaxMembers));
+  }, [isSettingsOpen, family?.name, family?.avatar, family?.maxMembers]);
+
+  useEffect(() => {
+    if (!isSettingsOpen) {
+      return;
+    }
+
+    if (!user) {
+      setSettingsFamilyMembers((prev) => (prev.length === 0 ? prev : []));
+      return;
+    }
+
+    setSettingsFamilyMembers((prev) => {
+      const joinedAt =
+        prev[0]?.joinedAt ??
+        (typeof (user as any)?.createdAt === 'string'
+          ? (user as any).createdAt
+          : new Date().toISOString());
+
+      const nextMembers: SettingsFamilyMember[] = [
+        {
+          id: user.id,
+          name: user.name,
+          email: user.email,
+          avatar: user.avatar ?? '',
+          role: user.role?.toUpperCase() === 'ADMIN' ? 'admin' : 'member',
+          joinedAt,
+        },
+      ];
+
+      if (prev.length === nextMembers.length && prev.every((member, index) => {
+        const next = nextMembers[index];
+        return (
+          member.id === next.id &&
+          member.name === next.name &&
+          member.email === next.email &&
+          member.avatar === next.avatar &&
+          member.role === next.role
+        );
+      })) {
+        return prev;
+      }
+      return nextMembers;
+    });
+  }, [isSettingsOpen, user?.id, user?.name, user?.email, user?.avatar, user?.role]);
+
+  useEffect(() => {
+    if (!isSettingsOpen) {
+      return;
+    }
+
+    setSettingsChannels((prev) => {
+      const nextChannels: SettingsChannel[] = (channels || []).map((channel, index) => ({
+        id: channel.id,
+        name: channel.name,
+        description: channel.description ?? '',
+        icon: channel.icon ?? '💬',
+        createdAt: channel.createdAt
+          ? new Date(channel.createdAt).toISOString()
+          : prev[index]?.createdAt ?? '',
+        createdBy: channel.createdById || 'system',
+      }));
+
+      if (
+        prev.length === nextChannels.length &&
+        prev.every((channel, index) => {
+          const next = nextChannels[index];
+          return (
+            channel.id === next.id &&
+            channel.name === next.name &&
+            channel.description === next.description &&
+            channel.icon === next.icon &&
+            channel.createdAt === next.createdAt &&
+            channel.createdBy === next.createdBy
+          );
+        })
+      ) {
+        return prev;
+      }
+      return nextChannels;
+    });
+  }, [isSettingsOpen, channels]);
+
+  useEffect(() => {
+    const preferred = user?.preferences?.preferredLanguage;
+    if (isSupportedTranslationLanguage(preferred)) {
+      setPreferredTranslationLanguage(preferred);
+    }
+  }, [user?.preferences?.preferredLanguage]);
 
   // Initialize: Check auth and load family key
   useEffect(() => {
@@ -108,7 +275,7 @@ export default function ChatPage() {
               userAvatar: msg.user.avatar || '',
               message: plaintext,
               translation: '', // TODO: Add translation support
-              timestamp: new Date(msg.timestamp).toLocaleString(),
+              timestamp: formatDateTime(msg.timestamp, language),
               isMine: msg.userId === user?.id,
               isEdited: msg.isEdited,
             };
@@ -121,7 +288,7 @@ export default function ChatPage() {
               userAvatar: msg.user.avatar || '',
               message: '[Decryption Failed]',
               translation: '',
-              timestamp: new Date(msg.timestamp).toLocaleString(),
+              timestamp: formatDateTime(msg.timestamp, language),
               isMine: msg.userId === user?.id,
               isEdited: msg.isEdited,
             };
@@ -151,7 +318,7 @@ export default function ChatPage() {
           userAvatar: messageAdded.user.avatar || '',
           message: plaintext,
           translation: '',
-          timestamp: new Date(messageAdded.timestamp).toLocaleString(),
+          timestamp: formatDateTime(messageAdded.timestamp, language),
           isMine: messageAdded.userId === user?.id,
           isEdited: messageAdded.isEdited,
         };
@@ -231,7 +398,7 @@ export default function ChatPage() {
         userAvatar: user.avatar || '',
         message: message,
         translation: '',
-        timestamp: new Date().toLocaleString(),
+        timestamp: formatDateTime(new Date(), language),
         isMine: true,
         isEdited: false,
       };
@@ -319,12 +486,17 @@ export default function ChatPage() {
 
   // Handler: Settings click
   const handleSettingsClick = () => {
-    toast.info('Settings coming soon!');
+    setIsSettingsOpen(true);
+  };
+
+  const handleCloseSettings = () => {
+    setIsSettingsOpen(false);
   };
 
   // Handler: Logout click
   const handleLogoutClick = async () => {
     try {
+      setIsSettingsOpen(false);
       await logout();
       toast.success(t('toast.logoutSuccess', language));
       // Redirect to login page after logout
@@ -333,6 +505,87 @@ export default function ChatPage() {
       console.error('Logout error:', error);
       toast.error('Logout failed');
     }
+  };
+
+  const handleFamilyNameChange = (name: string) => {
+    setSettingsFamilyName(name);
+  };
+
+  const handleFamilyAvatarChange = (avatar: string) => {
+    setSettingsFamilyAvatar(avatar);
+  };
+
+  const handleMaxMembersChange = (max: number) => {
+    setSettingsMaxMembers(max);
+  };
+
+  const handleQuietHoursToggle = (enabled: boolean) => {
+    setQuietHoursEnabled(enabled);
+  };
+
+  const handleQuietHoursStartChange = (time: string) => {
+    setQuietHoursStart(time);
+  };
+
+  const handleQuietHoursEndChange = (time: string) => {
+    setQuietHoursEnd(time);
+  };
+
+  const handleRemoveMember = (memberId: string) => {
+    setSettingsFamilyMembers((prev) => prev.filter((member) => member.id !== memberId));
+    toast.success(t('toast.memberRemoved', language));
+  };
+
+  const handleCreateChannel = (channel: SettingsChannel) => {
+    setSettingsChannels((prev) => [...prev, channel]);
+    toast.success(t('toast.channelCreated', language, { name: channel.name }));
+  };
+
+  const handleDeleteChannel = (channelId: string) => {
+    setSettingsChannels((prev) => prev.filter((channel) => channel.id !== channelId));
+    toast.success(t('toast.channelDeleted', language));
+  };
+
+  const handleConnectGoogle = () => {
+    setGoogleConnected(true);
+    setGoogleEmail(user?.email ?? null);
+    setLastSyncTime(new Date());
+    toast.success(t('toast.googleConnected', language));
+  };
+
+  const handleDisconnectGoogle = () => {
+    setGoogleConnected(false);
+    setGoogleEmail(null);
+    toast.success(t('toast.googleDisconnected', language));
+  };
+
+  const handleSyncGoogle = () => {
+    if (!googleConnected) {
+      toast.error(t('toast.syncError', language));
+      return;
+    }
+
+    setLastSyncTime(new Date());
+    toast.success(t('toast.syncSuccess', language, { count: '0' }));
+  };
+
+  const handleThemeToggle = () => {
+    setIsDarkMode((prev) => !prev);
+  };
+
+  const handleFontSizeChange = (size: 'small' | 'medium' | 'large') => {
+    setFontSize(size);
+  };
+
+  const handleAutoSyncToggle = (enabled: boolean) => {
+    setAutoSync(enabled);
+    if (enabled) {
+      toast.info(t('toast.syncing', language));
+    }
+  };
+
+  const handlePreferredTranslationLanguageChange = (lang: TranslationLanguage) => {
+    setPreferredTranslationLanguage(lang);
   };
 
   // Handler: Add calendar event
@@ -391,19 +644,23 @@ export default function ChatPage() {
   };
 
   // Transform channels to ChatScreen format
-  const transformedChannels = channels.map((c) => ({
-    id: c.id,
-    name: c.name,
-    description: c.description || '',
-    icon: '💬',
-    createdAt: new Date(c.createdAt || new Date()).toISOString(),
-    createdBy: c.createdById || 'system',
-  }));
+  const transformedChannels = useMemo(
+    () =>
+      channels.map((c) => ({
+        id: c.id,
+        name: c.name,
+        description: c.description || '',
+        icon: '💬',
+        createdAt: new Date(c.createdAt || new Date()).toISOString(),
+        createdBy: c.createdById || 'system',
+      })),
+    [channels]
+  );
 
   // Get family info
-  const familyName = family?.name || 'Loading...';
-  const familyAvatar = family?.avatar || '';
-  const familyMemberCount = family?.maxMembers || 0;
+  const familyName = settingsFamilyName || family?.name || 'Loading...';
+  const familyAvatar = settingsFamilyAvatar || family?.avatar || '';
+  const familyMemberCount = settingsFamilyMembers.length || 0;
 
   if (authLoading || (loading && !currentChannelId)) {
     return (
@@ -417,40 +674,87 @@ export default function ChatPage() {
   }
 
   return (
-    <ChatScreen
-      chatName={familyName}
-      chatAvatar={familyAvatar}
-      chatMembers={familyMemberCount}
-      messages={displayMessages}
-      channels={transformedChannels}
-      currentChannelId={currentChannelId || ''}
-      scheduledMessages={[]}
-      calendarEvents={[]}
-      photos={[]}
-      photoFolders={[]}
-      familyMembers={[]}
-      currentUserId={user?.id || ''}
-      currentUserName={user?.name || ''}
-      language={language}
-      onSettingsClick={handleSettingsClick}
-      onLogoutClick={handleLogoutClick}
-      onChannelChange={handleChannelChange}
-      onSendMessage={handleSendMessage}
-      onScheduleMessage={handleScheduleMessage}
-      onDeleteMessage={handleDeleteMessage}
-      onEditMessage={handleEditMessage}
-      onCancelScheduledMessage={handleCancelScheduledMessage}
-      onAddEvent={handleAddEvent}
-      onEditEvent={handleEditEvent}
-      onDeleteEvent={handleDeleteEvent}
-      onAddPhoto={handleAddPhoto}
-      onDeletePhoto={handleDeletePhoto}
-      onLikePhoto={handleLikePhoto}
-      onAddPhotoComment={handleAddPhotoComment}
-      onCreateFolder={handleCreateFolder}
-      onDeleteFolder={handleDeleteFolder}
-      onRenameFolder={handleRenameFolder}
-      onMovePhotoToFolder={handleMovePhotoToFolder}
-    />
+    <>
+      <ChatScreen
+        chatName={familyName}
+        chatAvatar={familyAvatar}
+        chatMembers={familyMemberCount}
+        messages={displayMessages}
+        channels={transformedChannels}
+        currentChannelId={currentChannelId || ''}
+        scheduledMessages={[]}
+        calendarEvents={[]}
+        photos={[]}
+        photoFolders={[]}
+        familyMembers={settingsFamilyMembers}
+        currentUserId={user?.id || ''}
+        currentUserName={user?.name || ''}
+        language={language}
+        onSettingsClick={handleSettingsClick}
+        onLogoutClick={handleLogoutClick}
+        onChannelChange={handleChannelChange}
+        onSendMessage={handleSendMessage}
+        onScheduleMessage={handleScheduleMessage}
+        onDeleteMessage={handleDeleteMessage}
+        onEditMessage={handleEditMessage}
+        onCancelScheduledMessage={handleCancelScheduledMessage}
+        onAddEvent={handleAddEvent}
+        onEditEvent={handleEditEvent}
+        onDeleteEvent={handleDeleteEvent}
+        onAddPhoto={handleAddPhoto}
+        onDeletePhoto={handleDeletePhoto}
+        onLikePhoto={handleLikePhoto}
+        onAddPhotoComment={handleAddPhotoComment}
+        onCreateFolder={handleCreateFolder}
+        onDeleteFolder={handleDeleteFolder}
+        onRenameFolder={handleRenameFolder}
+        onMovePhotoToFolder={handleMovePhotoToFolder}
+      />
+
+      {isSettingsOpen && user && (
+        <div className="fixed inset-0 z-50 bg-background">
+          <SettingsScreen
+            userName={user.name}
+            userEmail={user.email}
+            userAvatar={user.avatar ?? ''}
+            familyName={settingsFamilyName || familyName}
+            familyAvatar={settingsFamilyAvatar || familyAvatar}
+            familyMembers={settingsFamilyMembers}
+            maxMembers={settingsMaxMembers}
+            channels={settingsChannels}
+            inviteCode={family?.inviteCode ?? ''}
+            isDarkMode={isDarkMode}
+            fontSize={fontSize}
+            language={language}
+            quietHoursEnabled={quietHoursEnabled}
+            quietHoursStart={quietHoursStart}
+            quietHoursEnd={quietHoursEnd}
+            googleConnected={googleConnected}
+            googleEmail={googleEmail}
+            lastSyncTime={lastSyncTime}
+            autoSync={autoSync}
+            onBack={handleCloseSettings}
+            onLogout={handleLogoutClick}
+            onThemeToggle={handleThemeToggle}
+            onFontSizeChange={handleFontSizeChange}
+            onFamilyNameChange={handleFamilyNameChange}
+            onFamilyAvatarChange={handleFamilyAvatarChange}
+            onMaxMembersChange={handleMaxMembersChange}
+            onQuietHoursToggle={handleQuietHoursToggle}
+            onQuietHoursStartChange={handleQuietHoursStartChange}
+            onQuietHoursEndChange={handleQuietHoursEndChange}
+            onRemoveMember={handleRemoveMember}
+            onCreateChannel={handleCreateChannel}
+            onDeleteChannel={handleDeleteChannel}
+            onConnectGoogle={handleConnectGoogle}
+            onDisconnectGoogle={handleDisconnectGoogle}
+            onSyncGoogle={handleSyncGoogle}
+            onAutoSyncToggle={handleAutoSyncToggle}
+            preferredTranslationLanguage={preferredTranslationLanguage}
+            onPreferredTranslationLanguageChange={handlePreferredTranslationLanguageChange}
+          />
+        </div>
+      )}
+    </>
   );
 }

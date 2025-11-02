@@ -10,7 +10,8 @@ import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
 import { Language, t } from "@/lib/translations";
 import { LanguageSelector } from "@/components/settings/language-selector";
-import { TranslationLanguageSelector } from "@/components/settings/translation-language-selector";
+import { TranslationLanguageSelector, type TranslationLanguage } from "@/components/settings/translation-language-selector";
+import { formatDateTime } from "@/lib/utils/date-format";
 
 interface FamilyMember {
   id: string;
@@ -54,7 +55,6 @@ interface SettingsScreenProps {
   onLogout: () => void;
   onThemeToggle: () => void;
   onFontSizeChange: (size: "small" | "medium" | "large") => void;
-  onLanguageChange: (lang: Language) => void;
   onFamilyNameChange: (name: string) => void;
   onFamilyAvatarChange: (avatar: string) => void;
   onMaxMembersChange: (max: number) => void;
@@ -68,9 +68,11 @@ interface SettingsScreenProps {
   onDisconnectGoogle: () => void;
   onSyncGoogle: () => void;
   onAutoSyncToggle: (enabled: boolean) => void;
+  preferredTranslationLanguage?: TranslationLanguage;
+  onPreferredTranslationLanguageChange?: (lang: TranslationLanguage) => void;
 }
 
-export function SettingsScreen({ userName, userEmail, userAvatar, familyName, familyAvatar, familyMembers, maxMembers, channels, inviteCode, isDarkMode, fontSize, language, quietHoursEnabled, quietHoursStart, quietHoursEnd, googleConnected, googleEmail, lastSyncTime, autoSync, onBack, onLogout, onThemeToggle, onFontSizeChange, onLanguageChange, onFamilyNameChange, onFamilyAvatarChange, onMaxMembersChange, onQuietHoursToggle, onQuietHoursStartChange, onQuietHoursEndChange, onRemoveMember, onCreateChannel, onDeleteChannel, onConnectGoogle, onDisconnectGoogle, onSyncGoogle, onAutoSyncToggle }: SettingsScreenProps) {
+export function SettingsScreen({ userName, userEmail, userAvatar, familyName, familyAvatar, familyMembers, maxMembers, channels, inviteCode, isDarkMode, fontSize, language, quietHoursEnabled, quietHoursStart, quietHoursEnd, googleConnected, googleEmail, lastSyncTime, autoSync, onBack, onLogout, onThemeToggle, onFontSizeChange, onFamilyNameChange, onFamilyAvatarChange, onMaxMembersChange, onQuietHoursToggle, onQuietHoursStartChange, onQuietHoursEndChange, onRemoveMember, onCreateChannel, onDeleteChannel, onConnectGoogle, onDisconnectGoogle, onSyncGoogle, onAutoSyncToggle, preferredTranslationLanguage = "en", onPreferredTranslationLanguageChange }: SettingsScreenProps) {
   // Helper function to get channel display name
   const getChannelName = (channel: Channel) => {
     // If it's a translation key (starts with "channel."), translate it
@@ -141,7 +143,10 @@ export function SettingsScreen({ userName, userEmail, userAvatar, familyName, fa
               {/* Translation Language Selector */}
               <div className="space-y-2">
                 <Label>{t("settings.translateMessagesTo", language)}</Label>
-                <TranslationLanguageSelector defaultValue="en" />
+                <TranslationLanguageSelector
+                  defaultValue={preferredTranslationLanguage}
+                  onLanguageChange={onPreferredTranslationLanguageChange}
+                />
                 <p className="text-sm text-muted-foreground">
                   {t("settings.translateMessagesToHelp", language)}
                 </p>
@@ -379,13 +384,8 @@ export function SettingsScreen({ userName, userEmail, userAvatar, familyName, fa
                           </p>
                           {lastSyncTime && (
                             <p className="text-xs text-muted-foreground">
-                              {t("settings.lastSync", language, {
-                                time: lastSyncTime.toLocaleString(language === "ja" ? "ja-JP" : "en-US", {
-                                  month: "short",
-                                  day: "numeric",
-                                  hour: "2-digit",
-                                  minute: "2-digit",
-                                }),
+                          {t("settings.lastSync", language, {
+                                time: formatDateTime(lastSyncTime, language, "medium", "short"),
                               })}
                             </p>
                           )}

@@ -58,7 +58,9 @@ describe('Language Persistence Integration Tests', () => {
         mutation UpdateUserPreferences($input: UpdateUserPreferencesInput!) {
           updateUserPreferences(input: $input) {
             id
-            preferences
+            preferences {
+              preferredLanguage
+            }
           }
         }
       `;
@@ -66,6 +68,7 @@ describe('Language Persistence Integration Tests', () => {
       // Verify mutation is well-formed
       expect(UPDATE_USER_PREFERENCES.loc?.source.body).toContain('updateUserPreferences');
       expect(UPDATE_USER_PREFERENCES.loc?.source.body).toContain('preferences');
+      expect(UPDATE_USER_PREFERENCES.loc?.source.body).toContain('preferredLanguage');
     });
 
     it('structures mutation input correctly', () => {
@@ -112,7 +115,9 @@ describe('Language Persistence Integration Tests', () => {
             id
             email
             name
-            preferences
+            preferences {
+              preferredLanguage
+            }
           }
         }
       `;
@@ -120,6 +125,7 @@ describe('Language Persistence Integration Tests', () => {
       // Verify query structure
       expect(ME_QUERY.loc?.source.body).toContain('me');
       expect(ME_QUERY.loc?.source.body).toContain('preferences');
+      expect(ME_QUERY.loc?.source.body).toContain('preferredLanguage');
     });
 
     it('can parse preferences from user object', () => {

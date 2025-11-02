@@ -12,6 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Language, t } from "@/lib/translations";
+import { formatDate, formatTime } from "@/lib/utils/date-format";
 
 interface PhotoFolder {
   id: string;
@@ -161,10 +162,7 @@ export function PhotoGallery({
       userName: currentUserName,
       userAvatar: "",
       comment: newComment,
-      timestamp: new Date().toLocaleTimeString("ja-JP", {
-        hour: "2-digit",
-        minute: "2-digit",
-      }),
+      timestamp: formatTime(new Date(), language),
     };
 
     onAddComment(photoId, comment);
@@ -508,11 +506,7 @@ export function PhotoGallery({
                     <div>
                       <p className="text-sm text-foreground">{selectedPhoto.uploadedByName}</p>
                       <p className="text-xs text-muted-foreground">
-                        {new Date(selectedPhoto.uploadedAt).toLocaleDateString("ja-JP", {
-                          year: "numeric",
-                          month: "short",
-                          day: "numeric",
-                        })}
+                        {formatDate(selectedPhoto.uploadedAt, language, "medium")}
                       </p>
                     </div>
                   </div>

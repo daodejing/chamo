@@ -70,6 +70,7 @@ export const translations = {
     "toast.folderRenamed": "フォルダ名を変更しました",
     "toast.languageChanging": "新しい言語を適用するためにリロードしています",
     "toast.translationLanguageUpdated": "翻訳言語を更新しました",
+    "toast.translationLanguageUpdateFailed": "翻訳言語の更新に失敗しました",
 
     // Chat Screen
     "chat.members": "メンバー",
@@ -311,6 +312,7 @@ export const translations = {
     "toast.folderRenamed": "Folder renamed",
     "toast.languageChanging": "Reloading to apply new language",
     "toast.translationLanguageUpdated": "Translation language updated successfully",
+    "toast.translationLanguageUpdateFailed": "Failed to update translation language",
 
     // Chat Screen
     "chat.members": "members",

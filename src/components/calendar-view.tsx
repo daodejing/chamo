@@ -11,6 +11,7 @@ import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Language, t } from "@/lib/translations";
+import { formatMonthYear } from "@/lib/utils/date-format";
 
 interface CalendarEvent {
   id: string;
@@ -189,12 +190,7 @@ export function CalendarView({ events, familyMembers, language, onAddEvent, onEd
           <Button variant="ghost" size="icon" onClick={previousMonth} className="text-foreground">
             <ChevronLeft className="w-5 h-5" />
           </Button>
-          <h2 className="text-lg text-foreground">
-            {language === "ja"
-              ? `${currentDate.getFullYear()}${t("calendar.year", language)} ${currentDate.getMonth() + 1}${t("calendar.month", language)}`
-              : `${currentDate.toLocaleString('en-US', { month: 'long' })} ${currentDate.getFullYear()}`
-            }
-          </h2>
+          <h2 className="text-lg text-foreground">{formatMonthYear(currentDate, language)}</h2>
           <Button variant="ghost" size="icon" onClick={nextMonth} className="text-foreground">
             <ChevronRight className="w-5 h-5" />
           </Button>

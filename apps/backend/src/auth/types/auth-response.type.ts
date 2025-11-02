@@ -1,5 +1,7 @@
 import { ObjectType, Field, ID } from '@nestjs/graphql';
+import type { Prisma } from '@prisma/client';
 import { FamilyType } from './family.type';
+import { UserPreferencesType } from './user-preferences.type';
 
 @ObjectType()
 export class UserType {
@@ -23,6 +25,9 @@ export class UserType {
 
   @Field(() => FamilyType, { nullable: true })
   family?: FamilyType;
+
+  @Field(() => UserPreferencesType, { nullable: true })
+  preferences?: UserPreferencesType | Prisma.JsonValue | null;
 }
 
 @ObjectType()

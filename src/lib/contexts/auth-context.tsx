@@ -22,8 +22,6 @@ import {
   parseInviteCode,
   initializeFamilyKey,
 } from '../e2ee/key-management';
-import { clearKeys } from '../e2ee/storage';
-
 interface User {
   id: string;
   email: string;
@@ -31,6 +29,10 @@ interface User {
   avatar?: string | null;
   role: string;
   familyId: string;
+  preferences?: {
+    preferredLanguage?: string | null;
+    [key: string]: unknown;
+  } | null;
 }
 
 interface Family {
@@ -45,6 +47,8 @@ interface AuthContextType {
   user: User | null;
   family: Family | null;
   loading: boolean;
+  refreshUser: () => Promise<void>;
+  updateUserPreferences: (preferences: Record<string, unknown> | null) => void;
   register: (input: {
     email: string;
     password: string;
@@ -81,6 +85,32 @@ function AuthProviderInner({ children }: { children: React.ReactNode}) {
     errorPolicy: 'all', // Allow partial results even if query errors
     notifyOnNetworkStatusChange: true, // Get updates when network status changes
   });
+
+  const refreshUser = async () => {
+    try {
+      const result = await refetch();
+      if (result.data?.me) {
+        setUser(result.data.me);
+        setFamily(result.data.me.family || null);
+      }
+      return;
+    } catch (refreshError) {
+      console.error('Failed to refresh user:', refreshError);
+      setAuthToken(null);
+      setUser(null);
+      setFamily(null);
+    }
+  };
+
+  const updateUserPreferences = (preferences: Record<string, unknown> | null) => {
+    setUser((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        preferences: preferences ?? null,
+      };
+    });
+  };
 
   // Handle query results with useEffect (callbacks don't fire reliably with skip)
   useEffect(() => {
@@ -227,6 +257,8 @@ function AuthProviderInner({ children }: { children: React.ReactNode}) {
         login,
         joinFamily,
         logout,
+        refreshUser,
+        updateUserPreferences,
       }}
     >
       {children}

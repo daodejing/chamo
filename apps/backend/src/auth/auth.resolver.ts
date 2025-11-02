@@ -7,6 +7,7 @@ import { LoginInput } from './dto/login.input';
 import { UpdateUserPreferencesInput } from './dto/update-user-preferences.input';
 import { AuthResponse, UserType } from './types/auth-response.type';
 import { FamilyType } from './types/family.type';
+import { UserPreferencesType } from './types/user-preferences.type';
 import { GqlAuthGuard } from './guards/gql-auth.guard';
 import { CurrentUser } from './current-user.decorator';
 import { PrismaService } from '../prisma/prisma.service';
@@ -58,6 +59,20 @@ export class AuthResolver {
     return this.prisma.family.findUnique({
       where: { id: user.familyId },
     });
+  }
+
+  @ResolveField(() => UserPreferencesType, { nullable: true })
+  preferences(@Parent() user: UserType): UserPreferencesType | null {
+    const rawPreferences = (user as any).preferences;
+    if (!rawPreferences || typeof rawPreferences !== 'object') {
+      return null;
+    }
+
+    const { preferredLanguage } = rawPreferences as Record<string, unknown>;
+
+    return {
+      preferredLanguage: typeof preferredLanguage === 'string' ? preferredLanguage : null,
+    };
   }
 
   @Mutation(() => Boolean)

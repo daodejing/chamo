@@ -1,21 +1,17 @@
 'use client';
 
+import { useEffect, useMemo, useState } from "react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Language, t } from "@/lib/translations";
 import { useLanguage } from "@/lib/contexts/language-context";
+import { useAuth } from "@/lib/contexts/auth-context";
 import { toast } from "sonner";
-import { useMutation } from "@apollo/client";
-import { gql } from "@apollo/client";
-
-// GraphQL mutation to update user preferences
-const UPDATE_USER_PREFERENCES = gql`
-  mutation UpdateUserPreferences($input: UpdateUserPreferencesInput!) {
-    updateUserPreferences(input: $input) {
-      id
-      preferences
-    }
-  }
-`;
+import { useMutation } from "@apollo/client/react";
+import { UPDATE_USER_PREFERENCES_MUTATION } from "@/lib/graphql/operations";
+import type {
+  UpdateUserPreferencesMutation,
+  UpdateUserPreferencesMutationVariables,
+} from "@/lib/graphql/generated/graphql";
 
 // Translation language type (20+ languages as per AC#2)
 export type TranslationLanguage =
@@ -61,35 +57,81 @@ export function TranslationLanguageSelector({
   onLanguageChange
 }: TranslationLanguageSelectorProps) {
   const { language } = useLanguage();
-  const [updatePreferences] = useMutation(UPDATE_USER_PREFERENCES);
+  const { user, updateUserPreferences } = useAuth();
+  const [selectedLanguage, setSelectedLanguage] = useState<TranslationLanguage>(defaultValue);
+  const [pendingLanguage, setPendingLanguage] = useState<TranslationLanguage | null>(null);
+  const [mutate] = useMutation<
+    UpdateUserPreferencesMutation,
+    UpdateUserPreferencesMutationVariables
+  >(UPDATE_USER_PREFERENCES_MUTATION);
+
+  useEffect(() => {
+    setSelectedLanguage(defaultValue);
+  }, [defaultValue]);
+
+  const languageOptions = useMemo(() => getLanguageOptions(language), [language]);
+
+  const mergePreferences = (preferredLanguage: TranslationLanguage) => {
+    const currentPrefs = (user?.preferences as Record<string, unknown> | undefined) ?? {};
+    return {
+      ...currentPrefs,
+      preferredLanguage,
+    };
+  };
+
+  const applySelection = (preferredLanguage: TranslationLanguage) => {
+    setSelectedLanguage(preferredLanguage);
+    updateUserPreferences(mergePreferences(preferredLanguage));
+    if (onLanguageChange) {
+      onLanguageChange(preferredLanguage);
+    }
+  };
 
   const handleLanguageChange = async (newLang: TranslationLanguage) => {
+    if (newLang === selectedLanguage || pendingLanguage === newLang) {
+      return;
+    }
+
+    const previousLanguage = selectedLanguage;
+    const previousPreferences = (user?.preferences as Record<string, unknown> | undefined) ?? null;
+
+    applySelection(newLang);
+    setPendingLanguage(newLang);
+
     try {
-      // Update backend user preferences via GraphQL mutation
-      await updatePreferences({
+      const { data } = await mutate({
         variables: {
           input: { preferredLanguage: newLang },
         },
       });
 
-      // Show success toast (no page reload needed for translation language)
-      toast.success(t("toast.translationLanguageUpdated", language));
+      const updatedPreferences = data?.updateUserPreferences?.preferences as
+        | { preferredLanguage?: string | null }
+        | null
+        | undefined;
 
-      // Call optional callback
-      if (onLanguageChange) {
-        onLanguageChange(newLang);
+      if (updatedPreferences) {
+        updateUserPreferences(updatedPreferences as Record<string, unknown>);
       }
+
+      toast.success(t("toast.translationLanguageUpdated", language));
     } catch (error) {
-      // Handle error
-      toast.error(language === "ja" ? "翻訳言語の更新に失敗しました" : "Failed to update translation language");
       console.error("Failed to update translation language:", error);
+      toast.error(t("toast.translationLanguageUpdateFailed", language));
+
+      if (previousPreferences) {
+        updateUserPreferences(previousPreferences);
+      } else {
+        updateUserPreferences(null);
+      }
+      setSelectedLanguage(previousLanguage);
+    } finally {
+      setPendingLanguage(null);
     }
   };
 
-  const languageOptions = getLanguageOptions(language);
-
   return (
-    <Select defaultValue={defaultValue} onValueChange={handleLanguageChange}>
+    <Select value={selectedLanguage} onValueChange={handleLanguageChange}>
       <SelectTrigger className="rounded-xl">
         <SelectValue />
       </SelectTrigger>

@@ -95,6 +95,7 @@ type Mutation {
   logout: Boolean!
   register(input: RegisterInput!): AuthResponse!
   sendMessage(input: SendMessageInput!): MessageWithUserType!
+  updateUserPreferences(input: UpdateUserPreferencesInput!): UserType!
 }
 
 type Query {
@@ -123,6 +124,14 @@ type Subscription {
   messageEdited(channelId: String!): MessageWithUserType!
 }
 
+input UpdateUserPreferencesInput {
+  preferredLanguage: String
+}
+
+type UserPreferencesType {
+  preferredLanguage: String
+}
+
 type UserType {
   avatar: String
   email: String!
@@ -130,5 +139,6 @@ type UserType {
   familyId: ID!
   id: ID!
   name: String!
+  preferences: UserPreferencesType
   role: String!
 }

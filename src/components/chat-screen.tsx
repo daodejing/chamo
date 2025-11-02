@@ -14,6 +14,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Language, t } from "@/lib/translations";
+import { formatDateTime } from "@/lib/utils/date-format";
 
 interface Message {
   id: string;
@@ -422,12 +423,7 @@ export function ChatScreen({ chatName, chatAvatar, chatMembers, messages, channe
                             <div className="flex items-center justify-between">
                               <div className="flex items-center gap-1 text-xs text-muted-foreground">
                                 <Clock className="w-3 h-3" />
-                                {scheduled.scheduledTime.toLocaleString("ja-JP", {
-                                  month: "short",
-                                  day: "numeric",
-                                  hour: "2-digit",
-                                  minute: "2-digit",
-                                })}
+                                {formatDateTime(scheduled.scheduledTime, language, "medium", "short")}
                               </div>
                               <Button
                                 onClick={() => onCancelScheduledMessage(scheduled.id)}
