@@ -1,0 +1,422 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Story Context for Story 2.5: Message Translation -->
+<!-- Generated: 2025-11-01 -->
+<!-- Agent: Bob (Scrum Master) -->
+
+<story-context id="story-2.5" epic="2" story="5" version="1.0">
+  <metadata>
+    <title>Message Translation</title>
+    <status>Draft</status>
+    <created>2025-11-01</created>
+    <last-updated>2025-11-01</last-updated>
+    <agent-model>claude-sonnet-4-5-20250929</agent-model>
+  </metadata>
+
+  <user-story>
+    <as-a>family member</as-a>
+    <i-want>to see messages translated to my preferred language</i-want>
+    <so-that>I can understand messages from relatives who speak different languages</so-that>
+  </user-story>
+
+  <acceptance-criteria>
+    <criterion id="AC1">Message displays in sender's original language</criterion>
+    <criterion id="AC2">If message language differs from my preferred language, translation appears below original</criterion>
+    <criterion id="AC3">Translation accurate for common phrases (20+ languages supported)</criterion>
+    <criterion id="AC4">No manual translation action required (automatic translation)</criterion>
+    <criterion id="AC5">Translation uses my "Translate Messages To" setting from preferences (user.preferences.preferredLanguage)</criterion>
+  </acceptance-criteria>
+
+  <artifacts>
+    <docs>
+      <doc>
+        <path>docs/tech-spec-epic-2.md</path>
+        <title>Tech Spec: Epic 2 - Multi-Channel Messaging</title>
+        <section>US-2.5 Multi-Language Translation</section>
+        <snippet>Detailed acceptance criteria and implementation guidance for message translation using Groq API</snippet>
+        <relevance>Primary specification for translation feature implementation</relevance>
+      </doc>
+      <doc>
+        <path>docs/PRD.md</path>
+        <title>Product Requirements Document</title>
+        <section>FR-2.9 Real-Time Translation</section>
+        <snippet>Business requirements for 20+ language support with auto-detection</snippet>
+        <relevance>Business context and user requirements</relevance>
+      </doc>
+      <doc>
+        <path>docs/solution-architecture.md</path>
+        <title>Solution Architecture - NestJS + GraphQL</title>
+        <section>Client-side architecture</section>
+        <snippet>React 19 + Next.js 15 + Apollo Client architecture with client-side E2EE</snippet>
+        <relevance>Architecture context - translation happens client-side after decryption</relevance>
+      </doc>
+      <doc>
+        <path>docs/stories/story-5.4.md</path>
+        <title>Story 5.4: Customize Language Settings</title>
+        <section>Complete implementation</section>
+        <snippet>User preferences.preferredLanguage field implementation and TranslationLanguageSelector component</snippet>
+        <relevance>CRITICAL DEPENDENCY - provides user.preferences.preferredLanguage</relevance>
+      </doc>
+    </docs>
+
+    <code>
+      <file>
+        <path>src/components/chat/message-bubble.tsx</path>
+        <kind>React Component</kind>
+        <symbol>MessageBubble</symbol>
+        <lines>1-100</lines>
+        <reason>Existing message rendering component where TranslationDisplay will be integrated</reason>
+        <interface>
+          <name>MessageBubbleProps</name>
+          <properties>
+            <property>id: string</property>
+            <property>content: string (decrypted message text)</property>
+            <property>userName: string</property>
+            <property>timestamp: string</property>
+            <property>isMine: boolean</property>
+          </properties>
+        </interface>
+      </file>
+      <file>
+        <path>src/lib/contexts/auth-context.tsx</path>
+        <kind>React Context</kind>
+        <symbol>AuthContext, useAuth</symbol>
+        <lines>1-100</lines>
+        <reason>Provides user object with preferences via ME_QUERY - source of preferredLanguage</reason>
+        <interface>
+          <name>User (from ME_QUERY)</name>
+          <properties>
+            <property>id: string</property>
+            <property>email: string</property>
+            <property>name: string</property>
+            <property>preferences: JSON (includes preferredLanguage from Story 5.4)</property>
+          </properties>
+        </interface>
+      </file>
+      <file>
+        <path>src/lib/translations.ts</path>
+        <kind>Translation Module</kind>
+        <symbol>translations, Language</symbol>
+        <lines>1-50</lines>
+        <reason>Existing UI translation system - NOT for message translation (different purpose)</reason>
+        <note>This is for UI i18n (ja/en interface), Story 2.5 is for MESSAGE translation via Groq API</note>
+      </file>
+    </code>
+
+    <dependencies>
+      <node>
+        <package name="@apollo/client" version="^3.9.0" />
+        <package name="react" version="19.0.0" />
+        <package name="next" version="15.0.3" />
+        <package name="date-fns" version="^4.1.x" />
+        <package name="lucide-react" version="latest" />
+      </node>
+    </dependencies>
+  </artifacts>
+
+  <interfaces>
+    <interface>
+      <name>useAuth Hook</name>
+      <kind>React Hook</kind>
+      <signature>
+        const { user } = useAuth();
+        // user.preferences.preferredLanguage: string (from Story 5.4)
+      </signature>
+      <path>src/lib/contexts/auth-context.tsx</path>
+      <usage>Get user's preferred translation language from preferences</usage>
+    </interface>
+    <interface>
+      <name>Groq API (External)</name>
+      <kind>REST API</kind>
+      <signature>
+        POST https://api.groq.com/openai/v1/chat/completions
+        Headers: { Authorization: Bearer ${API_KEY} }
+        Body: { model: "llama-3.3-70b-versatile", messages: [...] }
+      </signature>
+      <usage>Client-direct translation API calls (no server proxy)</usage>
+      <rate-limits>
+        Free Tier: 30 requests/minute, 14,400/day
+      </rate-limits>
+      <cost>
+        $0.59/million input tokens, $0.79/million output tokens
+        Typical translation: ~$0.000079 (less than 0.01 cents)
+      </cost>
+    </interface>
+  </interfaces>
+
+  <constraints>
+    <constraint category="architecture">
+      Translation must happen CLIENT-SIDE only (after message decryption)
+    </constraint>
+    <constraint category="privacy">
+      Plaintext messages sent to Groq API (acceptable tradeoff for UX, Groq doesn't store per ToS)
+    </constraint>
+    <constraint category="e2ee">
+      Messages remain encrypted at rest and in transit - only decrypted client-side before translation
+    </constraint>
+    <constraint category="dependency">
+      Story 5.4 (Language Settings) MUST be complete - requires user.preferences.preferredLanguage
+    </constraint>
+    <constraint category="performance">
+      Implement caching to avoid duplicate API calls for same message+language pair
+    </constraint>
+    <constraint category="performance">
+      Use AbortController cleanup in useEffect to prevent memory leaks (2025 best practice)
+    </constraint>
+    <constraint category="ux">
+      Translation must be automatic (no button click required)
+    </constraint>
+    <constraint category="ux">
+      Always show original message first, translation below (grayed out, italicized)
+    </constraint>
+    <constraint category="error-handling">
+      On API failure, gracefully degrade - show original message only
+    </constraint>
+    <constraint category="model">
+      Use Llama 3.3 70B Versatile (model ID: llama-3.3-70b-versatile) - Llama 3.1 deprecated Jan 2025
+    </constraint>
+  </constraints>
+
+  <implementation-guidance>
+    <files-to-create>
+      <file>
+        <path>src/components/chat/translation-display.tsx</path>
+        <purpose>React component to display translated text below original message</purpose>
+        <dependencies>
+          - useAuth hook (get user.preferences.preferredLanguage)
+          - translateText service (Groq API call)
+          - AbortController for cleanup
+        </dependencies>
+      </file>
+      <file>
+        <path>src/lib/groq/translation.ts</path>
+        <purpose>Groq API translation service with caching</purpose>
+        <exports>
+          - translateText(text, targetLang, cacheKey, signal)
+          - clearTranslationCache()
+          - LANGUAGE_NAMES mapping
+        </exports>
+      </file>
+    </files-to-create>
+
+    <files-to-modify>
+      <file>
+        <path>src/components/chat/message-bubble.tsx</path>
+        <changes>
+          - Import TranslationDisplay component
+          - Add TranslationDisplay below message content
+          - Pass content and messageId props
+          - Only show for non-own messages (isMine === false)
+        </changes>
+      </file>
+      <file>
+        <path>.env.local</path>
+        <changes>
+          - Add NEXT_PUBLIC_GROQ_API_KEY=gsk_xxx
+        </changes>
+      </file>
+    </files-to-modify>
+
+    <key-algorithms>
+      <algorithm name="Translation Flow">
+        <step>1. TranslationDisplay renders with message content and messageId</step>
+        <step>2. useEffect hook gets user.preferences.preferredLanguage from useAuth()</step>
+        <step>3. If preferredLanguage exists, call translateText(content, preferredLanguage, messageId, signal)</step>
+        <step>4. translateText checks cache first (Map&lt;messageId-lang, translation&gt;)</step>
+        <step>5. If not cached, make Groq API call with AbortSignal</step>
+        <step>6. Groq auto-detects source language and translates to target</step>
+        <step>7. If translation === original, don't show (already in target language)</step>
+        <step>8. Otherwise, render translation below original (grayed out, italicized)</step>
+        <step>9. On component unmount, abort pending request to prevent memory leaks</step>
+      </algorithm>
+      <algorithm name="Caching Strategy">
+        <step>Cache key format: `${messageId}-${targetLanguage}`</step>
+        <step>Store in Map&lt;string, string&gt; (client-side only, session-scoped)</step>
+        <step>Check cache before API call to avoid duplicates</step>
+        <step>Consider React Query/SWR for production (advanced stale data management)</step>
+      </algorithm>
+    </key-algorithms>
+
+    <2025-best-practices>
+      <practice>Use Llama 3.3 70B (model ID: llama-3.3-70b-versatile) - 3.1 deprecated</practice>
+      <practice>AbortController cleanup in useEffect return function</practice>
+      <practice>Pass signal parameter to fetch for request cancellation</practice>
+      <practice>Check signal.aborted before setting state after async operations</practice>
+      <practice>Ignore AbortError exceptions (expected on unmount)</practice>
+      <practice>Consider React Query/SWR for production caching needs</practice>
+    </2025-best-practices>
+  </implementation-guidance>
+
+  <tests>
+    <standards>
+      <framework>Vitest for unit tests</framework>
+      <framework>Playwright for E2E tests</framework>
+      <pattern>Test files colocated with implementation in tests/ directory</pattern>
+      <pattern>Mock Groq API responses for unit tests</pattern>
+      <coverage>Aim for 95%+ code coverage on translation service</coverage>
+    </standards>
+
+    <locations>
+      <location>tests/unit/groq/translation.test.ts</location>
+      <location>tests/unit/components/translation-display.test.tsx</location>
+      <location>tests/integration/translation-ui.test.ts</location>
+      <location>tests/e2e/story-2.5-message-translation.spec.ts</location>
+    </locations>
+
+    <ideas>
+      <test ac="AC1, AC2">
+        <description>User A (preferredLanguage: en) sends Japanese message "こんにちは"</description>
+        <expected>User B (preferredLanguage: ja) sees original + NO translation (already in target language)</expected>
+        <expected>User C (preferredLanguage: en) sees original + "Hello" translation below</expected>
+      </test>
+      <test ac="AC3">
+        <description>Test translation accuracy for common phrases across all 20+ languages</description>
+        <expected>Translations match expected results for "Hello", "Thank you", "I love you"</expected>
+      </test>
+      <test ac="AC4">
+        <description>Translation happens automatically without user action</description>
+        <expected>No button click required, translation appears within 2-5 seconds</expected>
+      </test>
+      <test ac="AC5">
+        <description>Changing preferredLanguage in settings triggers re-translation</description>
+        <expected>Visible messages re-translate to new target language</expected>
+      </test>
+      <test category="error-handling">
+        <description>Groq API returns 429 rate limit error</description>
+        <expected>Original message still visible, no translation shown, no error to user</expected>
+      </test>
+      <test category="performance">
+        <description>Same message translated multiple times</description>
+        <expected>Only one API call made (cache hit on subsequent requests)</expected>
+      </test>
+      <test category="memory-leaks">
+        <description>Component unmounts before translation completes</description>
+        <expected>Fetch aborted, no state updates, no memory leak</expected>
+      </test>
+    </ideas>
+  </tests>
+
+  <technical-decisions>
+    <decision id="TD-2.5-01">
+      <title>Client-Direct Groq API vs Server Proxy</title>
+      <choice>Client-direct API calls</choice>
+      <rationale>
+        Preserves privacy (no server-side plaintext access), simpler architecture,
+        acceptable tradeoff given Groq's ToS (doesn't store data). Rate limiting
+        handled by Groq per API key.
+      </rationale>
+      <tradeoff>Plaintext exposed to Groq API (but not stored per ToS)</tradeoff>
+    </decision>
+    <decision id="TD-2.5-02">
+      <title>Llama 3.3 70B vs Smaller Models</title>
+      <choice>Llama 3.3 70B Versatile</choice>
+      <rationale>
+        Better translation quality for multilingual use cases, 128K context,
+        only slightly more expensive than 8B model ($0.59 vs $0.05 per million tokens),
+        still extremely cheap (~$0.000079 per translation).
+      </rationale>
+      <cost>~$1.20/month for 100 families with 500 translations/day</cost>
+    </decision>
+    <decision id="TD-2.5-03">
+      <title>Simple Map Cache vs React Query</title>
+      <choice>Start with Map cache, upgrade to React Query later if needed</choice>
+      <rationale>
+        Map cache sufficient for MVP (avoids duplicate API calls), React Query
+        adds complexity but better for stale data management and advanced caching.
+        Can upgrade later without breaking changes.
+      </rationale>
+    </decision>
+    <decision id="TD-2.5-04">
+      <title>Translation on Scroll Performance</title>
+      <choice>Translate visible messages only (IntersectionObserver)</choice>
+      <rationale>
+        Avoids translating 100s of messages in long threads, reduces API costs,
+        improves perceived performance. Messages translate as user scrolls.
+      </rationale>
+      <implementation>Defer to performance optimization task (Task 5)</implementation>
+    </decision>
+  </technical-decisions>
+
+  <dependencies>
+    <story id="5.4" status="complete" criticality="blocker">
+      <title>Customize Language Settings</title>
+      <provides>user.preferences.preferredLanguage field</provides>
+      <provides>TranslationLanguageSelector UI component</provides>
+      <impact>Cannot implement Story 2.5 without user preference for target language</impact>
+    </story>
+    <story id="2.1" status="complete" criticality="required">
+      <title>Send Messages in Channels</title>
+      <provides>Message rendering infrastructure (MessageBubble component)</provides>
+      <provides>Real-time message delivery and display</provides>
+    </story>
+    <epic id="7" status="complete" criticality="required">
+      <title>End-to-End Encryption</title>
+      <provides>Message encryption/decryption flow</provides>
+      <note>Translation happens AFTER client-side decryption</note>
+    </epic>
+  </dependencies>
+
+  <risks>
+    <risk severity="medium" probability="low">
+      <title>Groq API Rate Limits Exceeded</title>
+      <impact>Translation stops working for users</impact>
+      <mitigation>
+        - Implement caching to reduce API calls
+        - Show original message on failure (graceful degradation)
+        - Monitor usage and upgrade to Developer Tier if needed (10x more limits)
+      </mitigation>
+    </risk>
+    <risk severity="low" probability="medium">
+      <title>Translation Quality Issues</title>
+      <impact>Users see incorrect translations</impact>
+      <mitigation>
+        - Use Llama 3.3 70B (better multilingual capabilities than 3.1)
+        - Always show original message prominently
+        - Document feedback mechanism for future story (2.7)
+      </mitigation>
+    </risk>
+    <risk severity="low" probability="low">
+      <title>Memory Leaks from Unmounted Components</title>
+      <impact>Slow performance, increased memory usage over time</impact>
+      <mitigation>
+        - Implement AbortController cleanup in useEffect
+        - Check signal.aborted before setState
+        - Test with React DevTools Profiler
+      </mitigation>
+    </risk>
+  </risks>
+
+  <estimated-effort>
+    <total-story-points>5</total-story-points>
+    <breakdown>
+      <task id="1" points="1">TranslationDisplay component implementation</task>
+      <task id="2" points="1.5">Groq translation service with caching</task>
+      <task id="3" points="0.5">MessageBubble integration</task>
+      <task id="4" points="0.5">User preferences verification (Story 5.4 dependency)</task>
+      <task id="5" points="0.5">Performance optimizations</task>
+      <task id="6-8" points="1">Testing (unit, integration, E2E)</task>
+    </breakdown>
+    <estimated-duration>2-3 days for implementation + testing</estimated-duration>
+  </estimated-effort>
+
+  <validation-checklist>
+    <item>✓ All acceptance criteria mapped to tests</item>
+    <item>✓ Dependencies identified (Story 5.4 critical)</item>
+    <item>✓ External API documented (Groq with rate limits and costs)</item>
+    <item>✓ Performance considerations addressed (caching, AbortController)</item>
+    <item>✓ 2025 best practices incorporated (Llama 3.3, memory leak prevention)</item>
+    <item>✓ Privacy implications documented (client-direct API acceptable)</item>
+    <item>✓ Error handling defined (graceful degradation)</item>
+    <item>✓ Cost analysis provided (~$0.000079 per translation)</item>
+  </validation-checklist>
+
+  <references>
+    <doc path="docs/stories/story-2.5.md">Primary story document</doc>
+    <doc path="docs/tech-spec-epic-2.md">Epic 2 technical specification</doc>
+    <doc path="docs/PRD.md">Product requirements (FR-2.9, US-2.5)</doc>
+    <doc path="docs/solution-architecture.md">Architecture constraints</doc>
+    <doc path="docs/stories/story-5.4.md">Language Settings dependency</doc>
+    <external url="https://console.groq.com/docs/models">Groq API Documentation</external>
+    <external url="https://console.groq.com/docs/rate-limits">Groq Rate Limits</external>
+    <external url="https://groq.com/pricing">Groq Pricing</external>
+  </references>
+</story-context>

@@ -101,7 +101,7 @@ If you have specific options, list them. Otherwise, I'll research current leadin
 - "State of [technical_category] 2025"
   </action>
 
-  <elicit-required/>
+  <invoke-task halt="true">{project-root}/bmad/core/tasks/adv-elicit.xml</invoke-task>
 
 <action>Present discovered options (typically 3-5 main candidates)</action>
 <template-output>technology_options</template-output>
@@ -173,8 +173,8 @@ Research and document:
 - Training costs
 - Total cost of ownership estimate
 
-<elicit-required/>
-<template-output>tech_profile_{{option_number}}</template-output>
+<invoke-task halt="true">{project-root}/bmad/core/tasks/adv-elicit.xml</invoke-task>
+<template-output>tech*profile*{{option_number}}</template-output>
 
 </step>
 
@@ -344,7 +344,7 @@ Research and document:
 - Contingency options if primary choice doesn't work
 - Exit strategy considerations
 
-<elicit-required/>
+<invoke-task halt="true">{project-root}/bmad/core/tasks/adv-elicit.xml</invoke-task>
 
 <template-output>recommendations</template-output>
 
@@ -441,5 +441,50 @@ Select option (1-5):</ask>
 </check>
 
 </step>
+
+<step n="FINAL" goal="Update status file on completion" tag="workflow-status">
+<check if="standalone_mode != true">
+  <action>Load the FULL file: {output_folder}/bmm-workflow-status.yaml</action>
+  <action>Find workflow_status key "research"</action>
+  <critical>ONLY write the file path as the status value - no other text, notes, or metadata</critical>
+  <action>Update workflow_status["research"] = "{output_folder}/bmm-research-technical-{{date}}.md"</action>
+  <action>Save file, preserving ALL comments and structure including STATUS DEFINITIONS</action>
+
+<action>Find first non-completed workflow in workflow_status (next workflow to do)</action>
+<action>Determine next agent from path file based on next workflow</action>
+</check>
+
+<output>**✅ Technical Research Complete**
+
+**Research Report:**
+
+- Technical research report generated and saved to {output_folder}/bmm-research-technical-{{date}}.md
+
+{{#if standalone_mode != true}}
+**Status Updated:**
+
+- Progress tracking updated: research marked complete
+- Next workflow: {{next_workflow}}
+  {{else}}
+  **Note:** Running in standalone mode (no progress tracking)
+  {{/if}}
+
+**Next Steps:**
+
+{{#if standalone_mode != true}}
+
+- **Next workflow:** {{next_workflow}} ({{next_agent}} agent)
+- **Optional:** Review findings with architecture team, or run additional analysis workflows
+
+Check status anytime with: `workflow-status`
+{{else}}
+Since no workflow is in progress:
+
+- Review technical research findings
+- Refer to the BMM workflow guide if unsure what to do next
+- Or run `workflow-init` to create a workflow path and get guided next steps
+  {{/if}}
+  </output>
+  </step>
 
 </workflow>
