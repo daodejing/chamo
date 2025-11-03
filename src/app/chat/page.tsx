@@ -20,6 +20,10 @@ import { getFamilyKey } from '@/lib/e2ee/key-management';
 import { t } from '@/lib/translations';
 import { formatDateTime } from '@/lib/utils/date-format';
 import type { TranslationLanguage } from '@/components/settings/translation-language-selector';
+import {
+  DEFAULT_TRANSLATION_LANGUAGE,
+  isSupportedTranslationLanguage,
+} from '@/lib/translation/languages';
 
 type SettingsFamilyMember = {
   id: string;
@@ -39,41 +43,25 @@ type SettingsChannel = {
   createdBy: string;
 };
 
-const SUPPORTED_TRANSLATION_LANGUAGES: TranslationLanguage[] = [
-  'en',
-  'ja',
-  'es',
-  'fr',
-  'de',
-  'zh',
-  'ko',
-  'pt',
-  'ru',
-  'ar',
-  'it',
-  'nl',
-  'pl',
-  'tr',
-  'vi',
-  'th',
-  'id',
-  'hi',
-  'sv',
-  'no',
-];
-
-const isSupportedTranslationLanguage = (value: unknown): value is TranslationLanguage => {
-  return typeof value === 'string' && SUPPORTED_TRANSLATION_LANGUAGES.includes(value as TranslationLanguage);
+type DisplayMessage = {
+  id: string;
+  userId: string;
+  userName: string;
+  userAvatar: string;
+  message: string;
+  timestamp: string;
+  isMine: boolean;
+  isEdited: boolean;
 };
 
 export default function ChatPage() {
   const router = useRouter();
-  const { user, family, loading: authLoading, logout } = useAuth();
+  const { user, family, loading: authLoading, logout, switchActiveFamily } = useAuth();
   const { language } = useLanguage();
 
   // State
   const [currentChannelId, setCurrentChannelId] = useState<string | null>(null);
-  const [displayMessages, setDisplayMessages] = useState<any[]>([]);
+  const [displayMessages, setDisplayMessages] = useState<DisplayMessage[]>([]);
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [familyKey, setFamilyKey] = useState<CryptoKey | null>(null);
@@ -90,13 +78,14 @@ export default function ChatPage() {
   const [googleEmail, setGoogleEmail] = useState<string | null>(null);
   const [lastSyncTime, setLastSyncTime] = useState<Date | null>(null);
   const [autoSync, setAutoSync] = useState(false);
-  const [preferredTranslationLanguage, setPreferredTranslationLanguage] = useState<TranslationLanguage>('en');
+  const [preferredTranslationLanguage, setPreferredTranslationLanguage] =
+    useState<TranslationLanguage>(DEFAULT_TRANSLATION_LANGUAGE);
   const [settingsChannels, setSettingsChannels] = useState<SettingsChannel[]>([]);
   const [settingsFamilyMembers, setSettingsFamilyMembers] = useState<SettingsFamilyMember[]>([]);
 
   // GraphQL hooks
   const { channels, loading: channelsLoading } = useChannels();
-  const { messages: rawMessages, loading: messagesLoading } = useMessages({
+  const { messages: rawMessages } = useMessages({
     channelId: currentChannelId || '',
   });
   const { send } = useSendMessage();
@@ -132,11 +121,7 @@ export default function ChatPage() {
     }
 
     setSettingsFamilyMembers((prev) => {
-      const joinedAt =
-        prev[0]?.joinedAt ??
-        (typeof (user as any)?.createdAt === 'string'
-          ? (user as any).createdAt
-          : new Date().toISOString());
+      const joinedAt = prev[0]?.joinedAt ?? new Date().toISOString();
 
       const nextMembers: SettingsFamilyMember[] = [
         {
@@ -163,7 +148,7 @@ export default function ChatPage() {
       }
       return nextMembers;
     });
-  }, [isSettingsOpen, user?.id, user?.name, user?.email, user?.avatar, user?.role]);
+  }, [isSettingsOpen, user, user?.id, user?.name, user?.email, user?.avatar, user?.role]);
 
   useEffect(() => {
     if (!isSettingsOpen) {
@@ -203,6 +188,14 @@ export default function ChatPage() {
   }, [isSettingsOpen, channels]);
 
   useEffect(() => {
+    if (!isSettingsOpen) {
+      setSettingsFamilyName(family?.name ?? '');
+      setSettingsFamilyAvatar(family?.avatar ?? '');
+      setSettingsMaxMembers(family?.maxMembers ?? 0);
+    }
+  }, [family?.id, family?.name, family?.avatar, family?.maxMembers, isSettingsOpen]);
+
+  useEffect(() => {
     const preferred = user?.preferences?.preferredLanguage;
     if (isSupportedTranslationLanguage(preferred)) {
       setPreferredTranslationLanguage(preferred);
@@ -221,8 +214,12 @@ export default function ChatPage() {
       }
 
       if (!family?.id) {
-        console.error('[ChatPage] Missing family id for logged-in user.');
-        toast.error('Family context missing. Please re-login.');
+        // Legacy session without family ID - silently clear and redirect
+        console.warn('[ChatPage] Missing family id for logged-in user. Clearing legacy session.');
+        // Clear old session data
+        localStorage.clear();
+        sessionStorage.clear();
+        // Redirect to login without error message
         router.push('/login');
         return;
       }
@@ -281,7 +278,6 @@ export default function ChatPage() {
               userName: msg.user.name,
               userAvatar: msg.user.avatar || '',
               message: plaintext,
-              translation: '', // TODO: Add translation support
               timestamp: formatDateTime(msg.timestamp, language),
               isMine: msg.userId === user?.id,
               isEdited: msg.isEdited,
@@ -294,7 +290,6 @@ export default function ChatPage() {
               userName: msg.user.name,
               userAvatar: msg.user.avatar || '',
               message: '[Decryption Failed]',
-              translation: '',
               timestamp: formatDateTime(msg.timestamp, language),
               isMine: msg.userId === user?.id,
               isEdited: msg.isEdited,
@@ -308,7 +303,7 @@ export default function ChatPage() {
     };
 
     decryptMessages();
-  }, [rawMessages, familyKey, user]);
+  }, [rawMessages, familyKey, user?.id, language, displayMessages.length]);
 
   // Handle real-time message added
   useEffect(() => {
@@ -318,13 +313,12 @@ export default function ChatPage() {
       try {
         const plaintext = await decryptMessage(messageAdded.encryptedContent, familyKey);
 
-        const newMessage = {
+        const newMessage: DisplayMessage = {
           id: messageAdded.id,
           userId: messageAdded.userId,
           userName: messageAdded.user.name,
           userAvatar: messageAdded.user.avatar || '',
           message: plaintext,
-          translation: '',
           timestamp: formatDateTime(messageAdded.timestamp, language),
           isMine: messageAdded.userId === user?.id,
           isEdited: messageAdded.isEdited,
@@ -346,7 +340,7 @@ export default function ChatPage() {
     };
 
     processNewMessage();
-  }, [messageAdded, familyKey, user]);
+  }, [messageAdded, familyKey, user?.id, language]);
 
   // Handle real-time message edited
   useEffect(() => {
@@ -354,7 +348,10 @@ export default function ChatPage() {
 
     const processEditedMessage = async () => {
       try {
-        const plaintext = await decryptMessage(messageEdited.encryptedContent, familyKey);
+    const plaintext = await decryptMessage(
+      messageEdited.encryptedContent,
+      familyKey,
+    );
 
         setDisplayMessages((prev) =>
           prev.map((m) =>
@@ -474,13 +471,13 @@ export default function ChatPage() {
   };
 
   // Handler: Schedule message
-  const handleScheduleMessage = async (message: string, scheduledTime: Date) => {
+  const handleScheduleMessage = async (_message: string, _scheduledTime: Date) => {
     // TODO: Implement scheduled messages in backend
     toast.info('Scheduled messages will be implemented soon!');
   };
 
   // Handler: Cancel scheduled message
-  const handleCancelScheduledMessage = async (messageId: string) => {
+  const handleCancelScheduledMessage = async (_messageId: string) => {
     // TODO: Implement in backend
     toast.info('Cancel scheduled messages will be implemented soon!');
   };
@@ -596,57 +593,57 @@ export default function ChatPage() {
   };
 
   // Handler: Add calendar event
-  const handleAddEvent = (event: any) => {
+  const handleAddEvent = () => {
     toast.info('Calendar events will be implemented soon!');
   };
 
   // Handler: Edit calendar event
-  const handleEditEvent = (eventId: string, event: any) => {
+  const handleEditEvent = () => {
     toast.info('Calendar events will be implemented soon!');
   };
 
   // Handler: Delete calendar event
-  const handleDeleteEvent = (eventId: string) => {
+  const handleDeleteEvent = () => {
     toast.info('Calendar events will be implemented soon!');
   };
 
   // Handler: Add photo
-  const handleAddPhoto = (photo: any) => {
+  const handleAddPhoto = () => {
     toast.info('Photo gallery will be implemented soon!');
   };
 
   // Handler: Delete photo
-  const handleDeletePhoto = (photoId: string) => {
+  const handleDeletePhoto = () => {
     toast.info('Photo gallery will be implemented soon!');
   };
 
   // Handler: Like photo
-  const handleLikePhoto = (photoId: string, userId: string) => {
+  const handleLikePhoto = () => {
     toast.info('Photo likes will be implemented soon!');
   };
 
   // Handler: Add photo comment
-  const handleAddPhotoComment = (photoId: string, comment: any) => {
+  const handleAddPhotoComment = () => {
     toast.info('Photo comments will be implemented soon!');
   };
 
   // Handler: Create folder
-  const handleCreateFolder = (folder: any) => {
+  const handleCreateFolder = () => {
     toast.info('Photo folders will be implemented soon!');
   };
 
   // Handler: Delete folder
-  const handleDeleteFolder = (folderId: string) => {
+  const handleDeleteFolder = () => {
     toast.info('Photo folders will be implemented soon!');
   };
 
   // Handler: Rename folder
-  const handleRenameFolder = (folderId: string, newName: string) => {
+  const handleRenameFolder = () => {
     toast.info('Photo folders will be implemented soon!');
   };
 
   // Handler: Move photo to folder
-  const handleMovePhotoToFolder = (photoId: string, folderId: string) => {
+  const handleMovePhotoToFolder = () => {
     toast.info('Photo folders will be implemented soon!');
   };
 
@@ -700,11 +697,14 @@ export default function ChatPage() {
           photos={[]}
           photoFolders={[]}
           familyMembers={settingsFamilyMembers}
+          memberships={user?.memberships ?? []}
+          activeFamilyId={user?.activeFamilyId ?? null}
           currentUserId={user?.id || ''}
           currentUserName={user?.name || ''}
           language={language}
           onSettingsClick={handleSettingsClick}
           onLogoutClick={handleLogoutClick}
+          onSwitchFamily={switchActiveFamily}
           onChannelChange={handleChannelChange}
           onSendMessage={handleSendMessage}
           onScheduleMessage={handleScheduleMessage}
@@ -722,6 +722,8 @@ export default function ChatPage() {
           onDeleteFolder={handleDeleteFolder}
           onRenameFolder={handleRenameFolder}
           onMovePhotoToFolder={handleMovePhotoToFolder}
+          translationFamilyKey={familyKey}
+          preferredTranslationLanguage={preferredTranslationLanguage}
         />
       </div>
 
