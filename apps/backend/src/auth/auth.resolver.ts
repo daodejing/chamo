@@ -1,4 +1,11 @@
-import { Resolver, Mutation, Args, Query, ResolveField, Parent } from '@nestjs/graphql';
+import {
+  Resolver,
+  Mutation,
+  Args,
+  Query,
+  ResolveField,
+  Parent,
+} from '@nestjs/graphql';
 import { UseGuards } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { RegisterInput } from './dto/register.input';
@@ -71,7 +78,8 @@ export class AuthResolver {
     const { preferredLanguage } = rawPreferences as Record<string, unknown>;
 
     return {
-      preferredLanguage: typeof preferredLanguage === 'string' ? preferredLanguage : null,
+      preferredLanguage:
+        typeof preferredLanguage === 'string' ? preferredLanguage : null,
     };
   }
 
@@ -95,7 +103,9 @@ export class AuthResolver {
     // Merge with new preferences
     const updatedPreferences = {
       ...currentPreferences,
-      ...(input.preferredLanguage !== undefined && { preferredLanguage: input.preferredLanguage }),
+      ...(input.preferredLanguage !== undefined && {
+        preferredLanguage: input.preferredLanguage,
+      }),
     };
 
     // Update user preferences in database

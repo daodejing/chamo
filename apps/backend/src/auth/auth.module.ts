@@ -9,7 +9,9 @@ import { JwtStrategy } from './jwt.strategy';
   imports: [
     PassportModule.register({ defaultStrategy: 'jwt' }),
     JwtModule.register({
-      secret: process.env.JWT_SECRET || 'dev-jwt-secret-change-in-production-use-openssl-rand-base64-32',
+      secret:
+        process.env.JWT_SECRET ||
+        'dev-jwt-secret-change-in-production-use-openssl-rand-base64-32',
     }),
   ],
   providers: [AuthService, AuthResolver, JwtStrategy],

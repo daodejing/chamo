@@ -1,0 +1,91 @@
+# generated: 2025-11-03
+# project: ourchat
+# project_key: ourchat
+# tracking_system: file-system
+# story_location: {project-root}/docs/stories
+
+# STATUS DEFINITIONS:
+# ==================
+# Epic Status:
+#   - backlog: Epic exists in epic file but not contexted
+#   - contexted: Epic tech context created (required before drafting stories)
+#
+# Story Status:
+#   - backlog: Story only exists in epic file
+#   - drafted: Story file created in stories folder
+#   - ready-for-dev: Draft approved and story context created
+#   - in-progress: Developer actively working on implementation
+#   - review: Under SM review (via code-review workflow)
+#   - done: Story completed
+#
+# Retrospective Status:
+#   - optional: Can be completed but not required
+#   - completed: Retrospective has been done
+#
+# WORKFLOW NOTES:
+# ===============
+# - Epics should be 'contexted' before stories can be 'drafted'
+# - Stories can be worked in parallel if team capacity allows
+# - SM typically drafts next story after previous one is 'done' to incorporate learnings
+# - Dev moves story to 'review', SM reviews, then Dev moves to 'done'
+
+generated: 2025-11-03
+project: ourchat
+project_key: ourchat
+tracking_system: file-system
+story_location: "{project-root}/docs/stories"
+
+development_status:
+  # Epic 1: User Onboarding & Authentication
+  epic-1: contexted
+  1-1-create-family-account: drafted
+  1-2-join-family: drafted
+  1-3-session-persistence: drafted
+  epic-1-retrospective: optional
+
+  # Epic 2: Multi-Channel Messaging
+  epic-2: contexted
+  2-1-send-messages-in-channels: drafted
+  2-2-edit-messages: backlog
+  2-3-delete-messages: backlog
+  2-4-schedule-messages: backlog
+  2-5-message-translation: drafted
+  2-6-invitation-sharing: in-progress
+  epic-2-retrospective: optional
+
+  # Epic 3: Photo Sharing & Albums
+  epic-3: contexted
+  3-1-upload-photos: backlog
+  3-2-organize-folders: backlog
+  3-3-like-comment: backlog
+  3-4-photo-performance: backlog
+  epic-3-retrospective: optional
+
+  # Epic 4: Family Calendar
+  epic-4: contexted
+  4-1-create-events: backlog
+  4-2-set-reminders: backlog
+  4-3-google-calendar-sync: backlog
+  epic-4-retrospective: optional
+
+  # Epic 5: Accessibility & Preferences
+  epic-5: contexted
+  5-1-dark-mode: backlog
+  5-2-font-size: backlog
+  5-3-quiet-hours: backlog
+  5-4-customize-language: drafted
+  epic-5-retrospective: optional
+
+  # Epic 6: Family Management
+  epic-6: contexted
+  6-1-invite-members: backlog
+  6-2-remove-members: backlog
+  6-3-custom-channels: backlog
+  epic-6-retrospective: optional
+
+  # Epic 7: End-to-End Encryption
+  epic-7: contexted
+  7-1-message-encryption: backlog
+  7-2-photo-encryption: backlog
+  7-3-transparent-encryption: backlog
+  epic-7-retrospective: optional

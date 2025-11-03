@@ -17,6 +17,8 @@ import {
 } from '@/lib/e2ee/key-management';
 import { encryptMessage, decryptMessage, encryptFile, decryptFile } from '@/lib/e2ee/encryption';
 
+const TEST_FAMILY_ID = 'test-family';
+
 export default function E2EETestPage() {
   const [status, setStatus] = useState<string>('Ready');
   const [result, setResult] = useState<string>('');
@@ -78,10 +80,10 @@ export default function E2EETestPage() {
       const { base64Key } = await generateFamilyKey();
 
       // Store key
-      await initializeFamilyKey(base64Key);
+      await initializeFamilyKey(base64Key, TEST_FAMILY_ID);
 
       // Retrieve key
-      const retrievedKey = await getFamilyKey();
+      const retrievedKey = await getFamilyKey(TEST_FAMILY_ID);
 
       if (retrievedKey) {
         setStatus('✅ Key storage test passed');

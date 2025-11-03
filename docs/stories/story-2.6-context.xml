@@ -1,0 +1,239 @@
+<story-context id="story-2.6-e2ee-invitation-sharing" v="1.0">
+  <metadata>
+    <epicId>2</epicId>
+    <storyId>2.6</storyId>
+    <title>E2EE-Preserving Family Invitation Sharing</title>
+    <status>approved</status>
+    <generatedAt>2025-11-03</generatedAt>
+    <generator>BMAD Story Context Workflow</generator>
+    <sourceStoryPath>docs/stories/story-2.6.md</sourceStoryPath>
+  </metadata>
+
+  <story>
+    <asA>a family member</asA>
+    <iWant>to invite new members to my family using a native share button</iWant>
+    <soThat>I can easily send invitations via SMS, WhatsApp, iMessage, or any messaging app while preserving end-to-end encryption</soThat>
+    <tasks>
+      <task id="1" acs="2,5">
+        <title>Implement Invitation Link Generation (Client-Side)</title>
+        <subtasks>
+          <subtask id="1.1">Create lib/invite/generate-invite-link.ts utility</subtask>
+          <subtask id="1.2">Fetch current family code from API (plaintext family invite code, NOT encryption key)</subtask>
+          <subtask id="1.3">Retrieve family encryption key from IndexedDB (client-side only)</subtask>
+          <subtask id="1.4">Concatenate: https://ourchat.app/join/${familyCode}:${base64Key}</subtask>
+          <subtask id="1.5">Ensure server API only returns family code (validate no key leakage)</subtask>
+        </subtasks>
+      </task>
+      <task id="2" acs="1,3">
+        <title>Build Native Share UI Component</title>
+        <subtasks>
+          <subtask id="2.1">Create components/family/invite-member-button.tsx</subtask>
+          <subtask id="2.2">Implement Web Share API integration with navigator.share()</subtask>
+          <subtask id="2.3">Handle share data: { title, text, url }</subtask>
+          <subtask id="2.4">Add fallback "Copy Link" button for unsupported browsers</subtask>
+          <subtask id="2.5">Show success toast: "Invitation link copied to clipboard"</subtask>
+        </subtasks>
+      </task>
+      <task id="3" acs="4,5">
+        <title>Implement QR Code Generation (Client-Side)</title>
+        <subtasks>
+          <subtask id="3.1">Install qrcode npm package</subtask>
+          <subtask id="3.2">Create components/family/invite-qr-code.tsx</subtask>
+          <subtask id="3.3">Generate QR code client-side from invitation URL</subtask>
+          <subtask id="3.4">Render QR code as data URL (base64 PNG)</subtask>
+          <subtask id="3.5">Add toggle button: "Show QR Code" / "Share Link"</subtask>
+        </subtasks>
+      </task>
+      <task id="4" acs="6">
+        <title>Implement Invitation Acceptance Flow</title>
+        <subtasks>
+          <subtask id="4.1">Update app/join/[inviteCode]/page.tsx to parse URL params</subtask>
+          <subtask id="4.2">Extract family code and encryption key from URL using parseInviteCode() from lib/e2ee/key-management.ts</subtask>
+          <subtask id="4.3">Validate family code with server (POST /api/family/validate-invite)</subtask>
+          <subtask id="4.4">On successful validation, redirect to registration with family code</subtask>
+          <subtask id="4.5">After registration, store encryption key in IndexedDB via initializeFamilyKey()</subtask>
+          <subtask id="4.6">Redirect to chat page with family context loaded</subtask>
+        </subtasks>
+      </task>
+      <task id="5" acs="5">
+        <title>Security Validation &amp; Testing</title>
+        <subtasks>
+          <subtask id="5.1">Audit all API routes to ensure encryption key never sent to server</subtask>
+          <subtask id="5.2">Review network logs during invitation flow (verify no key in requests)</subtask>
+          <subtask id="5.3">Test invitation acceptance: verify key extracted client-side</subtask>
+          <subtask id="5.4">E2E test: Send invite → Accept → Send encrypted message → Decrypt successfully</subtask>
+        </subtasks>
+      </task>
+      <task id="6" acs="all">
+        <title>E2E Testing</title>
+        <subtasks>
+          <subtask id="6.1">Write Playwright test: Generate invitation link</subtask>
+          <subtask id="6.2">Test native share API trigger (check navigator.share called)</subtask>
+          <subtask id="6.3">Test QR code generation (verify image rendered)</subtask>
+          <subtask id="6.4">Test complete invitation flow (invite → join → decrypt message)</subtask>
+          <subtask id="6.5">Test fallback copy button on desktop browsers</subtask>
+        </subtasks>
+      </task>
+    </tasks>
+  </story>
+
+  <acceptanceCriteria>
+    <criterion id="AC1" priority="must">
+      <title>Share Button Available</title>
+      <description>User can access "Invite Family Member" button from family settings or dashboard. Button clearly labeled and easily discoverable.</description>
+    </criterion>
+    <criterion id="AC2" priority="must">
+      <title>Generate Secure Invitation Link</title>
+      <description>System generates invitation URL containing family code and encryption key. Format: https://ourchat.app/join/{FAMILY-CODE}:{base64EncryptionKey}. Invitation code is cryptographically secure (128-bit entropy minimum). Server never stores or logs the encryption key portion of the URL.</description>
+    </criterion>
+    <criterion id="AC3" priority="must">
+      <title>Native Share Sheet Integration</title>
+      <description>Clicking "Share Invitation" triggers native Web Share API. iOS users see: iMessage, WhatsApp, Messenger, SMS, Signal, Telegram, Email, Copy, etc. Android users see: SMS, WhatsApp, Messenger, Gmail, Signal, Telegram, Copy, etc. Fallback to "Copy Link" button if Web Share API not supported (desktop browsers).</description>
+    </criterion>
+    <criterion id="AC4" priority="must">
+      <title>QR Code Option for In-Person Sharing</title>
+      <description>User can toggle to "Show QR Code" view. QR code contains full invitation URL with encryption key. QR code generated client-side (never sent to server). Suitable for scanning with another device.</description>
+    </criterion>
+    <criterion id="AC5" priority="critical">
+      <title>E2EE Guarantee Preserved</title>
+      <description>Server NEVER receives or stores the encryption key. Invitation link with key only exists client-side. When recipient joins via link, client extracts key from URL. All invitation generation happens in browser (no server involvement in key handling).</description>
+    </criterion>
+    <criterion id="AC6" priority="must">
+      <title>Invitation Acceptance Flow</title>
+      <description>Recipient clicks invitation link. Client extracts family code and encryption key from URL. Client validates invite code with server (without sending key). User creates account and joins family. Encryption key stored client-side in IndexedDB for message decryption.</description>
+    </criterion>
+  </acceptanceCriteria>
+
+  <artifacts>
+    <docs>
+      <doc path="docs/solution-architecture.md" section="End-to-End Encryption Implementation">
+        <title>Solution Architecture - E2EE</title>
+        <snippet>Shared Family Key E2EE (AES-256-GCM) for transparent encryption. Client-side E2EE: Encrypt before send, decrypt after receive. Family key management architecture using IndexedDB storage.</snippet>
+      </doc>
+      <doc path="docs/solution-architecture.md" section="ADR-006: Backend Translation Proxy Pattern">
+        <title>Architecture Decision Record - E2EE Trade-offs</title>
+        <snippet>Privacy model documented: Messages pure E2EE (backend never sees plaintext). Translation temporarily sees plaintext (necessary tradeoff). Database stores only encrypted content.</snippet>
+      </doc>
+      <doc path="docs/PRD.md" section="Problem Statement">
+        <title>Product Requirements - Privacy First</title>
+        <snippet>Families want private, secure communication. Big Tech platforms have privacy concerns. Build purpose-built family platform that prioritizes privacy without complexity.</snippet>
+      </doc>
+    </docs>
+    <code>
+      <artifact path="src/lib/e2ee/key-management.ts" kind="module" symbol="createInviteCodeWithKey" lines="118-123">
+        <reason>Existing function to format invite code with embedded encryption key. Reuse for invitation link generation.</reason>
+      </artifact>
+      <artifact path="src/lib/e2ee/key-management.ts" kind="module" symbol="parseInviteCode" lines="130-148">
+        <reason>Existing function to parse invite code and extract family code + encryption key. Critical for invitation acceptance flow.</reason>
+      </artifact>
+      <artifact path="src/lib/e2ee/key-management.ts" kind="module" symbol="initializeFamilyKey" lines="154-157">
+        <reason>Function to store encryption key in IndexedDB after user joins family via invitation.</reason>
+      </artifact>
+      <artifact path="src/lib/e2ee/key-management.ts" kind="module" symbol="getFamilyKey" lines="163-165">
+        <reason>Retrieve family encryption key from IndexedDB for invitation link generation.</reason>
+      </artifact>
+      <artifact path="src/lib/e2ee/storage.ts" kind="module" symbol="storeKey,retrieveKey">
+        <reason>IndexedDB storage utilities for encryption keys. Used by key-management functions.</reason>
+      </artifact>
+    </code>
+    <dependencies>
+      <node>
+        <package name="react-qr-code" version="^2.0.18">Already installed for QR code generation (client-side)</package>
+        <package name="next" version="^16.0.0">Next.js App Router for /join/[inviteCode] dynamic route</package>
+        <package name="@radix-ui/react-toast" version="^1.2.15">Toast notifications for success messages</package>
+        <package name="idb" version="^8.0.1">IndexedDB wrapper for key storage</package>
+        <package name="lucide-react" version="^0.545.0">Icons for share button and QR code toggle</package>
+      </node>
+    </dependencies>
+  </artifacts>
+
+  <constraints>
+    <constraint type="security" priority="critical">
+      <title>Zero-Knowledge Architecture</title>
+      <description>Server must NEVER receive, log, or store encryption keys. All key handling happens client-side only. Network requests must be audited to verify no key leakage.</description>
+    </constraint>
+    <constraint type="architecture" priority="must">
+      <title>Client-Side Key Management</title>
+      <description>Encryption keys stored only in browser IndexedDB. Key extraction from URL happens in client JavaScript before any server communication. Use existing functions from src/lib/e2ee/key-management.ts.</description>
+    </constraint>
+    <constraint type="ux" priority="must">
+      <title>Browser Compatibility</title>
+      <description>Web Share API supported on 96%+ mobile, 87%+ desktop (2025). Provide fallback "Copy Link" button for unsupported browsers. QR code must render on all browsers supporting Canvas API.</description>
+    </constraint>
+    <constraint type="testing" priority="must">
+      <title>E2EE Verification</title>
+      <description>E2E tests must verify encryption key never appears in network logs. Test complete flow: generate invite → accept → send encrypted message → decrypt successfully.</description>
+    </constraint>
+  </constraints>
+
+  <interfaces>
+    <interface name="Web Share API" kind="browser-api">
+      <signature>
+        navigator.share({
+          title: string,
+          text: string,
+          url: string
+        }): Promise&lt;void&gt;
+      </signature>
+      <path>Browser native API - no import needed</path>
+      <notes>Check navigator.share availability. Fallback to clipboard API if not supported.</notes>
+    </interface>
+    <interface name="createInviteCodeWithKey" kind="function">
+      <signature>
+        function createInviteCodeWithKey(
+          inviteCode: string,
+          base64Key: string
+        ): string
+      </signature>
+      <path>src/lib/e2ee/key-management.ts</path>
+      <notes>Returns format: FAMILY-XXXXXXXXXXXXXXXX:base64EncryptionKey</notes>
+    </interface>
+    <interface name="parseInviteCode" kind="function">
+      <signature>
+        function parseInviteCode(
+          inviteCodeWithKey: string
+        ): { code: string; base64Key: string }
+      </signature>
+      <path>src/lib/e2ee/key-management.ts</path>
+      <notes>Throws error if format invalid. Expects CODE:KEY format.</notes>
+    </interface>
+    <interface name="getFamilyKey" kind="function">
+      <signature>
+        async function getFamilyKey(): Promise&lt;CryptoKey | null&gt;
+      </signature>
+      <path>src/lib/e2ee/key-management.ts</path>
+      <notes>Retrieves family encryption key from IndexedDB. Returns null if not found.</notes>
+    </interface>
+    <interface name="initializeFamilyKey" kind="function">
+      <signature>
+        async function initializeFamilyKey(base64Key: string): Promise&lt;void&gt;
+      </signature>
+      <path>src/lib/e2ee/key-management.ts</path>
+      <notes>Imports and stores encryption key in IndexedDB after invitation acceptance.</notes>
+    </interface>
+  </interfaces>
+
+  <tests>
+    <standards>
+      Project uses Playwright for E2E tests and Vitest for unit tests. E2E tests located in tests/e2e/. Unit tests co-located with source files. Test naming: describe story number and feature. Critical: Network logs must be captured in E2E tests to verify encryption key never sent to server.
+    </standards>
+    <locations>
+      <location>tests/e2e/story-2.6-invitation-sharing.spec.ts</location>
+      <location>tests/unit/invite/generate-invite-link.test.ts</location>
+      <location>tests/unit/e2ee/key-management.test.ts (existing - verify parseInviteCode)</location>
+    </locations>
+    <ideas>
+      <idea ac="AC1">Test invite button renders in family settings page</idea>
+      <idea ac="AC2">Unit test: generateInviteLink returns correct URL format with family code and key</idea>
+      <idea ac="AC2">Unit test: Invitation code has 128-bit entropy (16 chars from 33-char alphabet)</idea>
+      <idea ac="AC3">E2E test: Mock navigator.share and verify called with correct data</idea>
+      <idea ac="AC3">E2E test: On browsers without Web Share API, copy button appears and works</idea>
+      <idea ac="AC4">E2E test: QR code toggle shows/hides QR code image</idea>
+      <idea ac="AC4">Unit test: QR code generated client-side contains full invitation URL</idea>
+      <idea ac="AC5">E2E test: Network capture during invite generation shows NO encryption key in requests</idea>
+      <idea ac="AC5">E2E test: parseInviteCode extracts key client-side before server validation</idea>
+      <idea ac="AC6">E2E test: Complete flow - Generate invite → Click link → Join family → Send encrypted message → Verify decryption works</idea>
+      <idea ac="AC6">E2E test: After invitation acceptance, encryption key stored in IndexedDB, not sent to server</idea>
+    </ideas>
+  </tests>
+</story-context>

@@ -168,15 +168,20 @@ function AuthProviderInner({ children }: { children: React.ReactNode}) {
       setAuthToken(data.register.accessToken);
       setUser(data.register.user);
 
+      const familyData = data.register.family;
+      if (!familyData?.id) {
+        throw new Error('Family identifier missing after registration.');
+      }
+
       // Store family key in IndexedDB for E2EE operations
-      await initializeFamilyKey(base64Key);
+      await initializeFamilyKey(base64Key, familyData.id);
 
       // Combine invite code with key for display to user
-      const fullInviteCode = createInviteCodeWithKey(data.register.family.inviteCode, base64Key);
+      const fullInviteCode = createInviteCodeWithKey(familyData.inviteCode, base64Key);
 
       // Return family data with combined invite code for UI display
       const familyWithFullCode = {
-        ...data.register.family,
+        ...familyData,
         inviteCode: fullInviteCode, // CODE:KEY format for sharing
       };
 
@@ -228,7 +233,12 @@ function AuthProviderInner({ children }: { children: React.ReactNode}) {
       setFamily(data.joinFamily.family);
 
       // Store family key in IndexedDB for E2EE operations
-      await initializeFamilyKey(base64Key);
+      const familyData = data.joinFamily.family;
+      if (!familyData?.id) {
+        throw new Error('Family identifier missing after join.');
+      }
+
+      await initializeFamilyKey(base64Key, familyData.id);
     }
   };
 

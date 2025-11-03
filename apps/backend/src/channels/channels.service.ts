@@ -13,7 +13,7 @@ export class ChannelsService {
       where: { familyId },
       orderBy: [
         { isDefault: 'desc' }, // Default channels first
-        { createdAt: 'asc' },  // Then by creation date
+        { createdAt: 'asc' }, // Then by creation date
       ],
     });
   }

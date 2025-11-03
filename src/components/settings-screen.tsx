@@ -1,4 +1,4 @@
-import { ArrowLeft, Globe, Shield, LogOut, Share2, Bell, Moon, Sun, Camera, Type, Users, UserPlus, UserMinus, Crown, Clock, Hash, Plus, Trash, Languages, Calendar as CalendarIcon, RefreshCw, Check } from "lucide-react";
+import { ArrowLeft, Globe, Shield, LogOut, Bell, Moon, Sun, Camera, Type, Users, UserPlus, UserMinus, Crown, Clock, Hash, Plus, Trash, Languages, Calendar as CalendarIcon, RefreshCw, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -83,11 +83,6 @@ export function SettingsScreen({ userName, userEmail, userAvatar, familyName, fa
     return channel.name;
   };
   
-  const handleShareInvite = () => {
-    navigator.clipboard.writeText(inviteCode);
-    alert(t("settings.inviteCodeCopied", language));
-  };
-
   const handleCreateChannel = () => {
     const name = prompt(t("settings.channelNamePrompt", language));
     if (!name) return;
@@ -698,16 +693,15 @@ export function SettingsScreen({ userName, userEmail, userAvatar, familyName, fa
             <CardContent className="space-y-4">
               <div className="space-y-2">
                 <Label>{t("settings.inviteCode", language)}</Label>
-                <div className="flex gap-2">
-                  <Input
-                    value={inviteCode}
-                    disabled
-                    className="rounded-xl font-mono"
-                  />
-                  <Button onClick={handleShareInvite} variant="outline" className="rounded-xl">
-                    <Share2 className="w-4 h-4 mr-2" />
-                    {t("settings.share", language)}
-                  </Button>
+                <div className="flex flex-col gap-3">
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                    <Input
+                      value={inviteCode}
+                      readOnly
+                      className="rounded-xl font-mono sm:flex-1"
+                      onFocus={(event) => event.target.select()}
+                    />
+                  </div>
                 </div>
                 <p className="text-sm text-muted-foreground">
                   {t("settings.inviteCodeDescription", language)}

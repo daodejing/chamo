@@ -220,8 +220,15 @@ export default function ChatPage() {
         return;
       }
 
+      if (!family?.id) {
+        console.error('[ChatPage] Missing family id for logged-in user.');
+        toast.error('Family context missing. Please re-login.');
+        router.push('/login');
+        return;
+      }
+
       // Load family key from IndexedDB
-      const key = await getFamilyKey();
+      const key = await getFamilyKey(family.id);
       if (!key) {
         // TODO: Implement proper family key distribution from backend
         // For now, just show a warning and allow access without encryption
@@ -235,7 +242,7 @@ export default function ChatPage() {
     };
 
     initialize();
-  }, [user, authLoading, router]);
+  }, [user, family, authLoading, router]);
 
   // Select default channel when channels load
   useEffect(() => {
@@ -675,41 +682,48 @@ export default function ChatPage() {
 
   return (
     <>
-      <ChatScreen
-        chatName={familyName}
-        chatAvatar={familyAvatar}
-        chatMembers={familyMemberCount}
-        messages={displayMessages}
-        channels={transformedChannels}
-        currentChannelId={currentChannelId || ''}
-        scheduledMessages={[]}
-        calendarEvents={[]}
-        photos={[]}
-        photoFolders={[]}
-        familyMembers={settingsFamilyMembers}
-        currentUserId={user?.id || ''}
-        currentUserName={user?.name || ''}
-        language={language}
-        onSettingsClick={handleSettingsClick}
-        onLogoutClick={handleLogoutClick}
-        onChannelChange={handleChannelChange}
-        onSendMessage={handleSendMessage}
-        onScheduleMessage={handleScheduleMessage}
-        onDeleteMessage={handleDeleteMessage}
-        onEditMessage={handleEditMessage}
-        onCancelScheduledMessage={handleCancelScheduledMessage}
-        onAddEvent={handleAddEvent}
-        onEditEvent={handleEditEvent}
-        onDeleteEvent={handleDeleteEvent}
-        onAddPhoto={handleAddPhoto}
-        onDeletePhoto={handleDeletePhoto}
-        onLikePhoto={handleLikePhoto}
-        onAddPhotoComment={handleAddPhotoComment}
-        onCreateFolder={handleCreateFolder}
-        onDeleteFolder={handleDeleteFolder}
-        onRenameFolder={handleRenameFolder}
-        onMovePhotoToFolder={handleMovePhotoToFolder}
-      />
+      <div
+        aria-hidden={isSettingsOpen}
+        className={`transition-opacity duration-200 ${
+          isSettingsOpen ? 'opacity-0 pointer-events-none select-none' : 'opacity-100'
+        }`}
+      >
+        <ChatScreen
+          chatName={familyName}
+          chatAvatar={familyAvatar}
+          chatMembers={familyMemberCount}
+          messages={displayMessages}
+          channels={transformedChannels}
+          currentChannelId={currentChannelId || ''}
+          scheduledMessages={[]}
+          calendarEvents={[]}
+          photos={[]}
+          photoFolders={[]}
+          familyMembers={settingsFamilyMembers}
+          currentUserId={user?.id || ''}
+          currentUserName={user?.name || ''}
+          language={language}
+          onSettingsClick={handleSettingsClick}
+          onLogoutClick={handleLogoutClick}
+          onChannelChange={handleChannelChange}
+          onSendMessage={handleSendMessage}
+          onScheduleMessage={handleScheduleMessage}
+          onDeleteMessage={handleDeleteMessage}
+          onEditMessage={handleEditMessage}
+          onCancelScheduledMessage={handleCancelScheduledMessage}
+          onAddEvent={handleAddEvent}
+          onEditEvent={handleEditEvent}
+          onDeleteEvent={handleDeleteEvent}
+          onAddPhoto={handleAddPhoto}
+          onDeletePhoto={handleDeletePhoto}
+          onLikePhoto={handleLikePhoto}
+          onAddPhotoComment={handleAddPhotoComment}
+          onCreateFolder={handleCreateFolder}
+          onDeleteFolder={handleDeleteFolder}
+          onRenameFolder={handleRenameFolder}
+          onMovePhotoToFolder={handleMovePhotoToFolder}
+        />
+      </div>
 
       {isSettingsOpen && user && (
         <div className="fixed inset-0 z-50 bg-background">

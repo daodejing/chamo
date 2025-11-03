@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/contexts/auth-context';
 import { UnifiedLoginScreen } from '@/components/auth/unified-login-screen';
+import { consumePendingInviteCode } from '@/lib/invite/pending-invite';
 
 export default function JoinPage() {
   const router = useRouter();
@@ -23,7 +24,8 @@ export default function JoinPage() {
 
     const codeFromHash = hashParams.get('code');
     const codeFromSearch = searchParams.get('code');
-    const code = codeFromHash || codeFromSearch;
+    const pendingInvite = consumePendingInviteCode();
+    const code = codeFromHash || codeFromSearch || pendingInvite;
 
     if (code) {
       setInitialInviteCode(code);
@@ -33,6 +35,8 @@ export default function JoinPage() {
       // Remove sensitive data from the URL while keeping history entry
       const cleanUrl = `${window.location.pathname}${window.location.search}`;
       window.history.replaceState(null, '', cleanUrl);
+    } else if (pendingInvite) {
+      window.history.replaceState(null, '', '/join');
     }
 
     setHasParsedLink(true);

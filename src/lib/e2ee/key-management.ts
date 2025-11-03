@@ -2,7 +2,23 @@
  * Family key generation and distribution.
  */
 
-import { storeKey, retrieveKey, clearKeys } from './storage';
+import { storeKey, retrieveKey, deleteKey, clearKeys, listKeys } from './storage';
+
+const FAMILY_KEY_PREFIX = 'familyKey';
+
+function buildKeyStorageName(familyId: string): string {
+  if (!familyId || familyId.trim().length === 0) {
+    throw new Error('Family identifier is required for key storage.');
+  }
+  return `${FAMILY_KEY_PREFIX}:${familyId}`;
+}
+
+export async function listStoredFamilyKeyIds(): Promise<string[]> {
+  const keys = await listKeys();
+  return keys
+    .filter((key) => key.startsWith(`${FAMILY_KEY_PREFIX}:`))
+    .map((key) => key.replace(`${FAMILY_KEY_PREFIX}:`, ''));
+}
 
 /**
  * Generates a new family key during family creation.
@@ -151,22 +167,51 @@ export function parseInviteCode(inviteCodeWithKey: string): {
  * Initializes family key on first load (after login).
  * @param base64Key - Family key from server
  */
-export async function initializeFamilyKey(base64Key: string): Promise<void> {
+export async function initializeFamilyKey(base64Key: string, familyId: string): Promise<void> {
+  if (!familyId) {
+    throw new Error('initializeFamilyKey requires a familyId');
+  }
   const familyKey = await importFamilyKey(base64Key);
-  await storeKey('familyKey', familyKey);
+  await storeKey(buildKeyStorageName(familyId), familyKey);
 }
 
 /**
  * Gets the current family key from storage.
  * @returns Family key or null if not found
  */
-export async function getFamilyKey(): Promise<CryptoKey | null> {
-  return retrieveKey('familyKey');
+export async function getFamilyKey(familyId: string): Promise<CryptoKey | null> {
+  return retrieveKey(buildKeyStorageName(familyId));
+}
+
+/**
+ * Exports the stored family key as a base64-encoded string.
+ * @returns Base64 key or null if not available
+ */
+export async function getFamilyKeyBase64(familyId: string): Promise<string | null> {
+  const familyKey = await getFamilyKey(familyId);
+
+  if (!familyKey) {
+    return null;
+  }
+
+  const rawKey = await crypto.subtle.exportKey('raw', familyKey);
+  const bytes = new Uint8Array(rawKey);
+  let binary = '';
+
+  for (let i = 0; i < bytes.length; i += 1) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+
+  return btoa(binary);
 }
 
 /**
  * Clears all keys from storage (on logout).
  */
-export async function clearFamilyKey(): Promise<void> {
+export async function clearFamilyKey(familyId?: string): Promise<void> {
+  if (familyId) {
+    await deleteKey(buildKeyStorageName(familyId));
+    return;
+  }
   await clearKeys();
 }

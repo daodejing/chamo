@@ -114,13 +114,24 @@ test.describe('E2EE Key Sharing via Invite Codes', () => {
       sessionStorage.clear();
     });
 
-    // Navigate to login page
-    await page.goto('/login');
-    await expect(page.getByText(t('login.title'))).toBeVisible();
+    const encodedInvite = encodeURIComponent(displayedInviteCode);
 
-    // Switch to join mode
+    // Use the dedicated invite link route that sanitizes URL and preserves key client-side only
+    await page.goto(`/join/${encodedInvite}`);
+    await page.waitForURL('**/join');
+
+    // URL must no longer expose the full invite string
+    expect(new URL(page.url()).pathname.endsWith('/join')).toBe(true);
+
+    // Join form should be prefilled with the original invite string (including key)
+    await expect(page.locator('#inviteCode')).toHaveValue(displayedInviteCode);
+
+    // Switch to join mode explicitly (route sets initial mode but ensure UI state)
     await page.getByText(t('login.switchToJoin')).click();
     await page.waitForTimeout(300);
+
+    // Ensure invite code remains intact after toggling modes
+    await expect(page.locator('#inviteCode')).toHaveValue(displayedInviteCode);
 
     // Fill out join form with the EXACT invite code from the toast
     const memberEmail = `${testId}-member@example.com`;
@@ -145,7 +156,11 @@ test.describe('E2EE Key Sharing via Invite Codes', () => {
 
     // Wait for response
     const joinResponse = await joinResponsePromise;
+    const requestPayload = joinResponse.request().postDataJSON();
     const responseData = await joinResponse.json();
+
+    // ASSERTION: verify only the code portion travelled over the network
+    expect(requestPayload?.variables?.input?.inviteCode).toBe(displayedInviteCode.split(':')[0]);
 
     console.log('Join response:', JSON.stringify(responseData, null, 2));
 

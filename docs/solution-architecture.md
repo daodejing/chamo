@@ -10,11 +10,11 @@
 
 ## Executive Summary
 
-OurChat is a privacy-first family collaboration platform built on a modern NestJS + GraphQL + MySQL stack. The architecture prioritizes **real-time functionality**, **developer experience**, and **cost efficiency** using free-tier infrastructure.
+OurChat is a privacy-first family collaboration platform built on a modern NestJS + GraphQL + PostgreSQL stack. The architecture prioritizes **real-time functionality**, **developer experience**, and **cost efficiency** using free-tier infrastructure.
 
 **Key Architectural Decisions:**
 - **NestJS Backend** (modular monolith) with GraphQL API
-- **MySQL** (PlanetScale) for database with Prisma ORM
+- **PostgreSQL** for database with Prisma ORM
 - **GraphQL Subscriptions** over WebSocket for real-time messaging
 - **Shared Family Key E2EE** (AES-256-GCM) for transparent encryption
 - **Free-tier optimized** ($0/month MVP)
@@ -31,8 +31,8 @@ OurChat is a privacy-first family collaboration platform built on a modern NestJ
 |------------|---------|---------|-----------|
 | **NestJS** | 10.3.0 | Enterprise backend framework | TypeScript-first, modular, GraphQL native support |
 | **Apollo Server** | 4.10.0 | GraphQL server | Subscriptions over WebSocket, schema-first |
-| **Prisma** | 5.9.0 | ORM | Type-safe MySQL client, migrations, schema management |
-| **MySQL** | 8.0 | Database | PlanetScale free tier (5GB), serverless, branching |
+| **Prisma** | 5.9.0 | ORM | Type-safe PostgreSQL client, migrations, schema management |
+| **PostgreSQL** | 16+ | Database | Local/Docker development, production deployment |
 | **Bull** | 4.12.0 | Job queue | Redis-backed scheduled message delivery |
 | **Upstash Redis** | Latest | Cache/Queue | Serverless Redis, free tier (10k commands/day) |
 | **class-validator** | 0.14.x | Validation | DTO validation with decorators |
@@ -56,7 +56,7 @@ OurChat is a privacy-first family collaboration platform built on a modern NestJ
 
 | Service | Purpose | Free Tier | Rationale |
 |---------|---------|-----------|-----------|
-| **PlanetScale** | MySQL database | 5GB, 1 billion row reads | Serverless, branching, free forever |
+| **PostgreSQL** | Database | Local/Docker dev, cloud production | Open-source, robust, full-featured |
 | **Upstash Redis** | Cache & queue | 10k commands/day | Serverless Redis, no ops |
 | **Cloudflare R2** | Object storage | 10GB, 1M writes/month | S3-compatible, zero egress fees |
 | **Render** | Backend hosting | 750hrs/month free | NestJS deployment, auto-sleep |
@@ -138,18 +138,18 @@ OurChat is a privacy-first family collaboration platform built on a modern NestJ
 │  │  └──────────────────────────────────────────────────────┘│  │
 │  │  ┌──────────────────────────────────────────────────────┐│  │
 │  │  │  Prisma ORM                                          ││  │
-│  │  │  - Type-safe MySQL client                           ││  │
+│  │  │  - Type-safe PostgreSQL client                       ││  │
 │  │  │  - Migrations & schema management                   ││  │
 │  │  └──────────────────────────────────────────────────────┘│  │
 │  └───────────────────────────────────────────────────────────┘  │
 └──────────┬──────────────────┬──────────────────┬───────────────┘
            │                  │                  │
-           │ MySQL            │ Redis            │ S3 API
+           │ PostgreSQL       │ Redis            │ S3 API
            ▼                  ▼                  ▼
 ┌──────────────────┐  ┌──────────────┐  ┌────────────────────┐
-│  PlanetScale     │  │  Upstash     │  │  Cloudflare R2     │
+│  PostgreSQL DB   │  │  Upstash     │  │  Cloudflare R2     │
 │  ┌─────────────┐ │  │  Redis       │  │  ┌──────────────┐  │
-│  │  MySQL 8.0  │ │  │  ┌─────────┐ │  │  │   Encrypted  │  │
+│  │PostgreSQL 16│ │  │  ┌─────────┐ │  │  │   Encrypted  │  │
 │  │  - users    │ │  │  │  Cache  │ │  │  │   Photos     │  │
 │  │  - families │ │  │  │  Queue  │ │  │  │  (AES-256)   │  │
 │  │  - messages │ │  │  │  Jobs   │ │  │  │              │  │
@@ -186,7 +186,7 @@ External Services (Client-Direct):
      }
    }
 4. NestJS MessageResolver validates JWT, calls MessageService
-5. Prisma saves encrypted message to MySQL (ciphertext only)
+5. Prisma saves encrypted message to PostgreSQL (ciphertext only)
 6. GraphQL subscription triggers broadcast to channel subscribers
 7. Other clients receive via WebSocket:
    subscription MessageCreated {
@@ -218,7 +218,7 @@ External Services (Client-Direct):
        id uploadedAt
      }
    }
-6. Server stores metadata in MySQL
+6. Server stores metadata in PostgreSQL
 7. Other clients fetch metadata via query, download encrypted blob
 8. Decrypt blob client-side, display
 ```
@@ -237,7 +237,7 @@ generator client {
 }
 
 datasource db {
-  provider = "mysql"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
@@ -783,7 +783,7 @@ ourchat/
 
 ```bash
 # Database
-DATABASE_URL="mysql://user:password@aws.connect.psdb.cloud/ourchat?sslaccept=strict"
+DATABASE_URL="postgresql://user:password@localhost:5432/ourchat?schema=public"
 
 # JWT
 JWT_SECRET=your-jwt-secret-here-generate-with-openssl-rand-base64-32
@@ -906,8 +906,8 @@ Backend:
          │                    │                    │
          ▼                    ▼                    ▼
 ┌──────────────┐  ┌──────────────┐  ┌──────────────────┐
-│ PlanetScale  │  │ Upstash Redis│  │ Cloudflare R2    │
-│ MySQL 5GB    │  │ 10k cmds/day │  │ 10GB storage     │
+│ PostgreSQL   │  │ Upstash Redis│  │ Cloudflare R2    │
+│ Database     │  │ 10k cmds/day │  │ 10GB storage     │
 └──────────────┘  └──────────────┘  └──────────────────┘
 ```
 
@@ -937,14 +937,14 @@ npx prisma generate
 
 **Context:** Kong WebSocket authentication issue blocking Supabase Realtime in local development. Need reliable real-time messaging.
 
-**Decision:** Migrate to NestJS + GraphQL + MySQL instead of Supabase.
+**Decision:** Migrate to NestJS + GraphQL + PostgreSQL instead of Supabase.
 
 **Rationale:**
 - **Zero sunk cost:** No production code written yet
 - **Real-time guaranteed:** GraphQL Subscriptions over WebSocket (no Kong issues)
 - **Developer control:** Full control over authentication and real-time logic
 - **Type safety:** End-to-end TypeScript with Prisma
-- **Free tier:** PlanetScale + Render + Vercel = $0/month MVP
+- **Flexible deployment:** PostgreSQL works everywhere (local, Docker, cloud)
 
 **Consequences:**
 - More infrastructure to manage vs Supabase integrated platform
@@ -956,25 +956,38 @@ npx prisma generate
 
 ---
 
-### ADR-002: MySQL (PlanetScale) vs PostgreSQL
+### ADR-002: PostgreSQL Database Choice
 
 **Status:** Accepted
 
-**Context:** Need cost-effective serverless database.
+**Context:** Need robust, feature-rich database for family collaboration platform with E2EE, JSON data, and complex queries.
 
-**Decision:** Use MySQL 8.0 via PlanetScale.
+**Decision:** Use PostgreSQL 16+ with Prisma ORM.
 
 **Rationale:**
-- **Free forever tier:** 5GB database, 1 billion row reads/month
-- **Serverless:** Auto-scaling, no connection limits
-- **Branching:** Database branching like Git (great for migrations)
-- **Prisma support:** First-class Prisma ORM compatibility
+- **Superior JSON support:** JSONB type with indexing for user preferences, E2EE metadata
+- **Full-text search:** Native support for message/photo search features
+- **Data integrity:** Strong ACID guarantees, foreign keys, constraints
+- **Open source:** No vendor lock-in, runs anywhere (local, Docker, any cloud)
+- **Prisma support:** First-class Prisma ORM compatibility with excellent TypeScript types
+- **Advanced features:** CTEs, window functions, array types, materialized views
+- **UUID native:** Built-in UUID type (better than MySQL's CHAR(36))
 
 **Consequences:**
-- MySQL vs PostgreSQL tradeoffs (JSON support less rich, no array columns)
-- Vendor lock-in to PlanetScale (mitigated by standard MySQL compatibility)
+- ✅ **Superior features:** Better JSON, arrays, full-text search than MySQL
+- ✅ **Flexibility:** Can deploy locally, Docker, Render, AWS RDS, DigitalOcean, etc.
+- ✅ **No vendor lock-in:** Standard PostgreSQL works everywhere
+- ⚠️ **Hosting cost:** Need to manage PostgreSQL instance (vs serverless PlanetScale)
+- ✅ **Developer experience:** Docker Compose for local development
 
-**Alternative Considered:** Supabase PostgreSQL, Neon - rejected due to free tier limits and vendor lock-in.
+**Alternatives Considered:**
+1. **MySQL (PlanetScale)** - Rejected: Weaker JSON support, no arrays, vendor lock-in
+2. **Supabase PostgreSQL** - Rejected: Vendor lock-in, free tier limitations
+3. **MongoDB** - Rejected: Document DB not ideal for relational family/user/message data
+
+**Deployment Strategy:**
+- **Development:** Docker Compose (PostgreSQL 16 container)
+- **Production:** Managed PostgreSQL (Render Postgres, AWS RDS, or DigitalOcean)
 
 ---
 
@@ -1051,6 +1064,144 @@ npx prisma generate
 
 ---
 
+### ADR-006: Backend Translation Proxy Pattern
+
+**Status:** Accepted
+
+**Date:** 2025-11-02
+
+**Context:** Story 2.5 (Message Translation) requires Groq API integration. Initial design used client-direct API calls with `NEXT_PUBLIC_GROQ_API_KEY`, but this exposes API keys in browser bundles, allowing theft and abuse.
+
+**Decision:** Use backend proxy pattern - Next.js API route (`/api/translate`) proxies requests to Groq API with server-side API key.
+
+**Rationale:**
+- **Security:** API keys never exposed to browser (industry best practice 2025)
+- **Cost Control:** Server-side rate limiting protects against abuse
+- **Single Source of Truth:** Server can cache translations in database
+- **Monitoring:** Centralized logging and usage tracking
+- **Groq SDK Warning:** Even has `dangerouslyAllowBrowser` flag (name says it all)
+
+**Consequences:**
+- ⚠️ **Privacy Tradeoff:** Backend temporarily sees plaintext messages during translation (necessary for translation to work)
+- ✅ **Security Gain:** API keys protected, rate limiting enforced
+- ✅ **Cost Control:** Multi-layer rate limiting prevents quota exhaustion
+- ✅ **E2EE Preserved:** Translations encrypted before database storage
+- ⚠️ **Honest Disclosure:** Privacy model updated to reflect backend plaintext access
+
+**Alternatives Considered:**
+1. **Client-Direct with NEXT_PUBLIC key** - Rejected: Exposes API key to browser, no rate limiting, anyone can steal key
+2. **User-Provided Groq Keys** - Rejected: Terrible UX, users must get API keys, users pay for translations
+3. **On-Device Translation (WebLLM)** - Deferred: Not production-ready 2025, large model downloads (~50-500MB)
+
+**Privacy Model:**
+- Messages: Pure E2EE (backend never sees plaintext)
+- Translation: Backend + Groq temporarily see plaintext (necessary tradeoff)
+- Database: Stores only encrypted translations
+
+---
+
+### ADR-007: Multi-Layer Rate Limiting Strategy
+
+**Status:** Accepted
+
+**Date:** 2025-11-02
+
+**Context:** Groq API free tier has limits (30 RPM for 70B models). Without rate limiting, single malicious user or bug could exhaust quota, causing service outage and unexpected costs.
+
+**Decision:** Implement 5-layer rate limiting using Upstash Redis with sliding window algorithm.
+
+**Rate Limit Layers:**
+
+| Layer | Identifier | Limit | Window | Purpose |
+|-------|-----------|-------|--------|---------|
+| **IP** | IP Address | 20 | 1 min | Anti-DDoS, anonymous abuse |
+| **User (minute)** | User ID | 10 | 1 min | Prevent spam, fair usage |
+| **User (daily)** | User ID | 100 | 1 day | Cost control per user |
+| **Family** | Family ID | 50 | 1 min | Fair usage across families |
+| **Global** | 'global' | 25 | 1 min | Groq quota protection (30 RPM buffer) |
+
+**Rationale:**
+- **Defense in Depth:** Multiple layers prevent abuse at different levels
+- **Fair Usage:** No single user/family monopolizes resources
+- **Cost Protection:** Global limit prevents quota exhaustion
+- **Cache Bypass:** Cached translations skip rate limits (incentivizes caching)
+- **Industry Standard:** Upstash + sliding window = 2025 best practice
+
+**Consequences:**
+- ✅ **Cost Control:** Predictable Groq API usage
+- ✅ **Service Reliability:** Prevents quota exhaustion outages
+- ✅ **Fair Usage:** All families get equitable access
+- ⚠️ **User Experience:** Rate-limited users see friendly error messages
+- ✅ **Monitoring:** Upstash provides analytics on rate limit hits
+
+**Alternatives Considered:**
+1. **No Rate Limiting** - Rejected: Vulnerable to abuse, unpredictable costs
+2. **Single-Layer (User Only)** - Rejected: Doesn't prevent IP-based attacks or global exhaustion
+3. **Token Bucket** - Rejected: Sliding window provides smoother UX
+
+**Implementation:**
+- **Technology:** @upstash/ratelimit with Upstash Redis (already in architecture)
+- **Algorithm:** Sliding window (smoother than fixed window)
+- **Response:** HTTP 429 with X-RateLimit headers and retry-after timestamp
+
+---
+
+### ADR-008: Translation Database Caching
+
+**Status:** Accepted
+
+**Date:** 2025-11-02
+
+**Context:** Translation costs accrue with every API call. Family of 10 users viewing same Japanese message generates 10 identical Groq API calls. Need single source of truth and cost reduction.
+
+**Decision:** Cache encrypted translations in PostgreSQL `message_translations` table.
+
+**Database Schema:**
+```sql
+CREATE TABLE message_translations (
+  id UUID PRIMARY KEY,
+  message_id UUID REFERENCES messages(id),
+  target_language VARCHAR(5), -- 'ja', 'es', etc.
+  encrypted_translation TEXT, -- AES-256-GCM ciphertext
+  created_at TIMESTAMPTZ,
+  UNIQUE(message_id, target_language)
+);
+```
+
+**Caching Flow:**
+1. Client decrypts message, requests translation from `/api/translate`
+2. Backend checks database cache for (messageId, targetLanguage)
+3a. **Cache Hit:** Return encrypted translation (zero Groq calls, bypasses rate limits)
+3b. **Cache Miss:** Call Groq, return plaintext to client
+4. Client encrypts translation, caches via GraphQL mutation
+
+**Rationale:**
+- **Cost Reduction:** 1 Groq call per message-language pair (not per viewer)
+  - Example: 10 users, 2 languages = 90% fewer API calls
+- **Single Source of Truth:** All devices share cached translations
+- **E2EE Preserved:** Translations encrypted client-side before storage
+- **Performance:** Instant display from cache (no API latency)
+- **Offline Support:** Cached translations available without internet
+
+**Consequences:**
+- ✅ **Cost Savings:** Massive reduction in Groq API usage
+- ✅ **Performance:** Cached translations load instantly
+- ✅ **E2EE:** Database stores only ciphertext
+- ⚠️ **Storage:** ~5-10% database size increase
+- ✅ **Cross-Device:** Translations sync across all user devices
+
+**Alternatives Considered:**
+1. **Client-Side Only (IndexedDB)** - Rejected: No cross-device sync, lost on cache clear
+2. **Server-Side Plaintext Cache** - Rejected: Defeats E2EE, exposes plaintext in database
+3. **No Caching** - Rejected: Doesn't solve cost or single-source-of-truth requirements
+
+**Privacy Guarantee:**
+- Backend never stores plaintext translations
+- Database breach exposes only encrypted translations
+- Decryption requires family key (never on server)
+
+---
+
 ## 10. Cost Analysis
 
 ### Free Tier Limits (MVP - 10 Families)
@@ -1059,7 +1210,7 @@ npx prisma generate
 |---------|-----------|----------------|------|
 | **Render** | 750hrs/month, auto-sleep | ~720hrs (sleeps when inactive) | $0 |
 | **Vercel** | Unlimited bandwidth | ~10GB/month | $0 |
-| **PlanetScale** | 5GB, 1B row reads | ~100MB database | $0 |
+| **PostgreSQL** | Docker local dev | ~100MB database | $0 |
 | **Upstash Redis** | 10k commands/day | ~5k commands/day | $0 |
 | **Cloudflare R2** | 10GB storage, 1M writes | ~2GB photos | $0 |
 | **Groq API** | ~30 req/min | ~50 translations/day | $0 |
@@ -1071,18 +1222,18 @@ npx prisma generate
 | Service | Paid Tier | Usage Estimate | Cost |
 |---------|-----------|----------------|------|
 | **Render** | Starter ($7/month) | Persistent instance | $7/month |
+| **Render PostgreSQL** | Starter ($7/month) | 1GB database | $7/month |
 | **Vercel** | Free tier sufficient | ~100GB/month | $0 |
-| **PlanetScale** | Free tier (if <5GB) | ~1GB database | $0 |
 | **Upstash Redis** | Free tier sufficient | ~8k commands/day | $0 |
 | **Cloudflare R2** | Storage + ops | ~20GB photos | ~$2/month |
 | **Groq API** | Pay-per-token | ~500 translations/day | ~$3/month |
-| **Total** | | | **~$12/month** |
+| **Total** | | | **~$19/month** |
 
 ### Break-Even Analysis
 
-- **Cost per family (100 families):** $0.12/month
+- **Cost per family (100 families):** $0.19/month
 - **Potential pricing:** $5/month per family
-- **Margin:** 97.6% (highly sustainable)
+- **Margin:** 96.2% (highly sustainable)
 
 ---
 
@@ -1138,6 +1289,8 @@ test('should send and receive real-time message', async ({ page, context }) => {
 |---------|------|--------|---------|
 | 1.0 | 2025-10-13 | Winston | Initial Supabase architecture |
 | 2.0 | 2025-10-18 | Winston | Complete rewrite for NestJS + GraphQL + MySQL |
+| 2.1 | 2025-11-02 | Winston | Added ADR-006, ADR-007, ADR-008 for translation architecture |
+| 2.2 | 2025-11-02 | Winston | Updated all MySQL references to PostgreSQL, revised ADR-002, updated cost analysis |
 
 ---
 

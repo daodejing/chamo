@@ -37,6 +37,7 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
+      qrcode: path.resolve(__dirname, './src/vendor/qrcode'),
     },
   },
 });

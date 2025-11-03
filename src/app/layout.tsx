@@ -8,9 +8,9 @@ import { LanguageProvider } from '@/lib/contexts/language-context';
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  title: 'OurChat - Private Family Collaboration',
+  title: 'Chamo - Private Family Collaboration',
   description: 'Privacy-first family collaboration platform with end-to-end encryption',
-  manifest: '/manifest.json',
+  manifest: '/manifest.webmanifest',
 };
 
 export const viewport: Viewport = {

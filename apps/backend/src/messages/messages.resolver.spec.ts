@@ -3,6 +3,7 @@ import { PubSub } from 'graphql-subscriptions';
 import { MessagesResolver } from './messages.resolver';
 import { MessagesService } from './messages.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { PUB_SUB } from './messages.constants';
 
 /**
  * Integration Tests for GraphQL Message Subscriptions
@@ -20,7 +21,6 @@ import { PrismaService } from '../prisma/prisma.service';
 describe('MessagesResolver - Subscription Integration', () => {
   let resolver: MessagesResolver;
   let service: MessagesService;
-  let prisma: PrismaService;
   let pubSub: PubSub;
 
   // Test data
@@ -28,17 +28,6 @@ describe('MessagesResolver - Subscription Integration', () => {
     id: 'user-123',
     name: 'Test User',
     email: 'test@example.com',
-  };
-
-  const mockChannel = {
-    id: 'channel-123',
-    name: 'general',
-    familyId: 'family-123',
-    family: {
-      id: 'family-123',
-      name: 'Test Family',
-      users: [mockUser],
-    },
   };
 
   const mockMessage = {
@@ -65,7 +54,12 @@ describe('MessagesResolver - Subscription Integration', () => {
           yield { messageAdded: mockMessage };
         },
       }),
-    } as any;
+      asyncIterableIterator: jest.fn().mockReturnValue({
+        [Symbol.asyncIterator]: function* () {
+          yield { messageAdded: mockMessage };
+        },
+      }),
+    } as unknown as PubSub;
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -94,15 +88,17 @@ describe('MessagesResolver - Subscription Integration', () => {
             },
           },
         },
+        {
+          provide: PUB_SUB,
+          useValue: pubSub,
+        },
       ],
     }).compile();
 
     resolver = module.get<MessagesResolver>(MessagesResolver);
     service = module.get<MessagesService>(MessagesService);
-    prisma = module.get<PrismaService>(PrismaService);
-
-    // Replace the resolver's pubSub instance with our mock
-    (resolver as any).pubSub = pubSub;
+    // Resolver already receives mock via DI, but keep reference for expectations
+    pubSub = module.get(PUB_SUB);
   });
 
   afterEach(() => {
@@ -134,7 +130,7 @@ describe('MessagesResolver - Subscription Integration', () => {
       const iterator = resolver.messageAdded('channel-123');
 
       // Assert
-      expect(pubSub.asyncIterator).toHaveBeenCalledWith('messageAdded');
+      expect(pubSub.asyncIterableIterator).toHaveBeenCalledWith('messageAdded');
       expect(iterator).toBeDefined();
     });
 
@@ -153,10 +149,11 @@ describe('MessagesResolver - Subscription Integration', () => {
       await resolver.sendMessage(mockUser, input);
 
       // Verify the published payload includes channelId for filtering
-      expect(pubSub.publish).toHaveBeenCalledWith('messageAdded',
+      expect(pubSub.publish).toHaveBeenCalledWith(
+        'messageAdded',
         expect.objectContaining({
           channelId: 'channel-123',
-        })
+        }),
       );
     });
   });
@@ -176,7 +173,9 @@ describe('MessagesResolver - Subscription Integration', () => {
         editedAt: new Date(),
       };
 
-      jest.spyOn(service, 'editMessage').mockResolvedValue(editedMessage as any);
+      jest
+        .spyOn(service, 'editMessage')
+        .mockResolvedValue(editedMessage as any);
 
       // Act
       await resolver.editMessage(mockUser, input);
@@ -193,7 +192,9 @@ describe('MessagesResolver - Subscription Integration', () => {
       const iterator = resolver.messageEdited('channel-123');
 
       // Assert
-      expect(pubSub.asyncIterator).toHaveBeenCalledWith('messageEdited');
+      expect(pubSub.asyncIterableIterator).toHaveBeenCalledWith(
+        'messageEdited',
+      );
       expect(iterator).toBeDefined();
     });
   });
@@ -228,7 +229,9 @@ describe('MessagesResolver - Subscription Integration', () => {
       const iterator = resolver.messageDeleted('channel-123');
 
       // Assert
-      expect(pubSub.asyncIterator).toHaveBeenCalledWith('messageDeleted');
+      expect(pubSub.asyncIterableIterator).toHaveBeenCalledWith(
+        'messageDeleted',
+      );
       expect(iterator).toBeDefined();
     });
   });
@@ -279,9 +282,13 @@ describe('MessagesResolver - Subscription Integration', () => {
       resolver.messageDeleted(channelId);
 
       // Assert - Verify each subscription type creates its iterator
-      expect(pubSub.asyncIterator).toHaveBeenCalledWith('messageAdded');
-      expect(pubSub.asyncIterator).toHaveBeenCalledWith('messageEdited');
-      expect(pubSub.asyncIterator).toHaveBeenCalledWith('messageDeleted');
+      expect(pubSub.asyncIterableIterator).toHaveBeenCalledWith('messageAdded');
+      expect(pubSub.asyncIterableIterator).toHaveBeenCalledWith(
+        'messageEdited',
+      );
+      expect(pubSub.asyncIterableIterator).toHaveBeenCalledWith(
+        'messageDeleted',
+      );
     });
 
     it('should handle concurrent message sends to same channel', async () => {
@@ -296,9 +303,17 @@ describe('MessagesResolver - Subscription Integration', () => {
         encryptedContent: 'Message from User 2',
       };
 
-      jest.spyOn(service, 'sendMessage')
-        .mockResolvedValueOnce({ ...mockMessage, encryptedContent: user1Message.encryptedContent } as any)
-        .mockResolvedValueOnce({ ...mockMessage, id: 'message-124', encryptedContent: user2Message.encryptedContent } as any);
+      jest
+        .spyOn(service, 'sendMessage')
+        .mockResolvedValueOnce({
+          ...mockMessage,
+          encryptedContent: user1Message.encryptedContent,
+        } as any)
+        .mockResolvedValueOnce({
+          ...mockMessage,
+          id: 'message-124',
+          encryptedContent: user2Message.encryptedContent,
+        } as any);
 
       // Act - Send messages concurrently
       await Promise.all([
@@ -308,19 +323,23 @@ describe('MessagesResolver - Subscription Integration', () => {
 
       // Assert - Both messages should be published
       expect(pubSub.publish).toHaveBeenCalledTimes(2);
-      expect(pubSub.publish).toHaveBeenNthCalledWith(1, 'messageAdded',
+      expect(pubSub.publish).toHaveBeenNthCalledWith(
+        1,
+        'messageAdded',
         expect.objectContaining({
           messageAdded: expect.objectContaining({
             encryptedContent: 'Message from User 1',
           }),
-        })
+        }),
       );
-      expect(pubSub.publish).toHaveBeenNthCalledWith(2, 'messageAdded',
+      expect(pubSub.publish).toHaveBeenNthCalledWith(
+        2,
+        'messageAdded',
         expect.objectContaining({
           messageAdded: expect.objectContaining({
             encryptedContent: 'Message from User 2',
           }),
-        })
+        }),
       );
     });
 
@@ -336,20 +355,32 @@ describe('MessagesResolver - Subscription Integration', () => {
         encryptedContent: 'Message for channel 456',
       };
 
-      jest.spyOn(service, 'sendMessage')
-        .mockResolvedValueOnce({ ...mockMessage, channelId: 'channel-123' } as any)
-        .mockResolvedValueOnce({ ...mockMessage, id: 'message-124', channelId: 'channel-456' } as any);
+      jest
+        .spyOn(service, 'sendMessage')
+        .mockResolvedValueOnce({
+          ...mockMessage,
+          channelId: 'channel-123',
+        } as any)
+        .mockResolvedValueOnce({
+          ...mockMessage,
+          id: 'message-124',
+          channelId: 'channel-456',
+        } as any);
 
       // Act
       await resolver.sendMessage(mockUser, channel1Message);
       await resolver.sendMessage(mockUser, channel2Message);
 
       // Assert - Each message has correct channelId for filtering
-      expect(pubSub.publish).toHaveBeenNthCalledWith(1, 'messageAdded',
-        expect.objectContaining({ channelId: 'channel-123' })
+      expect(pubSub.publish).toHaveBeenNthCalledWith(
+        1,
+        'messageAdded',
+        expect.objectContaining({ channelId: 'channel-123' }),
       );
-      expect(pubSub.publish).toHaveBeenNthCalledWith(2, 'messageAdded',
-        expect.objectContaining({ channelId: 'channel-456' })
+      expect(pubSub.publish).toHaveBeenNthCalledWith(
+        2,
+        'messageAdded',
+        expect.objectContaining({ channelId: 'channel-456' }),
       );
     });
   });

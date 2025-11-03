@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { Send, Image as ImageIcon, Smile, Languages, Settings, Trash2, Clock, X, Hash, ChevronDown, Edit2, Check, Calendar, LogOut } from "lucide-react";
+import { Send, Image as ImageIcon, Smile, Languages, Settings, Trash2, Clock, X, Hash, ChevronDown, Edit2, Check, Calendar, LogOut, UserPlus } from "lucide-react";
 import { CalendarView } from "./calendar-view";
 import { PhotoGallery } from "./photo-gallery";
 import { Button } from "@/components/ui/button";
@@ -13,6 +13,8 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { InviteMemberButton } from "@/components/family/invite-member-button";
+import { InviteQrCode } from "@/components/family/invite-qr-code";
 import { Language, t } from "@/lib/translations";
 import { formatDateTime } from "@/lib/utils/date-format";
 
@@ -148,6 +150,7 @@ export function ChatScreen({ chatName, chatAvatar, chatMembers, messages, channe
   const [editingText, setEditingText] = useState("");
   const [showCalendar, setShowCalendar] = useState(false);
   const [showPhotos, setShowPhotos] = useState(false);
+  const [isInviteDialogOpen, setIsInviteDialogOpen] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -302,6 +305,32 @@ export function ChatScreen({ chatName, chatAvatar, chatMembers, messages, channe
             </PopoverContent>
           </Popover>
         )}
+        <Dialog open={isInviteDialogOpen} onOpenChange={setIsInviteDialogOpen}>
+          <DialogTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="text-card-foreground"
+              aria-label={t("settings.invite", language)}
+            >
+              <UserPlus className="w-5 h-5" />
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="sm:max-w-lg">
+            <DialogHeader>
+              <DialogTitle>{t("settings.invite", language)}</DialogTitle>
+              <DialogDescription>{t("settings.inviteMessage", language)}</DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              <InviteMemberButton
+                language={language}
+                familyName={chatName}
+                className="w-full justify-center rounded-xl"
+              />
+              <InviteQrCode language={language} familyName={chatName} />
+            </div>
+          </DialogContent>
+        </Dialog>
         <Button variant="ghost" size="icon" onClick={onSettingsClick} className="text-card-foreground">
           <Settings className="w-5 h-5" />
         </Button>

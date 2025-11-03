@@ -9,6 +9,12 @@ type AuthResponse {
   user: UserType!
 }
 
+input CacheMessageTranslationInput {
+  encryptedTranslation: String!
+  messageId: String!
+  targetLanguage: String!
+}
+
 type Channel {
   createdAt: DateTime!
   createdById: String!
@@ -69,6 +75,14 @@ input LoginInput {
   password: String!
 }
 
+type MessageTranslationType {
+  createdAt: DateTime!
+  encryptedTranslation: String!
+  id: ID!
+  messageId: ID!
+  targetLanguage: String!
+}
+
 type MessageUserType {
   avatar: String
   id: ID!
@@ -88,6 +102,7 @@ type MessageWithUserType {
 }
 
 type Mutation {
+  cacheMessageTranslation(input: CacheMessageTranslationInput!): MessageTranslationType!
   deleteMessage(input: DeleteMessageInput!): DeleteMessageResponse!
   editMessage(input: EditMessageInput!): MessageWithUserType!
   joinFamily(input: JoinFamilyInput!): AuthResponse!
@@ -103,6 +118,7 @@ type Query {
   getChannels: [Channel!]!
   getMessages(input: GetMessagesInput!): [MessageWithUserType!]!
   me: UserType!
+  messageTranslation(messageId: String!, targetLanguage: String!): MessageTranslationType
 }
 
 input RegisterInput {

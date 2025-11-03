@@ -14,19 +14,23 @@ function validateEnvironment() {
     'CORS_ALLOWED_ORIGINS',
   ];
 
-  const missing = required.filter(key => !process.env[key]);
+  const missing = required.filter((key) => !process.env[key]);
 
   if (missing.length > 0) {
     console.error('❌ FATAL: Missing required environment variables:');
-    missing.forEach(key => console.error(`   - ${key}`));
+    missing.forEach((key) => console.error(`   - ${key}`));
     console.error('\nPlease set these variables in apps/backend/.env');
     process.exit(1); // Fail fast
   }
 
   // Warn about insecure default values
-  if (process.env.JWT_SECRET?.includes('dev-jwt-secret') ||
-      process.env.REFRESH_TOKEN_SECRET?.includes('dev-refresh-secret')) {
-    console.warn('⚠️  WARNING: Using development JWT secrets. Generate secure secrets for production!');
+  if (
+    process.env.JWT_SECRET?.includes('dev-jwt-secret') ||
+    process.env.REFRESH_TOKEN_SECRET?.includes('dev-refresh-secret')
+  ) {
+    console.warn(
+      '⚠️  WARNING: Using development JWT secrets. Generate secure secrets for production!',
+    );
     console.warn('   Run: openssl rand -base64 32');
   }
 }
@@ -38,7 +42,9 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
   // Enable CORS - Parse allowed origins from environment variable
-  const allowedOrigins = process.env.CORS_ALLOWED_ORIGINS!.split(',').map(origin => origin.trim());
+  const allowedOrigins = process.env
+    .CORS_ALLOWED_ORIGINS!.split(',')
+    .map((origin) => origin.trim());
 
   app.enableCors({
     origin: (origin, callback) => {
@@ -48,7 +54,11 @@ async function bootstrap() {
       if (allowedOrigins.includes(origin)) {
         callback(null, true);
       } else {
-        callback(new Error(`Origin ${origin} not allowed by CORS. Allowed origins: ${allowedOrigins.join(', ')}`));
+        callback(
+          new Error(
+            `Origin ${origin} not allowed by CORS. Allowed origins: ${allowedOrigins.join(', ')}`,
+          ),
+        );
       }
     },
     credentials: true,

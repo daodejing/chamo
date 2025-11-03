@@ -1,422 +1,221 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!-- Story Context for Story 2.5: Message Translation -->
-<!-- Generated: 2025-11-01 -->
-<!-- Agent: Bob (Scrum Master) -->
+<!-- Generated: 2025-11-02 (UPDATED v3.0) -->
+<!-- Agent: John (Product Manager) -->
+<!-- ARCHITECTURE: NestJS Backend REST Endpoint -->
 
-<story-context id="story-2.5" epic="2" story="5" version="1.0">
+<story-context id="story-2.5" epic="2" story="5" version="3.0">
   <metadata>
     <title>Message Translation</title>
-    <status>Draft</status>
+    <status>Approved</status>
     <created>2025-11-01</created>
-    <last-updated>2025-11-01</last-updated>
+    <last-updated>2025-11-02</last-updated>
     <agent-model>claude-sonnet-4-5-20250929</agent-model>
+    <architecture-version>3.0 - NestJS Backend REST Endpoint (BREAKING CHANGE)</architecture-version>
+    <breaking-change>Changed from Next.js API routes to NestJS backend due to static export</breaking-change>
   </metadata>
 
-  <user-story>
-    <as-a>family member</as-a>
-    <i-want>to see messages translated to my preferred language</i-want>
-    <so-that>I can understand messages from relatives who speak different languages</so-that>
-  </user-story>
+  <summary>
+Complete story context for implementing message translation using NestJS backend REST endpoint, @nestjs/throttler rate limiting, database caching, and Groq Llama 3.3 70B API. Frontend is static export on Cloudflare Pages, backend is NestJS on Render (free tier). Translations encrypted client-side before database storage for E2EE compliance.
+  </summary>
 
-  <acceptance-criteria>
-    <criterion id="AC1">Message displays in sender's original language</criterion>
-    <criterion id="AC2">If message language differs from my preferred language, translation appears below original</criterion>
-    <criterion id="AC3">Translation accurate for common phrases (20+ languages supported)</criterion>
-    <criterion id="AC4">No manual translation action required (automatic translation)</criterion>
-    <criterion id="AC5">Translation uses my "Translate Messages To" setting from preferences (user.preferences.preferredLanguage)</criterion>
-  </acceptance-criteria>
+  <architecture-decision>
+**v3.0 BREAKING CHANGE:** Translation endpoint moved from Next.js API routes to NestJS backend REST controller.
 
-  <artifacts>
-    <docs>
-      <doc>
-        <path>docs/tech-spec-epic-2.md</path>
-        <title>Tech Spec: Epic 2 - Multi-Channel Messaging</title>
-        <section>US-2.5 Multi-Language Translation</section>
-        <snippet>Detailed acceptance criteria and implementation guidance for message translation using Groq API</snippet>
-        <relevance>Primary specification for translation feature implementation</relevance>
-      </doc>
-      <doc>
-        <path>docs/PRD.md</path>
-        <title>Product Requirements Document</title>
-        <section>FR-2.9 Real-Time Translation</section>
-        <snippet>Business requirements for 20+ language support with auto-detection</snippet>
-        <relevance>Business context and user requirements</relevance>
-      </doc>
-      <doc>
-        <path>docs/solution-architecture.md</path>
-        <title>Solution Architecture - NestJS + GraphQL</title>
-        <section>Client-side architecture</section>
-        <snippet>React 19 + Next.js 15 + Apollo Client architecture with client-side E2EE</snippet>
-        <relevance>Architecture context - translation happens client-side after decryption</relevance>
-      </doc>
-      <doc>
-        <path>docs/stories/story-5.4.md</path>
-        <title>Story 5.4: Customize Language Settings</title>
-        <section>Complete implementation</section>
-        <snippet>User preferences.preferredLanguage field implementation and TranslationLanguageSelector component</snippet>
-        <relevance>CRITICAL DEPENDENCY - provides user.preferences.preferredLanguage</relevance>
-      </doc>
-    </docs>
+**Reason:** Frontend uses `output: 'export'` (static export) for Cloudflare Pages deployment. Next.js API routes require Node.js server, not supported with static export.
 
-    <code>
-      <file>
-        <path>src/components/chat/message-bubble.tsx</path>
-        <kind>React Component</kind>
-        <symbol>MessageBubble</symbol>
-        <lines>1-100</lines>
-        <reason>Existing message rendering component where TranslationDisplay will be integrated</reason>
-        <interface>
-          <name>MessageBubbleProps</name>
-          <properties>
-            <property>id: string</property>
-            <property>content: string (decrypted message text)</property>
-            <property>userName: string</property>
-            <property>timestamp: string</property>
-            <property>isMine: boolean</property>
-          </properties>
-        </interface>
-      </file>
-      <file>
-        <path>src/lib/contexts/auth-context.tsx</path>
-        <kind>React Context</kind>
-        <symbol>AuthContext, useAuth</symbol>
-        <lines>1-100</lines>
-        <reason>Provides user object with preferences via ME_QUERY - source of preferredLanguage</reason>
-        <interface>
-          <name>User (from ME_QUERY)</name>
-          <properties>
-            <property>id: string</property>
-            <property>email: string</property>
-            <property>name: string</property>
-            <property>preferences: JSON (includes preferredLanguage from Story 5.4)</property>
-          </properties>
-        </interface>
-      </file>
-      <file>
-        <path>src/lib/translations.ts</path>
-        <kind>Translation Module</kind>
-        <symbol>translations, Language</symbol>
-        <lines>1-50</lines>
-        <reason>Existing UI translation system - NOT for message translation (different purpose)</reason>
-        <note>This is for UI i18n (ja/en interface), Story 2.5 is for MESSAGE translation via Groq API</note>
-      </file>
-    </code>
+**Solution:** Add POST /api/translate REST endpoint to existing NestJS backend on Render (free tier). Reuses existing JWT guards, PrismaService, and CORS configuration.
 
-    <dependencies>
-      <node>
-        <package name="@apollo/client" version="^3.9.0" />
-        <package name="react" version="19.0.0" />
-        <package name="next" version="15.0.3" />
-        <package name="date-fns" version="^4.1.x" />
-        <package name="lucide-react" version="latest" />
-      </node>
-    </dependencies>
-  </artifacts>
+**Benefits:**
+- No new infrastructure needed (still $0/month)
+- Centralized backend logic in NestJS
+- Professional N-tier architecture (Controllers → Services → Prisma)
+- Shares business logic with GraphQL API
+  </architecture-decision>
 
-  <interfaces>
-    <interface>
-      <name>useAuth Hook</name>
-      <kind>React Hook</kind>
-      <signature>
-        const { user } = useAuth();
-        // user.preferences.preferredLanguage: string (from Story 5.4)
-      </signature>
-      <path>src/lib/contexts/auth-context.tsx</path>
-      <usage>Get user's preferred translation language from preferences</usage>
-    </interface>
-    <interface>
-      <name>Groq API (External)</name>
-      <kind>REST API</kind>
-      <signature>
-        POST https://api.groq.com/openai/v1/chat/completions
-        Headers: { Authorization: Bearer ${API_KEY} }
-        Body: { model: "llama-3.3-70b-versatile", messages: [...] }
-      </signature>
-      <usage>Client-direct translation API calls (no server proxy)</usage>
-      <rate-limits>
-        Free Tier: 30 requests/minute, 14,400/day
-      </rate-limits>
-      <cost>
-        $0.59/million input tokens, $0.79/million output tokens
-        Typical translation: ~$0.000079 (less than 0.01 cents)
-      </cost>
-    </interface>
-  </interfaces>
+  <key-files>
+**Backend Files to CREATE:**
+- apps/backend/src/translation/translation.module.ts
+- apps/backend/src/translation/translation.controller.ts (POST /api/translate)
+- apps/backend/src/translation/translation.service.ts
+- apps/backend/src/translation/groq.service.ts
+- apps/backend/src/translation/dto/translate.dto.ts
+- apps/backend/prisma/migrations/xxx_add_message_translations.sql
 
-  <constraints>
-    <constraint category="architecture">
-      Translation must happen CLIENT-SIDE only (after message decryption)
-    </constraint>
-    <constraint category="privacy">
-      Plaintext messages sent to Groq API (acceptable tradeoff for UX, Groq doesn't store per ToS)
-    </constraint>
-    <constraint category="e2ee">
-      Messages remain encrypted at rest and in transit - only decrypted client-side before translation
-    </constraint>
-    <constraint category="dependency">
-      Story 5.4 (Language Settings) MUST be complete - requires user.preferences.preferredLanguage
-    </constraint>
-    <constraint category="performance">
-      Implement caching to avoid duplicate API calls for same message+language pair
-    </constraint>
-    <constraint category="performance">
-      Use AbortController cleanup in useEffect to prevent memory leaks (2025 best practice)
-    </constraint>
-    <constraint category="ux">
-      Translation must be automatic (no button click required)
-    </constraint>
-    <constraint category="ux">
-      Always show original message first, translation below (grayed out, italicized)
-    </constraint>
-    <constraint category="error-handling">
-      On API failure, gracefully degrade - show original message only
-    </constraint>
-    <constraint category="model">
-      Use Llama 3.3 70B Versatile (model ID: llama-3.3-70b-versatile) - Llama 3.1 deprecated Jan 2025
-    </constraint>
-  </constraints>
+**Backend Files to MODIFY:**
+- apps/backend/src/app.module.ts (add ThrottlerModule, TranslationModule)
+- apps/backend/prisma/schema.prisma (add MessageTranslation model)
+- apps/backend/src/schema.gql (add MessageTranslation type, mutations)
+- apps/backend/.env (add GROQ_API_KEY, update CORS_ALLOWED_ORIGINS)
+- apps/backend/package.json (add @nestjs/throttler)
 
-  <implementation-guidance>
-    <files-to-create>
-      <file>
-        <path>src/components/chat/translation-display.tsx</path>
-        <purpose>React component to display translated text below original message</purpose>
-        <dependencies>
-          - useAuth hook (get user.preferences.preferredLanguage)
-          - translateText service (Groq API call)
-          - AbortController for cleanup
-        </dependencies>
-      </file>
-      <file>
-        <path>src/lib/groq/translation.ts</path>
-        <purpose>Groq API translation service with caching</purpose>
-        <exports>
-          - translateText(text, targetLang, cacheKey, signal)
-          - clearTranslationCache()
-          - LANGUAGE_NAMES mapping
-        </exports>
-      </file>
-    </files-to-create>
+**Frontend Files to CREATE:**
+- src/components/chat/translation-display.tsx
 
-    <files-to-modify>
-      <file>
-        <path>src/components/chat/message-bubble.tsx</path>
-        <changes>
-          - Import TranslationDisplay component
-          - Add TranslationDisplay below message content
-          - Pass content and messageId props
-          - Only show for non-own messages (isMine === false)
-        </changes>
-      </file>
-      <file>
-        <path>.env.local</path>
-        <changes>
-          - Add NEXT_PUBLIC_GROQ_API_KEY=gsk_xxx
-        </changes>
-      </file>
-    </files-to-modify>
+**Frontend Files to MODIFY:**
+- src/components/chat/message-bubble.tsx (integrate TranslationDisplay)
+  </key-files>
 
-    <key-algorithms>
-      <algorithm name="Translation Flow">
-        <step>1. TranslationDisplay renders with message content and messageId</step>
-        <step>2. useEffect hook gets user.preferences.preferredLanguage from useAuth()</step>
-        <step>3. If preferredLanguage exists, call translateText(content, preferredLanguage, messageId, signal)</step>
-        <step>4. translateText checks cache first (Map&lt;messageId-lang, translation&gt;)</step>
-        <step>5. If not cached, make Groq API call with AbortSignal</step>
-        <step>6. Groq auto-detects source language and translates to target</step>
-        <step>7. If translation === original, don't show (already in target language)</step>
-        <step>8. Otherwise, render translation below original (grayed out, italicized)</step>
-        <step>9. On component unmount, abort pending request to prevent memory leaks</step>
-      </algorithm>
-      <algorithm name="Caching Strategy">
-        <step>Cache key format: `${messageId}-${targetLanguage}`</step>
-        <step>Store in Map&lt;string, string&gt; (client-side only, session-scoped)</step>
-        <step>Check cache before API call to avoid duplicates</step>
-        <step>Consider React Query/SWR for production (advanced stale data management)</step>
-      </algorithm>
-    </key-algorithms>
+  <critical-dependencies>
+- **Story 5.4 (Language Settings):** BLOCKER - provides user.preferences.preferredLanguage
+- **NestJS Backend:** Existing on Render (PrismaService, JWT guards, CORS)
+- **Static Frontend:** Cloudflare Pages (no API routes support)
+  </critical-dependencies>
 
-    <2025-best-practices>
-      <practice>Use Llama 3.3 70B (model ID: llama-3.3-70b-versatile) - 3.1 deprecated</practice>
-      <practice>AbortController cleanup in useEffect return function</practice>
-      <practice>Pass signal parameter to fetch for request cancellation</practice>
-      <practice>Check signal.aborted before setting state after async operations</practice>
-      <practice>Ignore AbortError exceptions (expected on unmount)</practice>
-      <practice>Consider React Query/SWR for production caching needs</practice>
-    </2025-best-practices>
-  </implementation-guidance>
+  <technology-stack>
+**Backend:**
+- @nestjs/throttler v6.4.0 (rate limiting - NEW)
+- @nestjs/common, @nestjs/core (existing)
+- @prisma/client (existing)
+- Groq API (Llama 3.3 70B Versatile)
 
-  <tests>
-    <standards>
-      <framework>Vitest for unit tests</framework>
-      <framework>Playwright for E2E tests</framework>
-      <pattern>Test files colocated with implementation in tests/ directory</pattern>
-      <pattern>Mock Groq API responses for unit tests</pattern>
-      <coverage>Aim for 95%+ code coverage on translation service</coverage>
-    </standards>
+**Frontend:**
+- React 19, Next.js 15 (static export)
+- @apollo/client (existing - for GraphQL mutations)
+- AbortController (memory leak prevention)
 
-    <locations>
-      <location>tests/unit/groq/translation.test.ts</location>
-      <location>tests/unit/components/translation-display.test.tsx</location>
-      <location>tests/integration/translation-ui.test.ts</location>
-      <location>tests/e2e/story-2.5-message-translation.spec.ts</location>
-    </locations>
+**External Services:**
+- Groq API: 30 RPM free tier, $0.59/million input tokens
+- Render: Free tier NestJS backend
+- Cloudflare Pages: Free tier static hosting
+  </technology-stack>
 
-    <ideas>
-      <test ac="AC1, AC2">
-        <description>User A (preferredLanguage: en) sends Japanese message "こんにちは"</description>
-        <expected>User B (preferredLanguage: ja) sees original + NO translation (already in target language)</expected>
-        <expected>User C (preferredLanguage: en) sees original + "Hello" translation below</expected>
-      </test>
-      <test ac="AC3">
-        <description>Test translation accuracy for common phrases across all 20+ languages</description>
-        <expected>Translations match expected results for "Hello", "Thank you", "I love you"</expected>
-      </test>
-      <test ac="AC4">
-        <description>Translation happens automatically without user action</description>
-        <expected>No button click required, translation appears within 2-5 seconds</expected>
-      </test>
-      <test ac="AC5">
-        <description>Changing preferredLanguage in settings triggers re-translation</description>
-        <expected>Visible messages re-translate to new target language</expected>
-      </test>
-      <test category="error-handling">
-        <description>Groq API returns 429 rate limit error</description>
-        <expected>Original message still visible, no translation shown, no error to user</expected>
-      </test>
-      <test category="performance">
-        <description>Same message translated multiple times</description>
-        <expected>Only one API call made (cache hit on subsequent requests)</expected>
-      </test>
-      <test category="memory-leaks">
-        <description>Component unmounts before translation completes</description>
-        <expected>Fetch aborted, no state updates, no memory leak</expected>
-      </test>
-    </ideas>
-  </tests>
+  <rate-limiting>
+**Implementation:** @nestjs/throttler with 2-tier strategy
 
-  <technical-decisions>
-    <decision id="TD-2.5-01">
-      <title>Client-Direct Groq API vs Server Proxy</title>
-      <choice>Client-direct API calls</choice>
-      <rationale>
-        Preserves privacy (no server-side plaintext access), simpler architecture,
-        acceptable tradeoff given Groq's ToS (doesn't store data). Rate limiting
-        handled by Groq per API key.
-      </rationale>
-      <tradeoff>Plaintext exposed to Groq API (but not stored per ToS)</tradeoff>
-    </decision>
-    <decision id="TD-2.5-02">
-      <title>Llama 3.3 70B vs Smaller Models</title>
-      <choice>Llama 3.3 70B Versatile</choice>
-      <rationale>
-        Better translation quality for multilingual use cases, 128K context,
-        only slightly more expensive than 8B model ($0.59 vs $0.05 per million tokens),
-        still extremely cheap (~$0.000079 per translation).
-      </rationale>
-      <cost>~$1.20/month for 100 families with 500 translations/day</cost>
-    </decision>
-    <decision id="TD-2.5-03">
-      <title>Simple Map Cache vs React Query</title>
-      <choice>Start with Map cache, upgrade to React Query later if needed</choice>
-      <rationale>
-        Map cache sufficient for MVP (avoids duplicate API calls), React Query
-        adds complexity but better for stale data management and advanced caching.
-        Can upgrade later without breaking changes.
-      </rationale>
-    </decision>
-    <decision id="TD-2.5-04">
-      <title>Translation on Scroll Performance</title>
-      <choice>Translate visible messages only (IntersectionObserver)</choice>
-      <rationale>
-        Avoids translating 100s of messages in long threads, reduces API costs,
-        improves perceived performance. Messages translate as user scrolls.
-      </rationale>
-      <implementation>Defer to performance optimization task (Task 5)</implementation>
-    </decision>
-  </technical-decisions>
+| Tier | Limit | Window | Scope |
+|------|-------|--------|-------|
+| Short | 10 | 1 min | Per user (JWT sub) |
+| Long | 100 | 1 day | Per user (JWT sub) |
 
-  <dependencies>
-    <story id="5.4" status="complete" criticality="blocker">
-      <title>Customize Language Settings</title>
-      <provides>user.preferences.preferredLanguage field</provides>
-      <provides>TranslationLanguageSelector UI component</provides>
-      <impact>Cannot implement Story 2.5 without user preference for target language</impact>
-    </story>
-    <story id="2.1" status="complete" criticality="required">
-      <title>Send Messages in Channels</title>
-      <provides>Message rendering infrastructure (MessageBubble component)</provides>
-      <provides>Real-time message delivery and display</provides>
-    </story>
-    <epic id="7" status="complete" criticality="required">
-      <title>End-to-End Encryption</title>
-      <provides>Message encryption/decryption flow</provides>
-      <note>Translation happens AFTER client-side decryption</note>
-    </epic>
-  </dependencies>
+**Behavior:**
+- Cached translations bypass all rate limits (DB check first)
+- HTTP 429 response with Retry-After header
+- Token bucket algorithm (built-in)
+- Applied at controller level with @Throttle decorator
+  </rate-limiting>
 
-  <risks>
-    <risk severity="medium" probability="low">
-      <title>Groq API Rate Limits Exceeded</title>
-      <impact>Translation stops working for users</impact>
-      <mitigation>
-        - Implement caching to reduce API calls
-        - Show original message on failure (graceful degradation)
-        - Monitor usage and upgrade to Developer Tier if needed (10x more limits)
-      </mitigation>
-    </risk>
-    <risk severity="low" probability="medium">
-      <title>Translation Quality Issues</title>
-      <impact>Users see incorrect translations</impact>
-      <mitigation>
-        - Use Llama 3.3 70B (better multilingual capabilities than 3.1)
-        - Always show original message prominently
-        - Document feedback mechanism for future story (2.7)
-      </mitigation>
-    </risk>
-    <risk severity="low" probability="low">
-      <title>Memory Leaks from Unmounted Components</title>
-      <impact>Slow performance, increased memory usage over time</impact>
-      <mitigation>
-        - Implement AbortController cleanup in useEffect
-        - Check signal.aborted before setState
-        - Test with React DevTools Profiler
-      </mitigation>
-    </risk>
-  </risks>
+  <database-schema>
+```sql
+CREATE TABLE message_translations (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  message_id UUID NOT NULL REFERENCES messages(id) ON DELETE CASCADE,
+  target_language VARCHAR(5) NOT NULL,
+  encrypted_translation TEXT NOT NULL, -- AES-256-GCM ciphertext
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(message_id, target_language)
+);
+CREATE INDEX idx_message_translations_message_id ON message_translations(message_id);
+```
+  </database-schema>
 
-  <estimated-effort>
-    <total-story-points>5</total-story-points>
-    <breakdown>
-      <task id="1" points="1">TranslationDisplay component implementation</task>
-      <task id="2" points="1.5">Groq translation service with caching</task>
-      <task id="3" points="0.5">MessageBubble integration</task>
-      <task id="4" points="0.5">User preferences verification (Story 5.4 dependency)</task>
-      <task id="5" points="0.5">Performance optimizations</task>
-      <task id="6-8" points="1">Testing (unit, integration, E2E)</task>
-    </breakdown>
-    <estimated-duration>2-3 days for implementation + testing</estimated-duration>
-  </estimated-effort>
+  <implementation-flow>
+1. Frontend: TranslationDisplay component renders with decrypted message
+2. Frontend: Gets user.preferences.preferredLanguage from useAuth()
+3. Frontend: Calls POST https://backend.onrender.com/api/translate (with JWT)
+4. Backend: JwtAuthGuard authenticates request, extracts user info
+5. Backend: TranslationService checks DB cache (message_id, target_language)
+6. Backend: If cached, return encrypted translation immediately (bypass rate limit)
+7. Backend: If not cached, apply @nestjs/throttler rate limit check
+8. Backend: If rate limit OK, GroqService calls Groq API
+9. Backend: Returns translation to frontend
+10. Frontend: Encrypts translation with family key (E2EE)
+11. Frontend: Caches encrypted translation via GraphQL mutation
+12. Frontend: Displays translation below original (if different)
+  </implementation-flow>
 
-  <validation-checklist>
-    <item>✓ All acceptance criteria mapped to tests</item>
-    <item>✓ Dependencies identified (Story 5.4 critical)</item>
-    <item>✓ External API documented (Groq with rate limits and costs)</item>
-    <item>✓ Performance considerations addressed (caching, AbortController)</item>
-    <item>✓ 2025 best practices incorporated (Llama 3.3, memory leak prevention)</item>
-    <item>✓ Privacy implications documented (client-direct API acceptable)</item>
-    <item>✓ Error handling defined (graceful degradation)</item>
-    <item>✓ Cost analysis provided (~$0.000079 per translation)</item>
-  </validation-checklist>
+  <security-privacy>
+**Privacy Model (Honest Disclosure):**
+- **Tier 1 (Messages):** Pure E2EE - backend never sees plaintext
+- **Tier 2 (Translations):** Backend + Groq temporarily see plaintext (necessary for translation)
+- **At Rest:** Translations encrypted client-side before DB storage (E2EE)
+
+**Security Guarantees:**
+✅ Backend never stores plaintext translations
+✅ Database breach exposes only ciphertext
+✅ API key server-side only (GROQ_API_KEY, NOT NEXT_PUBLIC)
+✅ JWT authentication required
+✅ Rate limiting prevents abuse
+⚠️ Backend + Groq temporarily see plaintext during translation
+
+**Acceptable Tradeoff:** Translation requires plaintext access. Users can disable translation for full E2EE.
+  </security-privacy>
+
+  <testing-strategy>
+**Unit Tests (Backend):**
+- apps/backend/test/unit/translation.service.spec.ts (Groq API mocks)
+- apps/backend/test/unit/groq.service.spec.ts (language mapping, error handling)
+
+**Integration Tests (Backend):**
+- apps/backend/test/integration/translation.controller.spec.ts (endpoint, auth, rate limiting)
+
+**Unit Tests (Frontend):**
+- src/components/chat/__tests__/translation-display.test.tsx (component behavior)
+
+**E2E Tests:**
+- tests/e2e/story-2.5-message-translation.spec.ts (full translation flow, caching, rate limits)
+  </testing-strategy>
+
+  <cost-analysis>
+**Groq API Costs:**
+- Free Tier: 30 RPM, 14,400/day
+- Typical translation: ~100 tokens input, ~50 tokens output
+- Cost per translation: ~$0.000079 (less than 0.01 cents)
+
+**Monthly Estimate (100 families, 500 translations/day):**
+- Database cache hit rate: ~80% (assumption)
+- API calls: 100 translations/day (20% of 500)
+- Monthly cost: ~$0.24/month
+
+**Infrastructure:**
+- Render (NestJS backend): $0/month (free tier)
+- Cloudflare Pages (frontend): $0/month (free tier)
+- **Total: $0/month** (Groq free tier sufficient for MVP)
+  </cost-analysis>
+
+  <deployment-notes>
+**Backend (apps/backend/.env):**
+```bash
+GROQ_API_KEY=gsk_xxx  # Get from https://console.groq.com/keys
+CORS_ALLOWED_ORIGINS=http://localhost:3002,https://your-app.pages.dev
+```
+
+**IMPORTANT:** Never use NEXT_PUBLIC_GROQ_API_KEY. API key must remain server-side only.
+
+**Deployment Steps:**
+1. Backend: Add @nestjs/throttler dependency, create TranslationModule
+2. Backend: Run Prisma migration for message_translations table
+3. Backend: Deploy to Render (triggers auto-deploy on git push)
+4. Frontend: Add TranslationDisplay component, update MessageBubble
+5. Frontend: Deploy to Cloudflare Pages (static export)
+6. Test: Verify CORS from Cloudflare Pages to Render backend
+  </deployment-notes>
 
   <references>
-    <doc path="docs/stories/story-2.5.md">Primary story document</doc>
-    <doc path="docs/tech-spec-epic-2.md">Epic 2 technical specification</doc>
-    <doc path="docs/PRD.md">Product requirements (FR-2.9, US-2.5)</doc>
+    <doc path="docs/stories/story-2.5.md">Primary story document (v3.0 - NestJS backend)</doc>
+    <doc path="apps/backend/src/main.ts">Existing CORS and validation setup</doc>
     <doc path="docs/solution-architecture.md">Architecture constraints</doc>
     <doc path="docs/stories/story-5.4.md">Language Settings dependency</doc>
     <external url="https://console.groq.com/docs/models">Groq API Documentation</external>
-    <external url="https://console.groq.com/docs/rate-limits">Groq Rate Limits</external>
-    <external url="https://groq.com/pricing">Groq Pricing</external>
+    <external url="https://docs.nestjs.com/security/rate-limiting">NestJS Throttler Docs</external>
+    <external url="https://github.com/nestjs/throttler">@nestjs/throttler GitHub</external>
   </references>
+
+  <changelog>
+    <version>1.0 (2025-11-01)</version>
+    <changes>
+      - Initial: Client-direct Groq API calls, in-memory cache
+    </changes>
+    <version>2.0 (2025-11-02)</version>
+    <changes>
+      - Changed: Next.js API route proxy, @upstash/ratelimit, 5-layer rate limiting
+    </changes>
+    <version>3.0 (2025-11-02) - BREAKING CHANGE</version>
+    <changes>
+      - BREAKING: NestJS backend REST endpoint (vs Next.js API routes)
+      - Reason: Static export frontend has no API routes support
+      - Simplified: @nestjs/throttler (vs Upstash), 2-tier (vs 5-layer)
+      - Benefits: Centralized backend, professional architecture, $0/month
+    </changes>
+  </changelog>
 </story-context>
