@@ -182,6 +182,11 @@ The staging stack consists of:
    DATABASE_URL=<your-neon-connection-string>
    JWT_SECRET=<generate-with-openssl-rand-base64-32>
    REFRESH_TOKEN_SECRET=<generate-with-openssl-rand-base64-32>
+   BREVO_API_KEY=<your-brevo-staging-api-key>
+   EMAIL_FROM=noreply@yourdomain.com
+   EMAIL_FROM_NAME=Chamo Staging
+   EMAIL_VERIFICATION_URL=https://chamo-staging.pages.dev/verify-email
+   INVITE_SECRET=<generate-with-openssl-rand-hex-32>
    CORS_ALLOWED_ORIGINS=https://chamo-staging.pages.dev,http://localhost:3002
    NODE_ENV=staging
    PORT=4000
@@ -300,6 +305,45 @@ After build completes:
 ### Free Tier Limits
 - Generous free tier for testing
 - Rate limits apply
+
+---
+
+## Step 4.5: Brevo Email Service Setup
+
+### 4.5.1 Create Brevo Account
+
+1. Visit https://app.brevo.com/account/register
+2. Sign up with email or Google
+3. Verify your email address
+4. Complete account setup
+
+### 4.5.2 Get API Key
+
+1. Log in to Brevo dashboard
+2. Go to **Settings** → **SMTP & API** → **API Keys**
+3. Click **Generate a new API key**
+4. Name it `Chamo Staging`
+5. Copy the API key (starts with `xkeysib-`)
+6. **Save as**: `BREVO_API_KEY_STAGING` (Render environment variable)
+
+### 4.5.3 Generate Invite Secret
+
+Run locally:
+
+```bash
+# Generate 32-byte hex string for encrypting invitee emails
+openssl rand -hex 32
+```
+
+**Save as**: `INVITE_SECRET` (Render environment variable)
+
+### Free Tier Limits
+- **9,000 emails/month** (300/day)
+- Unlimited contacts
+- Email templates included
+- Email logs and analytics
+
+**Note:** For staging, use a verified sender email or your personal email
 
 ---
 

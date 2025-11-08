@@ -1,4 +1,4 @@
-# OurChat - Private Family Collaboration Platform
+# Chamo - Private Family Collaboration Platform
 
 A privacy-first family collaboration platform with end-to-end encryption, real-time messaging, photo sharing, and family calendar management.
 
@@ -11,6 +11,7 @@ A privacy-first family collaboration platform with end-to-end encryption, real-t
 - **CI/CD:** GitHub Actions (automated testing & deployment)
 - **E2EE:** Web Crypto API (AES-256-GCM)
 - **Translation:** Groq API (Llama 3.1 70B)
+- **Email:** Brevo (transactional email service)
 - **Package Manager:** pnpm 9.x
 
 ## Prerequisites
@@ -85,11 +86,74 @@ NEXT_PUBLIC_GRAPHQL_WS_URL=ws://localhost:4000/graphql
 # Groq API (for LLM translation) - Get from https://console.groq.com
 NEXT_PUBLIC_GROQ_API_KEY=gsk_your-groq-api-key-here
 
+# Brevo Email Service (for email verification) - Get from https://app.brevo.com
+BREVO_API_KEY=xkeysib_your-brevo-api-key-here
+EMAIL_FROM=noreply@yourdomain.com
+EMAIL_FROM_NAME=Chamo
+EMAIL_VERIFICATION_URL=http://localhost:3002/verify-email
+
+# Security - Invite Code Email Encryption (generate with: openssl rand -hex 32)
+INVITE_SECRET=your-64-character-hex-string-here
+
 # Environment
 NODE_ENV=development
 ```
 
-### 6. Apply Database Migrations
+### 6. Set Up Brevo Email Service (Required for Email Verification)
+
+**Sign up for Brevo (free tier):**
+
+1. Go to [https://app.brevo.com/account/register](https://app.brevo.com/account/register)
+2. Create a free account (9,000 emails/month)
+3. Verify your email address
+
+**Get your API key:**
+
+1. Log in to Brevo dashboard
+2. Go to **Settings** → **SMTP & API** → **API Keys**
+3. Click **Generate a new API key**
+4. Name it "Chamo Development"
+5. Copy the key (starts with `xkeysib-`)
+
+**Add to environment variables:**
+
+Edit `.env.local` and add:
+
+```bash
+BREVO_API_KEY=xkeysib_your-actual-api-key-here
+EMAIL_FROM=noreply@yourdomain.com  # Or use your personal email for testing
+EMAIL_FROM_NAME=Chamo
+EMAIL_VERIFICATION_URL=http://localhost:3002/verify-email
+```
+
+**Generate invite secret:**
+
+```bash
+# Generate a secure 32-byte hex string for encrypting invitee emails
+openssl rand -hex 32
+```
+
+Add to `.env.local`:
+
+```bash
+INVITE_SECRET=<paste-the-generated-64-character-hex-string>
+```
+
+**For backend container:**
+
+The backend also needs these variables. Add to `apps/backend/.env`:
+
+```bash
+BREVO_API_KEY=xkeysib_your-actual-api-key-here
+EMAIL_FROM=noreply@yourdomain.com
+EMAIL_FROM_NAME=Chamo
+EMAIL_VERIFICATION_URL=http://localhost:3002/verify-email
+INVITE_SECRET=<same-64-character-hex-string-from-above>
+```
+
+**Note:** For local development, Brevo will send real emails. Use your personal email address for testing.
+
+### 7. Apply Database Migrations
 
 ```bash
 cd apps/backend
@@ -99,7 +163,7 @@ cd ../..
 
 This creates all tables and indexes defined in Prisma schema.
 
-### 7. Start Next.js Development Server
+### 8. Start Next.js Development Server
 
 ```bash
 pnpm dev

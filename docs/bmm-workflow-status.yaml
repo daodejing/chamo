@@ -28,25 +28,26 @@ project_level: "3"
 field_type: "brownfield"
 workflow_path: "brownfield-level-3.yaml"
 
-workflow_status: "  # Prerequisite: Documentation
-  document-project: required
+workflow_status:
+  # Prerequisite: Documentation
+  document-project: skipped
 
   # Phase 1: Analysis
-  brainstorm-project: optional
-  research: recommended
-  product-brief: recommended
+  brainstorm-project: skipped
+  research: skipped
+  product-brief: skipped
 
   # Phase 2: Planning
   prd: docs/PRD.md
-  validate-prd: optional
-  create-design: conditional
+  validate-prd: skipped
+  create-design: skipped
 
   # Phase 3: Solutioning
-  architecture-review: required
-  integration-planning: required
-  create-architecture: required
-  validate-architecture: optional
-  solutioning-gate-check: required
+  architecture-review: docs/solution-architecture.md
+  integration-planning: docs/solution-architecture.md
+  create-architecture: docs/solution-architecture.md
+  validate-architecture: skipped
+  solutioning-gate-check: skipped
 
   # Phase 4: Implementation
-  sprint-planning: docs/sprint-status.yaml"
+  sprint-planning: docs/sprint-status.yaml

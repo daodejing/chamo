@@ -1,0 +1,274 @@
+<story-context id="bmad/bmm/workflows/4-implementation/story-context/template" v="1.0">
+  <metadata>
+    <epicId>1</epicId>
+    <storyId>6</storyId>
+    <title>Brevo Email Service Integration</title>
+    <status>drafted</status>
+    <generatedAt>2025-11-08</generatedAt>
+    <generator>BMAD Story Context Workflow</generator>
+    <sourceStoryPath>docs/stories/1-6-brevo-integration.md</sourceStoryPath>
+  </metadata>
+
+  <story>
+    <asA>system administrator</asA>
+    <iWant>to integrate Brevo transactional email service into the backend</iWant>
+    <soThat>the application can send verification emails, welcome emails, and other transactional notifications reliably and cost-effectively</soThat>
+    <tasks>
+Task 1: Brevo Account Setup (AC1) - 7 subtasks
+Task 2: Install Brevo SDK (AC2) - 3 subtasks
+Task 3: Create Email Service Module (AC2) - 6 subtasks
+Task 4: Implement Email Sending Methods (AC2, AC4) - 6 subtasks
+Task 5: Create Email Templates (AC3) - 7 subtasks
+Task 6: Configuration & Error Handling (AC5) - 5 subtasks
+Task 7: Development Setup Documentation (AC6) - 5 subtasks
+Task 8: Testing Email Service (AC6, AC4) - 8 subtasks
+Task 9: Unit & Integration Tests (All ACs) - 7 subtasks
+Task 10: Production Readiness (AC4, AC5) - 5 subtasks
+    </tasks>
+  </story>
+
+  <acceptanceCriteria>
+AC1: Brevo Account & API Key Setup
+- Brevo account created (free tier)
+- API key generated from Brevo dashboard (Settings → SMTP & API → API Keys)
+- API key added to environment variables: BREVO_API_KEY
+- Sender email configured: EMAIL_FROM, EMAIL_FROM_NAME
+- Email verification URL configured: EMAIL_VERIFICATION_URL
+- Environment variables documented in docs/BREVO_SETUP.md
+
+AC2: NestJS Email Service Module
+- @getbrevo/brevo package installed in backend
+- EmailModule created and registered in AppModule
+- EmailService implements methods: sendVerificationEmail, sendWelcomeEmail, sendInviteNotification
+- Service uses Brevo API key from environment
+- All email methods handle errors gracefully (log, don't throw)
+
+AC3: Email Templates
+- Verification email template created with subject, link, expiration notice, HTML/text versions
+- Welcome email template created with personalized greeting, quick start tips, HTML/text versions
+- Templates use Brevo template variables: {{userName}}, {{verificationLink}}, {{familyName}}, {{inviteCode}}
+- Templates tested in local development
+
+AC4: Email Delivery Monitoring
+- Failed email sends logged with error details
+- Successful sends logged at DEBUG level
+- Email service logs integrated with NestJS logger
+- Delivery status queryable in Brevo dashboard
+
+AC5: Configuration & Error Handling
+- Missing BREVO_API_KEY throws clear error at app startup
+- Invalid API key returns user-friendly error
+- Network failures retry once before logging error
+- Rate limit errors (300/day) logged with actionable message
+- All environment variables validated at startup
+
+AC6: Development & Testing Setup
+- Local development uses real Brevo account (free tier)
+- .env.example and apps/backend/.env.example updated with Brevo variables
+- README.md includes Brevo setup instructions (Step 6)
+- docs/BREVO_SETUP.md provides complete setup guide
+- Test email endpoint created for manual testing: sendTestEmail(email: string)
+  </acceptanceCriteria>
+
+  <artifacts>
+    <docs>
+      <doc>
+        <path>docs/sprint-change-proposal-2025-11-08.md</path>
+        <title>Sprint Change Proposal: Email Verification & Email-Bound Invites</title>
+        <section>Section 2: Impact Analysis - Story 1.6</section>
+        <snippet>Brevo selected for transactional email service. Free tier: 9,000 emails/month. Best recurring free tier, excellent NestJS integration, strong deliverability. Story 1.6 creates EmailService infrastructure required for Stories 1.4 and 1.5.</snippet>
+      </doc>
+      <doc>
+        <path>docs/BREVO_SETUP.md</path>
+        <title>Brevo Email Service Setup Guide</title>
+        <section>Complete Setup Guide</section>
+        <snippet>Step-by-step Brevo account creation, API key generation, environment variable configuration. Includes troubleshooting, free tier limits (9,000/month, 300/day), and production deployment notes.</snippet>
+      </doc>
+      <doc>
+        <path>docs/solution-architecture.md</path>
+        <title>Solution Architecture v2.0 - NestJS Architecture</title>
+        <section>Section 5: NestJS Architecture</section>
+        <snippet>NestJS modular monolith structure. Each module contains: module.ts, service.ts, resolver.ts, dto/, guards/. Modules registered in app.module.ts. Uses Apollo Server for GraphQL, Prisma for ORM, Jest for testing.</snippet>
+      </doc>
+      <doc>
+        <path>docs/tech-spec-epic-1.md</path>
+        <title>Tech Spec: Epic 1 - User Onboarding & Authentication</title>
+        <section>Architecture Components</section>
+        <snippet>Authentication epic for family creation and invite system. Current implementation uses NestJS + GraphQL + PostgreSQL (Prisma). GraphQL mutations for auth operations.</snippet>
+      </doc>
+      <doc>
+        <path>docs/PRD.md</path>
+        <title>Product Requirements Document - OurChat</title>
+        <section>Functional Requirements</section>
+        <snippet>FR-1: Authentication & Authorization. Email-based authentication with invite codes. Future email verification requirements for FR-1.7 and FR-1.8 (to be added).</snippet>
+      </doc>
+    </docs>
+    <code>
+      <artifact>
+        <path>apps/backend/src/app.module.ts</path>
+        <kind>module</kind>
+        <symbol>AppModule</symbol>
+        <lines>1-56</lines>
+        <reason>Shows NestJS module registration pattern. EmailModule should be added to imports array following same pattern as AuthModule, MessagesModule, etc.</reason>
+      </artifact>
+      <artifact>
+        <path>apps/backend/src/translation/translation.module.ts</path>
+        <kind>module</kind>
+        <symbol>TranslationModule</symbol>
+        <lines>1-20</lines>
+        <reason>Reference implementation of NestJS module structure. EmailModule should follow similar pattern: @Module decorator, imports, providers, exports.</reason>
+      </artifact>
+      <artifact>
+        <path>apps/backend/src/translation/translation.service.ts</path>
+        <kind>service</kind>
+        <symbol>TranslationService</symbol>
+        <lines>1-100</lines>
+        <reason>Reference implementation showing: constructor DI, environment variable loading, structured logging, external API integration, error handling patterns.</reason>
+      </artifact>
+      <artifact>
+        <path>apps/backend/src/translation/translation.service.spec.ts</path>
+        <kind>test</kind>
+        <symbol>TranslationService unit tests</symbol>
+        <lines>1-50</lines>
+        <reason>Reference for Jest unit testing pattern. EmailService tests should follow similar mocking and assertion patterns.</reason>
+      </artifact>
+      <artifact>
+        <path>apps/backend/package.json</path>
+        <kind>config</kind>
+        <symbol>dependencies</symbol>
+        <lines>22-43</lines>
+        <reason>Dependency manifest. Need to add @getbrevo/brevo package here using pnpm add.</reason>
+      </artifact>
+    </code>
+    <dependencies>
+      <node>
+        <package>@nestjs/common</package>
+        <version>^11.1.7</version>
+        <purpose>Core NestJS decorators and utilities</purpose>
+      </node>
+      <node>
+        <package>@nestjs/core</package>
+        <version>^11.1.7</version>
+        <purpose>NestJS application core</purpose>
+      </node>
+      <node>
+        <package>@getbrevo/brevo</package>
+        <version>latest</version>
+        <purpose>Official Brevo SDK for transactional email (TO BE ADDED)</purpose>
+      </node>
+      <node>
+        <package>@types/node</package>
+        <version>^22.10.7</version>
+        <purpose>TypeScript types for Node.js</purpose>
+      </node>
+    </dependencies>
+  </artifacts>
+
+  <constraints>
+- EmailService must be singleton (NestJS @Injectable with default scope)
+- Methods must be fire-and-forget: log errors, don't throw (caller continues)
+- Environment variables must be validated at service initialization: BREVO_API_KEY, EMAIL_FROM, EMAIL_FROM_NAME, EMAIL_VERIFICATION_URL
+- Missing BREVO_API_KEY should throw exception at app startup (prevents deployment without config)
+- Brevo client initialized once in constructor with API key
+- Implement retry logic: 1 automatic retry on transient network errors
+- Rate limit awareness: 300 emails/day, 9,000 emails/month (free tier)
+- All errors logged with structured data: email address, error message, timestamp
+- Use NestJS Logger for structured logging (DEBUG, INFO, WARN, ERROR levels)
+- Template rendering: inline templates (Option A) for MVP, migrate to Brevo dashboard (Option B) for production
+- Email methods return Promise<void> (async, fire-and-forget)
+- Follow NestJS module structure: email/email.module.ts, email/email.service.ts, email/email.service.spec.ts
+- Register EmailModule in app.module.ts imports array
+- Export EmailService from EmailModule for dependency injection in other modules
+  </constraints>
+  <interfaces>
+    <interface>
+      <name>EmailService</name>
+      <kind>class</kind>
+      <signature>
+class EmailService {
+  constructor(private readonly logger: Logger)
+
+  async sendVerificationEmail(email: string, token: string): Promise<void>
+  // Builds verification URL, calls Brevo API, logs success/failure
+
+  async sendWelcomeEmail(email: string, userName: string): Promise<void>
+  // Sends welcome email with personalized greeting, logs success/failure
+
+  async sendInviteNotification(email: string, familyName: string, inviteCode: string): Promise<void>
+  // Future use for invite notifications, logs success/failure
+}
+      </signature>
+      <path>apps/backend/src/email/email.service.ts</path>
+    </interface>
+    <interface>
+      <name>EmailModule</name>
+      <kind>module</kind>
+      <signature>
+@Module({
+  providers: [EmailService],
+  exports: [EmailService]
+})
+export class EmailModule {}
+      </signature>
+      <path>apps/backend/src/email/email.module.ts</path>
+    </interface>
+    <interface>
+      <name>Brevo SDK</name>
+      <kind>external-api</kind>
+      <signature>
+import * as Brevo from '@getbrevo/brevo';
+
+const apiInstance = new Brevo.TransactionalEmailsApi();
+apiInstance.setApiKey(Brevo.TransactionalEmailsApiApiKeys.apiKey, process.env.BREVO_API_KEY);
+
+await apiInstance.sendTransacEmail({
+  sender: { email: 'from@example.com', name: 'Sender' },
+  to: [{ email: 'to@example.com' }],
+  subject: 'Subject',
+  htmlContent: '<html>...</html>',
+  textContent: 'Plain text version'
+});
+      </signature>
+      <path>External - Brevo SDK documentation</path>
+    </interface>
+  </interfaces>
+  <tests>
+    <standards>
+The project uses Jest for unit testing with NestJS testing utilities. Test files follow the .spec.ts naming convention and are co-located with source files (e.g., email.service.spec.ts alongside email.service.ts). Tests use mocking for external dependencies and services. Integration tests are located in apps/backend/test/ directory with .e2e-spec.ts suffix. Test coverage is collected and expected to be greater than 90% for critical services. Mock external APIs (Brevo) using jest.mock() and test both success and failure paths.
+    </standards>
+    <locations>
+- apps/backend/src/email/email.service.spec.ts (unit tests)
+- apps/backend/test/email-integration.e2e-spec.ts (integration tests)
+    </locations>
+    <ideas>
+AC2 (NestJS Email Service Module):
+- Test EmailService initialization with valid configuration succeeds
+- Test missing BREVO_API_KEY throws ConfigurationException at startup
+- Test invalid API key returns user-friendly error (not exposing key)
+- Test EmailService is singleton (same instance on multiple injections)
+
+AC3 (Email Templates):
+- Test sendVerificationEmail builds correct URL format: EMAIL_VERIFICATION_URL?token=TOKEN
+- Test sendWelcomeEmail includes personalized userName in content
+- Test sendInviteNotification includes familyName and inviteCode
+- Test email content contains expected template variables
+
+AC4 (Email Delivery Monitoring):
+- Test successful email send logged at DEBUG level with email address and template type
+- Test failed email send logged at ERROR level with error details
+- Test log entries contain structured data (email, error message, timestamp)
+
+AC5 (Configuration & Error Handling):
+- Test network failures trigger retry mechanism (1 retry)
+- Test retry exhaustion logs error and returns gracefully (no throw)
+- Test rate limit error (429) logged with actionable upgrade message
+- Test all environment variables validated at service initialization
+
+AC6 (Development & Testing):
+- Integration test: Send real verification email to test address
+- Integration test: Send real welcome email and verify delivery
+- Test Brevo API error responses (mock 500, 429, 401)
+- Test email service handles Brevo SDK exceptions gracefully
+    </ideas>
+  </tests>
+</story-context>

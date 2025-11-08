@@ -12,6 +12,7 @@ import { ChannelsModule } from './channels/channels.module';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { TranslationModule } from './translation/translation.module';
 import { TranslationThrottlerGuard } from './translation/translation-throttler.guard';
+import { EmailModule } from './email/email.module';
 
 @Module({
   imports: [
@@ -43,6 +44,7 @@ import { TranslationThrottlerGuard } from './translation/translation-throttler.g
       },
     ]),
     TranslationModule,
+    EmailModule,
   ],
   controllers: [AppController],
   providers: [

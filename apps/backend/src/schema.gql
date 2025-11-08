@@ -124,6 +124,15 @@ type Mutation {
   logout: Boolean!
   register(input: RegisterInput!): AuthResponse!
   sendMessage(input: SendMessageInput!): MessageWithUserType!
+
+  """Send a test invite notification email (for development/testing only)"""
+  sendTestInviteEmail(email: String!, familyName: String! = "Test Family", inviteCode: String! = "TEST123"): Boolean!
+
+  """Send a test verification email (for development/testing only)"""
+  sendTestVerificationEmail(email: String!, token: String! = "test-token-123"): Boolean!
+
+  """Send a test welcome email (for development/testing only)"""
+  sendTestWelcomeEmail(email: String!, userName: String! = "Test User"): Boolean!
   switchActiveFamily(input: SwitchFamilyInput!): UserType!
   updateUserPreferences(input: UpdateUserPreferencesInput!): UserType!
 }
