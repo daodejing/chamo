@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { useMutation, gql } from '@apollo/client';
+import { useMutation, gql } from '@apollo/client/react';
 
 const RESEND_VERIFICATION_EMAIL = gql`
   mutation ResendVerificationEmail($email: String!) {

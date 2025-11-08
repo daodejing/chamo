@@ -436,7 +436,11 @@ export class AuthService {
 
     // Check email verification
     if (!user.emailVerified) {
-      throw new ForbiddenException('Email not verified. Please check your inbox for the verification email.');
+      throw new ForbiddenException({
+        message: 'Email not verified. Please check your inbox.',
+        requiresEmailVerification: true,
+        email: user.email,
+      });
     }
 
     await this.prisma.user.update({

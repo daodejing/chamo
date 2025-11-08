@@ -1,19 +1,18 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { useMutation, gql } from '@apollo/client';
+import { useMutation, gql } from '@apollo/client/react';
+import { initializeFamilyKey } from '@/lib/e2ee/key-management';
+import { clearPendingFamilySecrets, getPendingFamilySecrets } from '@/lib/contexts/auth-context';
 
 const VERIFY_EMAIL = gql`
   mutation VerifyEmail($token: String!) {
     verifyEmail(token: $token) {
-      accessToken
-      refreshToken
       user {
         id
         email
         name
-        emailVerified
       }
       family {
         id
@@ -32,6 +31,8 @@ export default function VerifyEmailPage() {
   const [verifyMutation, { loading }] = useMutation(VERIFY_EMAIL);
   const [error, setError] = useState<string>('');
   const [success, setSuccess] = useState(false);
+  const redirectScheduledRef = useRef(false);
+  const [inviteCode, setInviteCode] = useState<string | null>(null);
 
   useEffect(() => {
     if (!token) {
@@ -46,16 +47,30 @@ export default function VerifyEmailPage() {
         });
 
         if (data?.verifyEmail) {
-          // Store tokens
-          localStorage.setItem('accessToken', data.verifyEmail.accessToken);
-          localStorage.setItem('refreshToken', data.verifyEmail.refreshToken);
+          const familyId = data.verifyEmail.family?.id ?? null;
+          const pendingSecrets = getPendingFamilySecrets();
+
+          if (pendingSecrets?.base64Key && familyId) {
+            try {
+              await initializeFamilyKey(pendingSecrets.base64Key, familyId);
+            } catch (keyError) {
+              console.error('Failed to persist family key after verification', keyError);
+            }
+          }
+          if (pendingSecrets?.inviteCode) {
+            setInviteCode(pendingSecrets.inviteCode);
+          }
+          clearPendingFamilySecrets();
 
           setSuccess(true);
-
-          // Redirect to chat after 2 seconds
-          setTimeout(() => {
-            router.push('/chat');
-          }, 2000);
+          if (!redirectScheduledRef.current) {
+            redirectScheduledRef.current = true;
+            setTimeout(() => {
+              router.replace(
+                `/login?verified=success&email=${encodeURIComponent(data.verifyEmail.user.email)}`,
+              );
+            }, 2500);
+          }
         }
       } catch (err: unknown) {
         const error = err as Error;
@@ -67,6 +82,7 @@ export default function VerifyEmailPage() {
         } else {
           setError('Invalid or expired verification token.');
         }
+        clearPendingFamilySecrets();
       }
     };
 
@@ -109,9 +125,21 @@ export default function VerifyEmailPage() {
               Email verified!
             </h2>
             <p className="mt-2 text-center text-sm text-gray-600">
-              Your email has been successfully verified. Redirecting you to the app...
+              Your account is active. Taking you back to the login screen so you can sign in.
             </p>
+            {inviteCode && (
+              <p className="mt-4 rounded-md bg-slate-50 p-3 text-center text-sm text-slate-700">
+                Save this invite code for new family members: <span className="font-mono">{inviteCode}</span>
+              </p>
+            )}
           </div>
+
+          <button
+            onClick={() => router.replace('/login')}
+            className="flex w-full justify-center rounded-md border border-transparent bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+          >
+            Continue to login
+          </button>
         </div>
       </div>
     );

@@ -18,12 +18,14 @@ interface UnifiedLoginScreenProps {
   onSuccess: () => void;
   initialMode?: AuthMode;
   initialInviteCode?: string | null;
+  initialEmail?: string | null;
 }
 
 export function UnifiedLoginScreen({
   onSuccess,
   initialMode,
   initialInviteCode,
+  initialEmail,
 }: UnifiedLoginScreenProps) {
   const { language } = useLanguage();
   const { login, register: registerUser, joinFamily } = useAuth();
@@ -31,7 +33,7 @@ export function UnifiedLoginScreen({
 
   // Form state
   const [authMode, setAuthMode] = useState<AuthMode>(initialMode ?? 'login');
-  const [email, setEmail] = useState('');
+  const [email, setEmail] = useState(initialEmail ?? '');
   const [password, setPassword] = useState('');
   const [userName, setUserName] = useState('');
   const [familyName, setFamilyName] = useState('');
@@ -51,6 +53,12 @@ export function UnifiedLoginScreen({
       setAuthMode('join');
     }
   }, [initialInviteCode]);
+
+  useEffect(() => {
+    if (initialEmail) {
+      setEmail(initialEmail);
+    }
+  }, [initialEmail]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -74,7 +82,12 @@ export function UnifiedLoginScreen({
     setIsSubmitting(true);
     try {
       if (authMode === 'login') {
-        await login({ email, password });
+        const loginResult = await login({ email, password });
+        if (loginResult?.requiresVerification) {
+          toast.info(t('toast.verifyEmailRequired', language));
+          router.push(`/verification-pending?email=${encodeURIComponent(loginResult.email)}`);
+          return;
+        }
         toast.success(t('toast.loginSuccess', language));
         onSuccess();
       } else if (authMode === 'create') {

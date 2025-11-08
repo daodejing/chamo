@@ -1175,3 +1175,10 @@ export async function middleware(request: Request) {
 ---
 
 **Status:** ✅ Ready for Implementation
+
+## Post-Review Follow-ups
+
+- **Story 1.4 – Email Verification:**
+  - Persist the generated family key by reading `pending_family_key` / `pending_family_invite`, calling `initializeFamilyKey()`, and clearing the temp storage during verification (`src/lib/contexts/auth-context.tsx`, `src/app/(auth)/verify-email/page.tsx`).
+  - Emit a `requiresEmailVerification` flag from `login`, enforce `emailVerified` inside `JwtAuthGuard`, and redirect unverified logins to `/verification-pending` so AC5/AC6 remain satisfied (`apps/backend/src/auth/auth.service.ts`, `apps/backend/src/auth/guards/jwt-auth.guard.ts`, `src/components/auth/unified-login-screen.tsx`).
+  - Add automated unit/integration/E2E tests covering register/join/verify/resend flows (`apps/backend/src/auth/**`, `apps/backend/test/**`, `tests/e2e/**`).

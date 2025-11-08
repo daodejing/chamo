@@ -37,6 +37,8 @@ export const translations = {
 
     // Toast Messages
     "toast.loginSuccess": "ログインしました！",
+    "toast.verifyEmailRequired": "メール認証が必要です。受信トレイを確認してください。",
+    "toast.emailVerified": "メール認証が完了しました！ログインできます。",
     "toast.logoutSuccess": "ログアウトしました",
     "toast.authSuccess": "認証成功！",
     "toast.authFailed": "認証に失敗しました",
@@ -309,6 +311,8 @@ export const translations = {
 
     // Toast Messages
     "toast.loginSuccess": "Logged in!",
+    "toast.verifyEmailRequired": "Please verify your email to continue.",
+    "toast.emailVerified": "Email verified! You can sign in now.",
     "toast.logoutSuccess": "Logged out",
     "toast.authSuccess": "Authentication successful!",
     "toast.authFailed": "Authentication failed",

@@ -1,6 +1,6 @@
 # OurChat Development Backlog
 
-**Last Updated:** 2025-10-20
+**Last Updated:** 2025-11-08
 
 This document tracks critical issues, technical debt, and follow-up work items identified during development and code reviews.
 
@@ -11,6 +11,7 @@ This document tracks critical issues, technical debt, and follow-up work items i
 | ID | Date | Story | Epic | Type | Severity | Owner | Status | Estimated Effort | Actual Effort | Completed |
 |----|------|-------|------|------|----------|-------|--------|------------------|--------------|-----------|
 | CRIT-001 | 2025-10-20 | 1.2 | 1 | Bug | **CRITICAL** | Backend Dev | ✅ **RESOLVED** | 1-2 days | 1 hour | 2025-10-20 |
+| CRIT-002 | 2025-11-08 | 1.4 | 1 | Bug | **HIGH** | TBD | Open | 1-2 days | — | — |
 
 ### CRIT-001: Backend Not Using E2EE Library for Invite Codes
 
@@ -51,6 +52,31 @@ See Story 1.2 "Follow-Up Tasks (Post-Review)" section for detailed implementatio
 - Environment validation added (fail-fast for missing JWT secrets)
 
 See Story 1.2 "Follow-Up Tasks" section for detailed implementation summary.
+
+---
+
+### CRIT-002: Email Verification Flow Drops E2EE Keys / AC5 Not Enforced
+
+**Description:**
+Story 1.4 writes the generated family key to `sessionStorage` (`pending_family_key`) but never calls `initializeFamilyKey()` after verification, so new families reach `/chat` without any key in IndexedDB. At the same time, AC5 requirements were skipped: `login` does not expose a `requiresEmailVerification` flag, `JwtAuthGuard` never checks `emailVerified`, and the UI does not redirect unverified accounts to `/verification-pending`.
+
+**Impact:**
+- **Security / Functionality:** Newly registered families cannot decrypt content, making chat unusable.
+- **Compliance:** AC5/AC6 from the story context remain unmet, so the feature cannot ship.
+
+**Required Fix:**
+1. During verification, read `pending_family_key` / `pending_family_invite`, call `initializeFamilyKey()`, and clear those temp values.
+2. Emit a `requiresEmailVerification` flag from `login`, enforce `emailVerified` inside `JwtAuthGuard`, and redirect unverified logins to `/verification-pending`.
+3. Align `/verify-email` UX with AC6 and add the missing automated tests from Task 10.
+
+**References:**
+- `src/lib/contexts/auth-context.tsx`
+- `src/app/(auth)/verify-email/page.tsx`
+- `apps/backend/src/auth/auth.service.ts`
+- `apps/backend/src/auth/guards/jwt-auth.guard.ts`
+- Story 1.4 Senior Developer Review (AI)
+
+**Status:** Open
 
 ---
 
