@@ -18,7 +18,7 @@ import { CurrentUser } from '../auth/current-user.decorator';
 
 type AuthenticatedUser = {
   id: string;
-  familyId: string;
+  activeFamilyId?: string | null;
 };
 
 @ArgsType()
@@ -59,7 +59,7 @@ export class TranslationResolver {
     @Args() args: MessageTranslationArgs,
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<MessageTranslationType | null> {
-    if (!user?.id || !user.familyId) {
+    if (!user?.id || !user.activeFamilyId) {
       throw new UnauthorizedException('User context required');
     }
 
@@ -67,7 +67,7 @@ export class TranslationResolver {
       messageId: args.messageId,
       targetLanguage: args.targetLanguage,
       userId: user.id,
-      familyId: user.familyId,
+      familyId: user.activeFamilyId,
     });
 
     return record;
@@ -79,7 +79,7 @@ export class TranslationResolver {
     @Args('input') input: CacheMessageTranslationInput,
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<MessageTranslationType> {
-    if (!user?.id || !user.familyId) {
+    if (!user?.id || !user.activeFamilyId) {
       throw new UnauthorizedException('User context required');
     }
 
@@ -88,7 +88,7 @@ export class TranslationResolver {
       targetLanguage: input.targetLanguage,
       encryptedTranslation: input.encryptedTranslation,
       userId: user.id,
-      familyId: user.familyId,
+      familyId: user.activeFamilyId,
     });
 
     return record;

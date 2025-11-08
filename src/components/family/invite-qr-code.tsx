@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { RefreshCw, AlertCircle, Loader2 } from 'lucide-react';
-import QRCode from 'qrcode';
+import QRCode from '@/vendor/qrcode';
 import { Button } from '@/components/ui/button';
 import { generateInviteLink } from '@/lib/invite/generate-invite-link';
 import { Language, t } from '@/lib/translations';
@@ -42,7 +42,6 @@ export function InviteQrCode({ language = 'en', familyName }: InviteQrCodeProps)
     try {
       const inviteLink = await generateInviteLink();
       const url = await QRCode.toDataURL(inviteLink, {
-        errorCorrectionLevel: 'M',
         width: 320,
         margin: 2,
         color: {

@@ -15,7 +15,7 @@ import { CurrentUser } from '../auth/current-user.decorator';
 
 type AuthenticatedUser = {
   id: string;
-  familyId: string;
+  activeFamilyId?: string | null;
 };
 
 @Controller('api/translate')
@@ -33,7 +33,7 @@ export class TranslationController {
     @Body() dto: TranslateDto,
     @CurrentUser() user: AuthenticatedUser,
   ) {
-    if (!user?.id || !user.familyId) {
+    if (!user?.id || !user.activeFamilyId) {
       throw new UnauthorizedException('User context required');
     }
 
@@ -42,7 +42,7 @@ export class TranslationController {
       targetLanguage: dto.targetLanguage,
       text: dto.text,
       userId: user.id,
-      familyId: user.familyId,
+      familyId: user.activeFamilyId,
     });
 
     return {

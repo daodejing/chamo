@@ -27,7 +27,7 @@ describe('generateInviteLink', () => {
       data: {
         me: {
           id: 'user-1',
-          family: {
+          activeFamily: {
             id: 'family-1',
             inviteCode: 'FAMILY-ABC12345',
           },
@@ -52,7 +52,7 @@ describe('generateInviteLink', () => {
     queryMock.mockResolvedValueOnce({
       data: {
         me: {
-          family: {
+          activeFamily: {
             inviteCode: 'FAMILY-ABC12345:leaky',
           },
         },
@@ -73,7 +73,7 @@ describe('generateInviteLink', () => {
       data: {
         me: {
           id: 'user-1',
-          family: {
+          activeFamily: {
             inviteCode: 'FAMILY-XYZ',
           },
         },

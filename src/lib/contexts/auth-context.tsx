@@ -7,13 +7,23 @@ import {
   REGISTER_MUTATION,
   LOGIN_MUTATION,
   JOIN_FAMILY_MUTATION,
+  JOIN_FAMILY_EXISTING_MUTATION,
+  SWITCH_ACTIVE_FAMILY_MUTATION,
   ME_QUERY,
 } from '../graphql/operations';
 import type {
-  RegisterMutation,
-  LoginMutation,
+  JoinFamilyExistingMutation,
+  JoinFamilyExistingMutationVariables,
   JoinFamilyMutation,
+  JoinFamilyMutationVariables,
+  LoginMutation,
+  LoginMutationVariables,
   MeQuery,
+  MeQueryVariables,
+  RegisterMutation,
+  RegisterMutationVariables,
+  SwitchActiveFamilyMutation,
+  SwitchActiveFamilyMutationVariables,
 } from '../graphql/generated/graphql';
 import {
   generateFamilyKey,
@@ -28,7 +38,9 @@ interface User {
   name: string;
   avatar?: string | null;
   role: string;
-  familyId: string;
+  activeFamilyId?: string | null;
+  activeFamily?: Family | null;
+  memberships: FamilyMembership[];
   preferences?: {
     preferredLanguage?: string | null;
     [key: string]: unknown;
@@ -41,6 +53,13 @@ interface Family {
   avatar?: string | null;
   inviteCode: string;
   maxMembers: number;
+}
+
+interface FamilyMembership {
+  id: string;
+  role: string;
+  familyId: string;
+  family: Family;
 }
 
 interface AuthContextType {
@@ -62,10 +81,43 @@ interface AuthContextType {
     name: string;
     inviteCode: string;
   }) => Promise<void>;
+  joinFamilyExisting: (inviteCodeWithKey: string, options?: { makeActive?: boolean }) => Promise<void>;
+  switchActiveFamily: (familyId: string) => Promise<void>;
   logout: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
+
+function normalizeUserPayload(raw: any): User | null {
+  if (!raw) {
+    return null;
+  }
+
+  const memberships = Array.isArray(raw.memberships) ? raw.memberships : [];
+
+  return {
+    ...raw,
+    memberships,
+    activeFamily: raw.activeFamily ?? null,
+    activeFamilyId: raw.activeFamilyId ?? raw.activeFamily?.id ?? null,
+  } as User;
+}
+
+function toFamily(payload: {
+  id: string;
+  name: string;
+  inviteCode: string;
+  maxMembers: number;
+  avatar?: string | null;
+}): Family {
+  return {
+    id: payload.id,
+    name: payload.name,
+    inviteCode: payload.inviteCode,
+    maxMembers: payload.maxMembers,
+    avatar: payload.avatar ?? null,
+  };
+}
 
 function AuthProviderInner({ children }: { children: React.ReactNode}) {
   const [user, setUser] = useState<User | null>(null);
@@ -79,7 +131,7 @@ function AuthProviderInner({ children }: { children: React.ReactNode}) {
   }, []);
 
   // Query current user - only on client-side where localStorage exists
-  const { data, loading, error, refetch } = useQuery<MeQuery>(ME_QUERY, {
+  const { data, loading, error, refetch } = useQuery<MeQuery, MeQueryVariables>(ME_QUERY, {
     skip: !isClient, // Skip until we're on client-side
     fetchPolicy: 'network-only', // Always fetch from network, ignore cache
     errorPolicy: 'all', // Allow partial results even if query errors
@@ -89,10 +141,9 @@ function AuthProviderInner({ children }: { children: React.ReactNode}) {
   const refreshUser = async () => {
     try {
       const result = await refetch();
-      if (result.data?.me) {
-        setUser(result.data.me);
-        setFamily(result.data.me.family || null);
-      }
+      const normalized = normalizeUserPayload(result.data?.me ?? null);
+      setUser(normalized);
+      setFamily(normalized?.activeFamily ?? null);
       return;
     } catch (refreshError) {
       console.error('Failed to refresh user:', refreshError);
@@ -128,8 +179,9 @@ function AuthProviderInner({ children }: { children: React.ReactNode}) {
     }
 
     if (data?.me) {
-      setUser(data.me);
-      setFamily(data.me.family || null);
+      const normalized = normalizeUserPayload(data.me);
+      setUser(normalized);
+      setFamily(normalized?.activeFamily ?? null);
     } else {
       setUser(null);
       setFamily(null);
@@ -137,9 +189,17 @@ function AuthProviderInner({ children }: { children: React.ReactNode}) {
   }, [data, error, loading, isClient]);
 
   // Mutations
-  const [registerMutation] = useMutation<RegisterMutation>(REGISTER_MUTATION);
-  const [loginMutation] = useMutation<LoginMutation>(LOGIN_MUTATION);
-  const [joinFamilyMutation] = useMutation<JoinFamilyMutation>(JOIN_FAMILY_MUTATION);
+  const [registerMutation] = useMutation<RegisterMutation, RegisterMutationVariables>(REGISTER_MUTATION);
+  const [loginMutation] = useMutation<LoginMutation, LoginMutationVariables>(LOGIN_MUTATION);
+  const [joinFamilyMutation] = useMutation<JoinFamilyMutation, JoinFamilyMutationVariables>(JOIN_FAMILY_MUTATION);
+  const [joinFamilyExistingMutation] = useMutation<
+    JoinFamilyExistingMutation,
+    JoinFamilyExistingMutationVariables
+  >(JOIN_FAMILY_EXISTING_MUTATION);
+  const [switchFamilyMutation] = useMutation<
+    SwitchActiveFamilyMutation,
+    SwitchActiveFamilyMutationVariables
+  >(SWITCH_ACTIVE_FAMILY_MUTATION);
 
   // Register function
   const register = async (input: {
@@ -164,11 +224,10 @@ function AuthProviderInner({ children }: { children: React.ReactNode}) {
       },
     });
 
-    if (data?.register) {
-      setAuthToken(data.register.accessToken);
-      setUser(data.register.user);
-
-      const familyData = data.register.family;
+    const payload = data?.register;
+    if (payload) {
+      setAuthToken(payload.accessToken);
+      const familyData = payload.family;
       if (!familyData?.id) {
         throw new Error('Family identifier missing after registration.');
       }
@@ -179,12 +238,35 @@ function AuthProviderInner({ children }: { children: React.ReactNode}) {
       // Combine invite code with key for display to user
       const fullInviteCode = createInviteCodeWithKey(familyData.inviteCode, base64Key);
 
-      // Return family data with combined invite code for UI display
-      const familyWithFullCode = {
-        ...familyData,
-        inviteCode: fullInviteCode, // CODE:KEY format for sharing
+      const familyWithFullCode: Family = {
+        ...toFamily(familyData),
+        inviteCode: fullInviteCode,
       };
 
+      const membershipsWithInvite = (payload.user?.memberships ?? []).map((membership) =>
+        membership.familyId === familyWithFullCode.id
+          ? {
+              ...membership,
+              family: {
+                ...membership.family,
+                inviteCode: fullInviteCode,
+              },
+            }
+          : membership,
+      );
+
+      const normalizedUser = normalizeUserPayload({
+        ...payload.user,
+        activeFamily: familyWithFullCode,
+        activeFamilyId: familyWithFullCode.id,
+        memberships: membershipsWithInvite,
+      });
+
+      if (!normalizedUser) {
+        throw new Error('Failed to normalize user after registration.');
+      }
+
+      setUser(normalizedUser);
       setFamily(familyWithFullCode);
       return familyWithFullCode;
     }
@@ -198,10 +280,19 @@ function AuthProviderInner({ children }: { children: React.ReactNode}) {
       variables: { input },
     });
 
-    if (data?.login) {
-      setAuthToken(data.login.accessToken);
-      setUser(data.login.user);
-      setFamily(data.login.family);
+    const payload = data?.login;
+    if (payload) {
+      setAuthToken(payload.accessToken);
+      const activeFamilyPayload = payload.family ?? payload.user?.activeFamily ?? null;
+      const activeFamily = activeFamilyPayload ? toFamily(activeFamilyPayload) : null;
+      const normalizedUser = normalizeUserPayload({
+        ...payload.user,
+        activeFamily,
+        activeFamilyId: activeFamily?.id ?? null,
+      });
+
+      setUser(normalizedUser);
+      setFamily(activeFamily);
     }
   };
 
@@ -227,18 +318,94 @@ function AuthProviderInner({ children }: { children: React.ReactNode}) {
       },
     });
 
-    if (data?.joinFamily) {
-      setAuthToken(data.joinFamily.accessToken);
-      setUser(data.joinFamily.user);
-      setFamily(data.joinFamily.family);
-
-      // Store family key in IndexedDB for E2EE operations
-      const familyData = data.joinFamily.family;
+    const payload = data?.joinFamily;
+    if (payload) {
+      setAuthToken(payload.accessToken);
+      const familyData = payload.family;
       if (!familyData?.id) {
         throw new Error('Family identifier missing after join.');
       }
 
       await initializeFamilyKey(base64Key, familyData.id);
+
+      const familyWithFullCode: Family = {
+        ...toFamily(familyData),
+        inviteCode: input.inviteCode,
+      };
+
+      const membershipsWithInvite = (payload.user?.memberships ?? []).map((membership) =>
+        membership.familyId === familyWithFullCode.id
+          ? {
+              ...membership,
+              family: {
+                ...membership.family,
+                inviteCode: input.inviteCode,
+              },
+            }
+          : membership,
+      );
+
+      const normalizedUser = normalizeUserPayload({
+        ...payload.user,
+        activeFamily: familyWithFullCode,
+        activeFamilyId: familyWithFullCode.id,
+        memberships: membershipsWithInvite,
+      });
+
+      setUser(normalizedUser);
+      setFamily(familyWithFullCode);
+    }
+  };
+
+  const joinFamilyExisting = async (
+    inviteCodeWithKey: string,
+    options?: { makeActive?: boolean },
+  ) => {
+    if (!user) {
+      throw new Error('Must be authenticated to join a family');
+    }
+
+    const { code, base64Key } = parseInviteCode(inviteCodeWithKey);
+
+    const { data } = await joinFamilyExistingMutation({
+      variables: {
+        input: {
+          inviteCode: code,
+          makeActive: options?.makeActive ?? true,
+        },
+      },
+    });
+
+    const joinedFamily = data?.joinFamilyAsMember;
+    if (joinedFamily?.id) {
+      await initializeFamilyKey(base64Key, joinedFamily.id);
+    }
+
+    await refreshUser();
+
+    if (joinedFamily && (options?.makeActive ?? true)) {
+      const normalizedFamily: Family = {
+        ...toFamily(joinedFamily),
+        inviteCode: inviteCodeWithKey,
+      };
+      setFamily(normalizedFamily);
+    }
+  };
+
+  const switchActiveFamily = async (familyId: string) => {
+    const { data } = await switchFamilyMutation({
+      variables: {
+        input: {
+          familyId,
+        },
+      },
+    });
+
+    if (data?.switchActiveFamily) {
+      const updatedUser = normalizeUserPayload(data.switchActiveFamily);
+      setUser(updatedUser);
+      setFamily(updatedUser?.activeFamily ?? null);
+      await refreshUser();
     }
   };
 
@@ -266,6 +433,8 @@ function AuthProviderInner({ children }: { children: React.ReactNode}) {
         register,
         login,
         joinFamily,
+        joinFamilyExisting,
+        switchActiveFamily,
         logout,
         refreshUser,
         updateUserPreferences,

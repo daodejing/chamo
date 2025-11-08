@@ -49,8 +49,8 @@ development_status:
   2-2-edit-messages: backlog
   2-3-delete-messages: backlog
   2-4-schedule-messages: backlog
-  2-5-message-translation: drafted
-  2-6-invitation-sharing: in-progress
+  2-5-message-translation: in-progress
+  2-6-invitation-sharing: review
   epic-2-retrospective: optional
 
   # Epic 3: Photo Sharing & Albums

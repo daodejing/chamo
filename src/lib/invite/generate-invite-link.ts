@@ -10,7 +10,7 @@ import {
 type MeQueryResult = {
   me?: {
     id: string;
-    family?: {
+    activeFamily?: {
       id: string;
       inviteCode?: string | null;
     } | null;
@@ -67,8 +67,8 @@ async function fetchFamilyInviteDetails(): Promise<{ inviteCode: string; familyI
     fetchPolicy: 'network-only',
   });
 
-  const inviteCode = assertInviteCodeFormat(data?.me?.family?.inviteCode);
-  const familyId = data?.me?.family?.id;
+  const inviteCode = assertInviteCodeFormat(data?.me?.activeFamily?.inviteCode);
+  const familyId = data?.me?.activeFamily?.id;
 
   if (!familyId) {
     throw new Error('Family ID is unavailable. Cannot generate invitation link.');

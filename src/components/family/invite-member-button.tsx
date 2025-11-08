@@ -35,12 +35,12 @@ export function InviteMemberButton({
   const [isLoading, setIsLoading] = useState(false);
 
   const shareTitle = useMemo(
-    () => t(shareTitleKey, language, { familyName }),
+    () => t(shareTitleKey, language, { familyName: familyName ?? '' }),
     [shareTitleKey, language, familyName],
   );
 
   const shareText = useMemo(
-    () => t(shareTextKey, language, { familyName }),
+    () => t(shareTextKey, language, { familyName: familyName ?? '' }),
     [shareTextKey, language, familyName],
   );
 

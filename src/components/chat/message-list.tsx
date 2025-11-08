@@ -7,6 +7,7 @@
 
 import { useEffect, useRef } from 'react';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import type { TranslationLanguage } from '@/components/settings/translation-language-selector';
 import { MessageBubble, MessageBubbleProps } from './message-bubble';
 
 export interface MessageListProps {
@@ -17,6 +18,10 @@ export interface MessageListProps {
   editingMessageId?: string | null;
   onEditStart?: (messageId: string) => void;
   onEditCancel?: () => void;
+  familyKey?: CryptoKey | null;
+  preferredLanguage?: TranslationLanguage | null;
+  showTranslation?: boolean;
+  autoTranslate?: boolean;
 }
 
 export function MessageList({
@@ -27,6 +32,10 @@ export function MessageList({
   editingMessageId,
   onEditStart,
   onEditCancel,
+  familyKey = null,
+  preferredLanguage,
+  showTranslation = true,
+  autoTranslate = true,
 }: MessageListProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const lastMessageIdRef = useRef<string | null>(null);
@@ -70,6 +79,10 @@ export function MessageList({
             isEditing={editingMessageId === message.id}
             onEditStart={onEditStart}
             onEditCancel={onEditCancel}
+            familyKey={familyKey}
+            preferredLanguage={preferredLanguage}
+            showTranslation={showTranslation}
+            autoTranslate={autoTranslate}
           />
         ))}
 

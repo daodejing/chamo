@@ -21,34 +21,35 @@ enum ScheduledMessageStatus {
 }
 
 model User {
-  id                      String    @id @default(uuid())
-  email                   String    @unique
+  id                      String              @id @default(uuid())
+  email                   String              @unique
   name                    String
   avatar                  String?
-  role                    Role      @default(MEMBER)
-  familyId                String
-  family                  Family    @relation(fields: [familyId], references: [id], onDelete: Cascade)
+  role                    Role                @default(MEMBER)
   passwordHash            String
-  joinedAt                DateTime  @default(now())
+  joinedAt                DateTime            @default(now())
   lastSeenAt              DateTime?
-  publicKey               String    @db.Text // E2EE public key (future)
-  preferences             Json      @default("{}")
-  googleCalendarToken     String?   @db.Text
-  googleCalendarConnected Boolean   @default(false)
+  publicKey               String              @db.Text // E2EE public key (future)
+  preferences             Json                @default("{}")
+  googleCalendarToken     String?             @db.Text
+  googleCalendarConnected Boolean             @default(false)
+  activeFamilyId          String?
+  activeFamily            Family?             @relation("ActiveFamily", fields: [activeFamilyId], references: [id], onDelete: SetNull)
 
-  messages          Message[]
+  memberships      FamilyMembership[]
+  messages         Message[]
   scheduledMessages ScheduledMessage[]
-  photos            Photo[]
-  photoComments     PhotoComment[]
-  calendarEvents    CalendarEvent[]
-  createdChannels   Channel[]
-  createdFolders    PhotoFolder[]
+  photos           Photo[]
+  photoComments    PhotoComment[]
+  calendarEvents   CalendarEvent[]
+  createdChannels  Channel[]
+  createdFolders   PhotoFolder[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@index([familyId])
   @@index([email])
+  @@index([activeFamilyId])
   @@map("users")
 }
 
@@ -60,7 +61,8 @@ model Family {
   maxMembers Int     @default(10)
   createdBy  String
 
-  users          User[]
+  memberships    FamilyMembership[]
+  activeUsers    User[]            @relation("ActiveFamily")
   channels       Channel[]
   photoFolders   PhotoFolder[]
   calendarEvents CalendarEvent[]
@@ -70,6 +72,22 @@ model Family {
 
   @@index([inviteCode])
   @@map("families")
+}
+
+model FamilyMembership {
+  id        String   @id @default(uuid())
+  userId    String
+  familyId  String
+  role      Role     @default(MEMBER)
+  joinedAt  DateTime @default(now())
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  family    Family   @relation(fields: [familyId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, familyId])
+  @@index([familyId])
+  @@index([userId])
+  @@map("family_memberships")
 }
 
 model Channel {

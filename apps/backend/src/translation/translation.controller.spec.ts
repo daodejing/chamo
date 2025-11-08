@@ -33,7 +33,7 @@ describe('TranslationController', () => {
 
     const user = {
       id: 'user-1',
-      familyId: 'family-1',
+      activeFamilyId: 'family-1',
     } as any;
 
     (service.translate as jest.Mock).mockResolvedValue({

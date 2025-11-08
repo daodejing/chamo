@@ -1,7 +1,8 @@
 import { useState, useRef, useEffect } from "react";
-import { Send, Image as ImageIcon, Smile, Languages, Settings, Trash2, Clock, X, Hash, ChevronDown, Edit2, Check, Calendar, LogOut, UserPlus } from "lucide-react";
+import { Send, Image as ImageIcon, Smile, Languages, Settings, Trash2, Clock, X, Hash, ChevronDown, Edit2, Check, Calendar, LogOut, UserPlus, Users } from "lucide-react";
 import { CalendarView } from "./calendar-view";
 import { PhotoGallery } from "./photo-gallery";
+import { TranslationDisplay } from "@/components/chat/translation-display";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -12,11 +13,12 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { InviteMemberButton } from "@/components/family/invite-member-button";
 import { InviteQrCode } from "@/components/family/invite-qr-code";
 import { Language, t } from "@/lib/translations";
 import { formatDateTime } from "@/lib/utils/date-format";
+import type { TranslationLanguage } from "@/components/settings/translation-language-selector";
 
 interface Message {
   id: string;
@@ -24,7 +26,7 @@ interface Message {
   userName: string;
   userAvatar: string;
   message: string;
-  translation: string;
+  translation?: string | null;
   timestamp: string;
   isMine: boolean;
   isEdited?: boolean;
@@ -94,6 +96,19 @@ interface PhotoComment {
   timestamp: string;
 }
 
+interface UserFamilyMembership {
+  id: string;
+  familyId: string;
+  role: string;
+  family: {
+    id: string;
+    name: string;
+    avatar?: string | null;
+    inviteCode: string;
+    maxMembers: number;
+  };
+}
+
 interface FamilyMember {
   id: string;
   name: string;
@@ -115,11 +130,14 @@ interface ChatScreenProps {
   photos: Photo[];
   photoFolders: PhotoFolder[];
   familyMembers: FamilyMember[];
+  memberships: UserFamilyMembership[];
+  activeFamilyId?: string | null;
   currentUserId: string;
   currentUserName: string;
   language: Language;
   onSettingsClick: () => void;
   onLogoutClick: () => void;
+  onSwitchFamily: (familyId: string) => void;
   onChannelChange: (channelId: string) => void;
   onSendMessage: (message: string) => void;
   onScheduleMessage: (message: string, scheduledTime: Date) => void;
@@ -137,9 +155,11 @@ interface ChatScreenProps {
   onDeleteFolder: (folderId: string) => void;
   onRenameFolder: (folderId: string, newName: string) => void;
   onMovePhotoToFolder: (photoId: string, folderId: string) => void;
+  translationFamilyKey?: CryptoKey | null;
+  preferredTranslationLanguage?: TranslationLanguage;
 }
 
-export function ChatScreen({ chatName, chatAvatar, chatMembers, messages, channels, currentChannelId, scheduledMessages, calendarEvents, photos, photoFolders, familyMembers, currentUserId, currentUserName, language, onSettingsClick, onLogoutClick, onChannelChange, onSendMessage, onScheduleMessage, onDeleteMessage, onEditMessage, onCancelScheduledMessage, onAddEvent, onEditEvent, onDeleteEvent, onAddPhoto, onDeletePhoto, onLikePhoto, onAddPhotoComment, onCreateFolder, onDeleteFolder, onRenameFolder, onMovePhotoToFolder }: ChatScreenProps) {
+export function ChatScreen({ chatName, chatAvatar, chatMembers, messages, channels, currentChannelId, scheduledMessages, calendarEvents, photos, photoFolders, familyMembers, memberships = [], activeFamilyId, currentUserId, currentUserName, language, onSettingsClick, onLogoutClick, onSwitchFamily, onChannelChange, onSendMessage, onScheduleMessage, onDeleteMessage, onEditMessage, onCancelScheduledMessage, onAddEvent, onEditEvent, onDeleteEvent, onAddPhoto, onDeletePhoto, onLikePhoto, onAddPhotoComment, onCreateFolder, onDeleteFolder, onRenameFolder, onMovePhotoToFolder, translationFamilyKey = null, preferredTranslationLanguage }: ChatScreenProps) {
   const [newMessage, setNewMessage] = useState("");
   const [showTranslation, setShowTranslation] = useState(true);
   const [autoTranslate, setAutoTranslate] = useState(true);
@@ -152,6 +172,7 @@ export function ChatScreen({ chatName, chatAvatar, chatMembers, messages, channe
   const [showPhotos, setShowPhotos] = useState(false);
   const [isInviteDialogOpen, setIsInviteDialogOpen] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const translationEnabled = autoTranslate && showTranslation;
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -303,8 +324,63 @@ export function ChatScreen({ chatName, chatAvatar, chatMembers, messages, channe
                 </p>
               </div>
             </PopoverContent>
-          </Popover>
+        </Popover>
         )}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="text-card-foreground"
+              aria-label={t('multiFamily.menuTitle', language)}
+            >
+              <Users className="w-5 h-5" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-64">
+            <DropdownMenuLabel className="text-xs text-muted-foreground">
+              {t('multiFamily.menuTitle', language)}
+            </DropdownMenuLabel>
+            {memberships.length === 0 && (
+              <div className="px-3 py-2 text-sm text-muted-foreground">
+                {t('multiFamily.empty', language)}
+              </div>
+            )}
+            {memberships.map((membership) => {
+              const isActive = membership.familyId === activeFamilyId;
+              const initials = membership.family.name
+                .split(' ')
+                .map((part) => part.charAt(0))
+                .join('')
+                .slice(0, 2)
+                .toUpperCase();
+              return (
+                <DropdownMenuItem
+                  key={membership.id}
+                  disabled={isActive}
+                  onClick={() => onSwitchFamily(membership.familyId)}
+                  className="flex items-center gap-3"
+                >
+                  <Avatar className="h-8 w-8">
+                    <AvatarImage src={membership.family.avatar ?? undefined} />
+                    <AvatarFallback>{initials}</AvatarFallback>
+                  </Avatar>
+                  <div className="flex-1">
+                    <p className="text-sm font-medium">{membership.family.name}</p>
+                    <p className="text-xs text-muted-foreground capitalize">
+                      {membership.role.toLowerCase()}
+                    </p>
+                  </div>
+                {isActive && (
+                  <Badge variant="secondary" className="text-xs">
+                    {t('multiFamily.active', language)}
+                  </Badge>
+                )}
+                </DropdownMenuItem>
+              );
+            })}
+          </DropdownMenuContent>
+        </DropdownMenu>
         <Dialog open={isInviteDialogOpen} onOpenChange={setIsInviteDialogOpen}>
           <DialogTrigger asChild>
             <Button
@@ -537,23 +613,21 @@ export function ChatScreen({ chatName, chatAvatar, chatMembers, messages, channe
                         }`}
                       >
                         <p className={msg.isMine ? "text-white" : "text-card-foreground"}>{msg.message}</p>
-                        {showTranslation && msg.translation && (
-                          <div
-                            className={`mt-2 pt-2 border-t text-sm italic ${
-                              msg.isMine
-                                ? "border-white/20 text-white/80"
-                                : "border-border text-muted-foreground"
-                            }`}
-                          >
-                            {msg.translation}
-                          </div>
-                        )}
                         {msg.isEdited && (
                           <p className={`text-xs mt-1 ${msg.isMine ? "text-white/60" : "text-muted-foreground"}`}>
                             {t("chat.edited", language)}
                           </p>
                         )}
                       </div>
+                      {translationEnabled && !msg.isMine && (
+                        <TranslationDisplay
+                          messageId={msg.id}
+                          originalText={msg.message}
+                          familyKey={translationFamilyKey ?? null}
+                          preferredLanguage={preferredTranslationLanguage}
+                          enabled={translationEnabled}
+                        />
+                      )}
                       {msg.isMine && (
                         <div className={`absolute top-1/2 -translate-y-1/2 -left-20 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1`}>
                           <Button

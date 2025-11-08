@@ -2,7 +2,6 @@ import {
   Injectable,
   NotFoundException,
   ForbiddenException,
-  BadRequestException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { SendMessageInput } from './dto/send-message.input';
@@ -14,17 +13,15 @@ import { GetMessagesInput } from './dto/get-messages.input';
 export class MessagesService {
   constructor(private prisma: PrismaService) {}
 
-  async sendMessage(userId: string, input: SendMessageInput) {
-    const { channelId, encryptedContent } = input;
-
-    // Verify user has access to this channel (via family membership)
+  private async requireChannelAccess(channelId: string, userId: string) {
     const channel = await this.prisma.channel.findUnique({
       where: { id: channelId },
       include: {
         family: {
           include: {
-            users: {
-              where: { id: userId },
+            memberships: {
+              where: { userId },
+              select: { id: true },
             },
           },
         },
@@ -35,9 +32,17 @@ export class MessagesService {
       throw new NotFoundException('Channel not found');
     }
 
-    if (channel.family.users.length === 0) {
+    if (channel.family.memberships.length === 0) {
       throw new ForbiddenException('You do not have access to this channel');
     }
+
+    return channel;
+  }
+
+  async sendMessage(userId: string, input: SendMessageInput) {
+    const { channelId, encryptedContent } = input;
+
+    await this.requireChannelAccess(channelId, userId);
 
     // Create message
     const message = await this.prisma.message.create({
@@ -64,26 +69,7 @@ export class MessagesService {
     const { channelId, limit = 50, cursor } = input;
 
     // Verify user has access to this channel
-    const channel = await this.prisma.channel.findUnique({
-      where: { id: channelId },
-      include: {
-        family: {
-          include: {
-            users: {
-              where: { id: userId },
-            },
-          },
-        },
-      },
-    });
-
-    if (!channel) {
-      throw new NotFoundException('Channel not found');
-    }
-
-    if (channel.family.users.length === 0) {
-      throw new ForbiddenException('You do not have access to this channel');
-    }
+    await this.requireChannelAccess(channelId, userId);
 
     // Build query with cursor-based pagination
     const messages = await this.prisma.message.findMany({

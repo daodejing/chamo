@@ -1,6 +1,6 @@
 # Story 2.6: E2EE-Preserving Family Invitation Sharing
 
-Status: ready-for-review
+Status: review
 
 ## Story
 
@@ -239,6 +239,7 @@ Not yet implemented
   - Promoted invite sharing into a dedicated header dialog so families can access share + QR options without opening Settings.
   - Hid the chat canvas whenever Settings is open to eliminate the transparent bleed-through reported during review.
   - Updated invite copy to reference the Chamo brand across share title/text.
+  - Added multi-family membership support with an authenticated prompt and header switcher so users can choose active families without logging out.
 
 ### Debug Log References
 
@@ -248,24 +249,28 @@ Not yet implemented
 - [x] Join flow consumes `/join/{invite}` URLs without leaking encryption keys to the backend or browser history.
 - [x] Vitest suites updated for invite helpers and components; Playwright spec extended to assert sanitized network payloads (run once backend stack is available).
 - [x] Header invite affordance and opaque settings overlay verified to preserve share UX while preventing background bleed-through.
+- [x] Multi-family membership prompt, context state, and family switcher implemented with translated UX copy.
 
 ### File List
-- src/app/(auth)/join/[inviteCode]/page.tsx
+- apps/backend/prisma/migrations/20251104120000_multi_family_memberships/migration.sql
+- apps/backend/prisma/schema.prisma
+- apps/backend/src/auth/auth.module.ts
+- apps/backend/src/auth/auth.resolver.ts
+- apps/backend/src/auth/auth.service.ts
+- apps/backend/src/auth/dto/join-family-existing.input.ts
+- apps/backend/src/auth/dto/switch-family.input.ts
+- apps/backend/src/channels/channels.resolver.ts
+- apps/backend/src/schema.gql
+- apps/backend/src/translation/translation.controller.ts
+- apps/backend/src/translation/translation.resolver.ts
+- apps/backend/src/auth/types/auth-response.type.ts
+- apps/backend/src/auth/types/family-membership.type.ts
 - src/app/(auth)/join/page.tsx
 - src/app/chat/page.tsx
 - src/components/chat-screen.tsx
-- src/components/family/invite-member-button.tsx
-- src/components/family/invite-qr-code.tsx
-- src/components/settings-screen.tsx
-- src/lib/e2ee/key-management.ts
+- src/lib/contexts/auth-context.tsx
+- src/lib/graphql/operations.ts
 - src/lib/invite/generate-invite-link.ts
-- src/lib/invite/pending-invite.ts
 - src/lib/translations.ts
-- src/vendor/qrcode.tsx
-- tests/e2e/e2ee-key-sharing.spec.ts
-- tests/unit/components/invite-member-button.test.tsx
-- tests/unit/components/invite-qr-code.test.tsx
 - tests/unit/lib/invite/generate-invite-link.test.ts
-- tests/unit/lib/invite/pending-invite.test.ts
-- tsconfig.json
-- vitest.config.ts
+- docs/stories/story-2.6.md

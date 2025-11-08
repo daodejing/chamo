@@ -1,7 +1,22 @@
 'use client';
 
 import { useQuery, useMutation, useSubscription } from '@apollo/client/react';
-import type { GetMessagesQuery } from '../graphql/generated/graphql';
+import type {
+  DeleteMessageMutation,
+  DeleteMessageMutationVariables,
+  EditMessageMutation,
+  EditMessageMutationVariables,
+  GetMessagesQuery,
+  GetMessagesQueryVariables,
+  MessageAddedSubscription,
+  MessageAddedSubscriptionVariables,
+  MessageDeletedSubscription,
+  MessageDeletedSubscriptionVariables,
+  MessageEditedSubscription,
+  MessageEditedSubscriptionVariables,
+  SendMessageMutation,
+  SendMessageMutationVariables,
+} from '../graphql/generated/graphql';
 import {
   GET_MESSAGES_QUERY,
   SEND_MESSAGE_MUTATION,
@@ -12,21 +27,7 @@ import {
   MESSAGE_DELETED_SUBSCRIPTION,
 } from '../graphql/operations';
 
-interface Message {
-  id: string;
-  channelId: string;
-  userId: string;
-  encryptedContent: string;
-  timestamp: string;
-  isEdited: boolean;
-  editedAt: string | null;
-  createdAt: string;
-  user: {
-    id: string;
-    name: string;
-    avatar: string | null;
-  };
-}
+type Message = GetMessagesQuery['getMessages'][number];
 
 interface UseMessagesOptions {
   channelId: string;
@@ -39,7 +40,10 @@ interface UseMessagesOptions {
  * Note: Authentication headers are automatically added by Apollo Client's authLink
  */
 export function useMessages({ channelId, limit = 50, cursor }: UseMessagesOptions) {
-  const { data, loading, error, fetchMore, refetch } = useQuery<GetMessagesQuery>(GET_MESSAGES_QUERY, {
+  const { data, loading, error, fetchMore, refetch } = useQuery<
+    GetMessagesQuery,
+    GetMessagesQueryVariables
+  >(GET_MESSAGES_QUERY, {
     variables: {
       input: {
         channelId,
@@ -51,7 +55,7 @@ export function useMessages({ channelId, limit = 50, cursor }: UseMessagesOption
   });
 
   return {
-    messages: (data?.getMessages || []) as Message[],
+    messages: data?.getMessages ?? [],
     loading,
     error,
     fetchMore,
@@ -64,7 +68,10 @@ export function useMessages({ channelId, limit = 50, cursor }: UseMessagesOption
  * Note: Authentication headers are automatically added by Apollo Client's authLink
  */
 export function useSendMessage() {
-  const [sendMessage, { loading, error }] = useMutation(SEND_MESSAGE_MUTATION, {
+  const [sendMessage, { loading, error }] = useMutation<
+    SendMessageMutation,
+    SendMessageMutationVariables
+  >(SEND_MESSAGE_MUTATION, {
     refetchQueries: ['GetMessages'],
   });
 
@@ -77,7 +84,7 @@ export function useSendMessage() {
         },
       },
     });
-    return (result.data && 'sendMessage' in result.data ? result.data.sendMessage : undefined) as Message | undefined;
+    return result.data?.sendMessage;
   };
 
   return { send, loading, error };
@@ -88,7 +95,10 @@ export function useSendMessage() {
  * Note: Authentication headers are automatically added by Apollo Client's authLink
  */
 export function useEditMessage() {
-  const [editMessage, { loading, error }] = useMutation(EDIT_MESSAGE_MUTATION, {
+  const [editMessage, { loading, error }] = useMutation<
+    EditMessageMutation,
+    EditMessageMutationVariables
+  >(EDIT_MESSAGE_MUTATION, {
     refetchQueries: ['GetMessages'],
   });
 
@@ -101,7 +111,7 @@ export function useEditMessage() {
         },
       },
     });
-    return (result.data && 'editMessage' in result.data ? result.data.editMessage : undefined) as Message | undefined;
+    return result.data?.editMessage;
   };
 
   return { edit, loading, error };
@@ -112,7 +122,10 @@ export function useEditMessage() {
  * Note: Authentication headers are automatically added by Apollo Client's authLink
  */
 export function useDeleteMessage() {
-  const [deleteMessage, { loading, error }] = useMutation(DELETE_MESSAGE_MUTATION, {
+  const [deleteMessage, { loading, error }] = useMutation<
+    DeleteMessageMutation,
+    DeleteMessageMutationVariables
+  >(DELETE_MESSAGE_MUTATION, {
     refetchQueries: ['GetMessages'],
   });
 
@@ -124,7 +137,7 @@ export function useDeleteMessage() {
         },
       },
     });
-    return result.data && 'deleteMessage' in result.data ? result.data.deleteMessage : undefined;
+    return result.data?.deleteMessage;
   };
 
   return { remove, loading, error };
@@ -139,35 +152,44 @@ export function useMessageSubscription(channelId: string) {
     data: addedData,
     loading: addedLoading,
     error: addedError,
-  } = useSubscription(MESSAGE_ADDED_SUBSCRIPTION, {
-    variables: { channelId },
-    skip: !channelId,
-  });
+  } = useSubscription<MessageAddedSubscription, MessageAddedSubscriptionVariables>(
+    MESSAGE_ADDED_SUBSCRIPTION,
+    {
+      variables: { channelId },
+      skip: !channelId,
+    },
+  );
 
   // Subscribe to edited messages
   const {
     data: editedData,
     loading: editedLoading,
     error: editedError,
-  } = useSubscription(MESSAGE_EDITED_SUBSCRIPTION, {
-    variables: { channelId },
-    skip: !channelId,
-  });
+  } = useSubscription<MessageEditedSubscription, MessageEditedSubscriptionVariables>(
+    MESSAGE_EDITED_SUBSCRIPTION,
+    {
+      variables: { channelId },
+      skip: !channelId,
+    },
+  );
 
   // Subscribe to deleted messages
   const {
     data: deletedData,
     loading: deletedLoading,
     error: deletedError,
-  } = useSubscription(MESSAGE_DELETED_SUBSCRIPTION, {
-    variables: { channelId },
-    skip: !channelId,
-  });
+  } = useSubscription<MessageDeletedSubscription, MessageDeletedSubscriptionVariables>(
+    MESSAGE_DELETED_SUBSCRIPTION,
+    {
+      variables: { channelId },
+      skip: !channelId,
+    },
+  );
 
   return {
-    messageAdded: (addedData && 'messageAdded' in addedData ? addedData.messageAdded : undefined) as Message | undefined,
-    messageEdited: (editedData && 'messageEdited' in editedData ? editedData.messageEdited : undefined) as Message | undefined,
-    messageDeleted: (deletedData && 'messageDeleted' in deletedData ? deletedData.messageDeleted : undefined) as { messageId: string } | undefined,
+    messageAdded: addedData?.messageAdded as Message | undefined,
+    messageEdited: editedData?.messageEdited as Message | undefined,
+    messageDeleted: deletedData?.messageDeleted,
     loading: addedLoading || editedLoading || deletedLoading,
     error: addedError || editedError || deletedError,
   };

@@ -1,0 +1,1 @@
+- The backend is in @apps/backend/ and uses docker-compose to restart

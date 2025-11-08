@@ -10,10 +10,13 @@ import { UseGuards } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { RegisterInput } from './dto/register.input';
 import { JoinFamilyInput } from './dto/join-family.input';
+import { JoinFamilyExistingInput } from './dto/join-family-existing.input';
+import { SwitchFamilyInput } from './dto/switch-family.input';
 import { LoginInput } from './dto/login.input';
 import { UpdateUserPreferencesInput } from './dto/update-user-preferences.input';
 import { AuthResponse, UserType } from './types/auth-response.type';
 import { FamilyType } from './types/family.type';
+import { FamilyMembershipType } from './types/family-membership.type';
 import { UserPreferencesType } from './types/user-preferences.type';
 import { GqlAuthGuard } from './guards/gql-auth.guard';
 import { CurrentUser } from './current-user.decorator';
@@ -50,6 +53,28 @@ export class AuthResolver {
     );
   }
 
+  @Mutation(() => FamilyType)
+  @UseGuards(GqlAuthGuard)
+  async joinFamilyAsMember(
+    @CurrentUser() user: User,
+    @Args('input') input: JoinFamilyExistingInput,
+  ): Promise<FamilyType> {
+    return this.authService.joinFamilyAsMember(
+      user.id,
+      input.inviteCode,
+      input.makeActive ?? true,
+    );
+  }
+
+  @Mutation(() => UserType)
+  @UseGuards(GqlAuthGuard)
+  async switchActiveFamily(
+    @CurrentUser() user: User,
+    @Args('input') input: SwitchFamilyInput,
+  ): Promise<UserType> {
+    return this.authService.switchActiveFamily(user.id, input.familyId);
+  }
+
   @Mutation(() => AuthResponse)
   async login(@Args('input') input: LoginInput): Promise<AuthResponse> {
     return this.authService.login(input.email, input.password);
@@ -58,14 +83,22 @@ export class AuthResolver {
   @Query(() => UserType)
   @UseGuards(GqlAuthGuard)
   async me(@CurrentUser() user: User): Promise<UserType> {
-    return user as UserType;
+    return this.authService.validateUser(user.id);
+  }
+
+  @ResolveField(() => FamilyType, { nullable: true, name: 'family' })
+  family(@Parent() user: UserType): FamilyType | null {
+    return user.activeFamily ?? null;
   }
 
   @ResolveField(() => FamilyType, { nullable: true })
-  async family(@Parent() user: UserType): Promise<FamilyType | null> {
-    return this.prisma.family.findUnique({
-      where: { id: user.familyId },
-    });
+  activeFamily(@Parent() user: UserType): FamilyType | null {
+    return user.activeFamily ?? null;
+  }
+
+  @ResolveField(() => [FamilyMembershipType])
+  memberships(@Parent() user: UserType): FamilyMembershipType[] {
+    return user.memberships ?? [];
   }
 
   @ResolveField(() => UserPreferencesType, { nullable: true })
@@ -86,8 +119,6 @@ export class AuthResolver {
   @Mutation(() => Boolean)
   @UseGuards(GqlAuthGuard)
   async logout(): Promise<boolean> {
-    // In a full implementation, this would invalidate the token
-    // For now, client will just delete the token
     return true;
   }
 
@@ -97,10 +128,8 @@ export class AuthResolver {
     @CurrentUser() user: User,
     @Args('input') input: UpdateUserPreferencesInput,
   ): Promise<UserType> {
-    // Get current preferences
     const currentPreferences = (user.preferences as Record<string, any>) || {};
 
-    // Merge with new preferences
     const updatedPreferences = {
       ...currentPreferences,
       ...(input.preferredLanguage !== undefined && {
@@ -108,12 +137,11 @@ export class AuthResolver {
       }),
     };
 
-    // Update user preferences in database
-    const updatedUser = await this.prisma.user.update({
+    await this.prisma.user.update({
       where: { id: user.id },
       data: { preferences: updatedPreferences },
     });
 
-    return updatedUser as UserType;
+    return (await this.authService.validateUser(user.id)) as UserType;
   }
 }

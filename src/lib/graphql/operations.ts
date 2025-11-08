@@ -21,7 +21,26 @@ export const REGISTER_MUTATION = gql`
         name
         avatar
         role
-        familyId
+        activeFamilyId
+        activeFamily {
+          id
+          name
+          avatar
+          inviteCode
+          maxMembers
+        }
+        memberships {
+          id
+          role
+          familyId
+          family {
+            id
+            name
+            avatar
+            inviteCode
+            maxMembers
+          }
+        }
         preferences {
           preferredLanguage
         }
@@ -48,7 +67,26 @@ export const LOGIN_MUTATION = gql`
         name
         avatar
         role
-        familyId
+        activeFamilyId
+        activeFamily {
+          id
+          name
+          avatar
+          inviteCode
+          maxMembers
+        }
+        memberships {
+          id
+          role
+          familyId
+          family {
+            id
+            name
+            avatar
+            inviteCode
+            maxMembers
+          }
+        }
         preferences {
           preferredLanguage
         }
@@ -75,7 +113,26 @@ export const JOIN_FAMILY_MUTATION = gql`
         name
         avatar
         role
-        familyId
+        activeFamilyId
+        activeFamily {
+          id
+          name
+          avatar
+          inviteCode
+          maxMembers
+        }
+        memberships {
+          id
+          role
+          familyId
+          family {
+            id
+            name
+            avatar
+            inviteCode
+            maxMembers
+          }
+        }
         preferences {
           preferredLanguage
         }
@@ -95,8 +152,18 @@ export const UPDATE_USER_PREFERENCES_MUTATION = gql`
   mutation UpdateUserPreferences($input: UpdateUserPreferencesInput!) {
     updateUserPreferences(input: $input) {
       id
+      activeFamilyId
       preferences {
         preferredLanguage
+      }
+      memberships {
+        id
+        role
+        familyId
+        family {
+          id
+          name
+        }
       }
     }
   }
@@ -110,16 +177,71 @@ export const ME_QUERY = gql`
       name
       avatar
       role
-      familyId
-      preferences {
-        preferredLanguage
-      }
-      family {
+      activeFamilyId
+      activeFamily {
         id
         name
         avatar
         inviteCode
         maxMembers
+      }
+      preferences {
+        preferredLanguage
+      }
+      memberships {
+        id
+        role
+        familyId
+        family {
+          id
+          name
+          avatar
+          inviteCode
+          maxMembers
+        }
+      }
+    }
+  }
+`;
+
+export const JOIN_FAMILY_EXISTING_MUTATION = gql`
+  mutation JoinFamilyExisting($input: JoinFamilyExistingInput!) {
+    joinFamilyAsMember(input: $input) {
+      id
+      name
+      avatar
+      inviteCode
+      maxMembers
+    }
+  }
+`;
+
+export const SWITCH_ACTIVE_FAMILY_MUTATION = gql`
+  mutation SwitchActiveFamily($input: SwitchFamilyInput!) {
+    switchActiveFamily(input: $input) {
+      id
+      activeFamilyId
+      activeFamily {
+        id
+        name
+        avatar
+        inviteCode
+        maxMembers
+      }
+      memberships {
+        id
+        role
+        familyId
+        family {
+          id
+          name
+          avatar
+          inviteCode
+          maxMembers
+        }
+      }
+      preferences {
+        preferredLanguage
       }
     }
   }
@@ -265,6 +387,34 @@ export const MESSAGE_DELETED_SUBSCRIPTION = gql`
   subscription MessageDeleted($channelId: String!) {
     messageDeleted(channelId: $channelId) {
       messageId
+    }
+  }
+`;
+
+// ============================================================================
+// TRANSLATIONS
+// ============================================================================
+
+export const MESSAGE_TRANSLATION_QUERY = gql`
+  query MessageTranslationLookup($messageId: String!, $targetLanguage: String!) {
+    messageTranslation(messageId: $messageId, targetLanguage: $targetLanguage) {
+      id
+      messageId
+      targetLanguage
+      encryptedTranslation
+      createdAt
+    }
+  }
+`;
+
+export const CACHE_MESSAGE_TRANSLATION_MUTATION = gql`
+  mutation CacheMessageTranslationRecord($input: CacheMessageTranslationInput!) {
+    cacheMessageTranslation(input: $input) {
+      id
+      messageId
+      targetLanguage
+      encryptedTranslation
+      createdAt
     }
   }
 `;

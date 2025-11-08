@@ -49,6 +49,14 @@ input EditMessageInput {
   messageId: ID!
 }
 
+type FamilyMembershipType {
+  family: FamilyType!
+  familyId: String!
+  id: ID!
+  joinedAt: DateTime!
+  role: String!
+}
+
 type FamilyType {
   avatar: String
   id: ID!
@@ -61,6 +69,11 @@ input GetMessagesInput {
   channelId: ID!
   cursor: ID
   limit: Int = 50
+}
+
+input JoinFamilyExistingInput {
+  inviteCode: String!
+  makeActive: Boolean! = true
 }
 
 input JoinFamilyInput {
@@ -106,10 +119,12 @@ type Mutation {
   deleteMessage(input: DeleteMessageInput!): DeleteMessageResponse!
   editMessage(input: EditMessageInput!): MessageWithUserType!
   joinFamily(input: JoinFamilyInput!): AuthResponse!
+  joinFamilyAsMember(input: JoinFamilyExistingInput!): FamilyType!
   login(input: LoginInput!): AuthResponse!
   logout: Boolean!
   register(input: RegisterInput!): AuthResponse!
   sendMessage(input: SendMessageInput!): MessageWithUserType!
+  switchActiveFamily(input: SwitchFamilyInput!): UserType!
   updateUserPreferences(input: UpdateUserPreferencesInput!): UserType!
 }
 
@@ -140,6 +155,10 @@ type Subscription {
   messageEdited(channelId: String!): MessageWithUserType!
 }
 
+input SwitchFamilyInput {
+  familyId: ID!
+}
+
 input UpdateUserPreferencesInput {
   preferredLanguage: String
 }
@@ -149,11 +168,13 @@ type UserPreferencesType {
 }
 
 type UserType {
+  activeFamily: FamilyType
+  activeFamilyId: ID
   avatar: String
   email: String!
   family: FamilyType
-  familyId: ID!
   id: ID!
+  memberships: [FamilyMembershipType!]!
   name: String!
   preferences: UserPreferencesType
   role: String!

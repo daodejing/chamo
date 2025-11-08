@@ -35,12 +35,22 @@ export function formatDate(
   const dateObj = typeof date === "string" || typeof date === "number" ? new Date(date) : date;
   const locale = language === "ja" ? "ja-JP" : "en-US";
 
-  const options: Intl.DateTimeFormatOptions = {
-    short: { year: "2-digit", month: "numeric", day: "numeric" },
-    medium: { year: "numeric", month: "short", day: "numeric" },
-    long: { year: "numeric", month: "long", day: "numeric" },
-    full: { year: "numeric", month: "long", day: "numeric", weekday: "long" },
-  }[style];
+  let options: Intl.DateTimeFormatOptions;
+  switch (style) {
+    case "short":
+      options = { year: "2-digit", month: "numeric", day: "numeric" };
+      break;
+    case "long":
+      options = { year: "numeric", month: "long", day: "numeric" };
+      break;
+    case "full":
+      options = { year: "numeric", month: "long", day: "numeric", weekday: "long" };
+      break;
+    case "medium":
+    default:
+      options = { year: "numeric", month: "short", day: "numeric" };
+      break;
+  }
 
   return new Intl.DateTimeFormat(locale, options).format(dateObj);
 }
@@ -65,11 +75,24 @@ export function formatTime(
   const dateObj = typeof date === "string" || typeof date === "number" ? new Date(date) : date;
   const locale = language === "ja" ? "ja-JP" : "en-US";
 
-  const options: Intl.DateTimeFormatOptions = {
-    short: { hour: "numeric", minute: "2-digit" },
-    medium: { hour: "numeric", minute: "2-digit", second: "2-digit" },
-    long: { hour: "numeric", minute: "2-digit", second: "2-digit", timeZoneName: "short" },
-  }[style];
+  let options: Intl.DateTimeFormatOptions;
+  switch (style) {
+    case "medium":
+      options = { hour: "numeric", minute: "2-digit", second: "2-digit" };
+      break;
+    case "long":
+      options = {
+        hour: "numeric",
+        minute: "2-digit",
+        second: "2-digit",
+        timeZoneName: "short",
+      };
+      break;
+    case "short":
+    default:
+      options = { hour: "numeric", minute: "2-digit" };
+      break;
+  }
 
   return new Intl.DateTimeFormat(locale, options).format(dateObj);
 }
@@ -99,18 +122,41 @@ export function formatDateTime(
   const dateObj = typeof date === "string" || typeof date === "number" ? new Date(date) : date;
   const locale = language === "ja" ? "ja-JP" : "en-US";
 
-  const dateOptions: Intl.DateTimeFormatOptions = {
-    short: { year: "2-digit", month: "numeric", day: "numeric" },
-    medium: { year: "numeric", month: "short", day: "numeric" },
-    long: { year: "numeric", month: "long", day: "numeric" },
-    full: { year: "numeric", month: "long", day: "numeric", weekday: "long" },
-  }[dateStyle];
+  let dateOptions: Intl.DateTimeFormatOptions;
+  switch (dateStyle) {
+    case "short":
+      dateOptions = { year: "2-digit", month: "numeric", day: "numeric" };
+      break;
+    case "long":
+      dateOptions = { year: "numeric", month: "long", day: "numeric" };
+      break;
+    case "full":
+      dateOptions = { year: "numeric", month: "long", day: "numeric", weekday: "long" };
+      break;
+    case "medium":
+    default:
+      dateOptions = { year: "numeric", month: "short", day: "numeric" };
+      break;
+  }
 
-  const timeOptions: Intl.DateTimeFormatOptions = {
-    short: { hour: "numeric", minute: "2-digit" },
-    medium: { hour: "numeric", minute: "2-digit", second: "2-digit" },
-    long: { hour: "numeric", minute: "2-digit", second: "2-digit", timeZoneName: "short" },
-  }[timeStyle];
+  let timeOptions: Intl.DateTimeFormatOptions;
+  switch (timeStyle) {
+    case "medium":
+      timeOptions = { hour: "numeric", minute: "2-digit", second: "2-digit" };
+      break;
+    case "long":
+      timeOptions = {
+        hour: "numeric",
+        minute: "2-digit",
+        second: "2-digit",
+        timeZoneName: "short",
+      };
+      break;
+    case "short":
+    default:
+      timeOptions = { hour: "numeric", minute: "2-digit" };
+      break;
+  }
 
   const options = { ...dateOptions, ...timeOptions };
 

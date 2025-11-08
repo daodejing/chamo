@@ -12,8 +12,8 @@ export class ChannelsResolver {
   @Query(() => [Channel], { name: 'getChannels' })
   @UseGuards(GqlAuthGuard)
   async getChannels(@CurrentUser() user: any) {
-    // Get channels for the user's family
-    return this.channelsService.getChannelsByFamilyId(user.familyId);
+    // Get channels for the user's active family
+    return this.channelsService.getChannelsByFamilyId(user.activeFamilyId);
   }
 
   @Query(() => Channel, { name: 'getChannel', nullable: true })

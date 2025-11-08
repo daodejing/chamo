@@ -56,52 +56,52 @@ so that I can understand messages from relatives who speak different languages.
   - [x] Subtask 5.3: Create `messageTranslation` query (fetch cached translation)
   - [x] Subtask 5.4: Add authorization checks (user must be in message's family)
   - [x] Subtask 5.5: Implement Prisma queries for CRUD operations
-  - [ ] Subtask 5.6: Generate TypeScript types with GraphQL Codegen
+  - [x] Subtask 5.6: Generate TypeScript types with GraphQL Codegen
 
-- [ ] Task 6: Update backend CORS configuration (AC: All)
-  - [ ] Subtask 6.1: Add Cloudflare Pages URL to CORS_ALLOWED_ORIGINS env var
-  - [ ] Subtask 6.2: Verify CORS includes /api/translate endpoint
+- [x] Task 6: Update backend CORS configuration (AC: All)
+  - [x] Subtask 6.1: Add Cloudflare Pages URL to CORS_ALLOWED_ORIGINS env var
+  - [x] Subtask 6.2: Verify CORS includes /api/translate endpoint
   - [ ] Subtask 6.3: Test cross-origin requests from static frontend
 
-- [ ] Task 7: Implement TranslationDisplay component (AC: #1, #2, #4)
-  - [ ] Subtask 7.1: Create `src/components/chat/translation-display.tsx` component
-  - [ ] Subtask 7.2: Wire component to useAuth hook to get user.preferences.preferredLanguage
-  - [ ] Subtask 7.3: Call `POST https://backend.onrender.com/api/translate` with decrypted message text
-  - [ ] Subtask 7.4: Handle cache hit (display immediately) vs cache miss (call Groq)
-  - [ ] Subtask 7.5: Encrypt translation client-side with family key
-  - [ ] Subtask 7.6: Cache encrypted translation via GraphQL mutation
-  - [ ] Subtask 7.7: Display translation below original message with styling (grayed out, italicized)
-  - [ ] Subtask 7.8: Handle loading state ("Translating...") and error state (hide translation)
-  - [ ] Subtask 7.9: Handle rate limit errors with user-friendly messages
+- [x] Task 7: Implement TranslationDisplay component (AC: #1, #2, #4)
+  - [x] Subtask 7.1: Create `src/components/chat/translation-display.tsx` component
+  - [x] Subtask 7.2: Wire component to useAuth hook to get user.preferences.preferredLanguage
+  - [x] Subtask 7.3: Call `POST https://backend.onrender.com/api/translate` with decrypted message text
+  - [x] Subtask 7.4: Handle cache hit (display immediately) vs cache miss (call Groq)
+  - [x] Subtask 7.5: Encrypt translation client-side with family key
+  - [x] Subtask 7.6: Cache encrypted translation via GraphQL mutation
+  - [x] Subtask 7.7: Display translation below original message with styling (grayed out, italicized)
+  - [x] Subtask 7.8: Handle loading state ("Translating...") and error state (hide translation)
+  - [x] Subtask 7.9: Handle rate limit errors with user-friendly messages
 
-- [ ] Task 8: Integrate translation into MessageBubble component (AC: #1, #2, #4)
-  - [ ] Subtask 8.1: Update `src/components/chat/message-bubble.tsx` to include TranslationDisplay
-  - [ ] Subtask 8.2: Pass decrypted message content to TranslationDisplay
-  - [ ] Subtask 8.3: Ensure translation only shows for messages from other users (not own messages)
-  - [ ] Subtask 8.4: Test translation UI with multiple languages
+- [x] Task 8: Integrate translation into MessageBubble component (AC: #1, #2, #4)
+  - [x] Subtask 8.1: Update `src/components/chat/message-bubble.tsx` to include TranslationDisplay
+  - [x] Subtask 8.2: Pass decrypted message content to TranslationDisplay
+  - [x] Subtask 8.3: Ensure translation only shows for messages from other users (not own messages)
+  - [x] Subtask 8.4: Test translation UI with multiple languages
 
-- [ ] Task 9: Verify user preferences integration (AC: #5)
-  - [ ] Subtask 9.1: Verify Story 5.4 (Language Settings) implemented user.preferences.preferredLanguage
-  - [ ] Subtask 9.2: Confirm ME_QUERY returns preferences.preferredLanguage
-  - [ ] Subtask 9.3: Test preference change triggers re-translation of visible messages
-  - [ ] Subtask 9.4: Handle case where preferredLanguage is not set (default to English)
+- [x] Task 9: Verify user preferences integration (AC: #5)
+  - [x] Subtask 9.1: Verify Story 5.4 (Language Settings) implemented user.preferences.preferredLanguage
+  - [x] Subtask 9.2: Confirm ME_QUERY returns preferences.preferredLanguage
+  - [x] Subtask 9.3: Test preference change triggers re-translation of visible messages
+  - [x] Subtask 9.4: Handle case where preferredLanguage is not set (default to English)
 
-- [ ] Task 10: Implement translation performance optimizations (AC: #4)
-  - [ ] Subtask 10.1: Only translate visible messages (use IntersectionObserver or virtual scrolling context)
-  - [ ] Subtask 10.2: Debounce translation API calls (avoid spamming on rapid scroll)
-  - [ ] Subtask 10.3: Cancel pending translations when component unmounts (AbortController cleanup in useEffect return)
-  - [ ] Subtask 10.4: Prevent memory leaks by aborting fetch requests for unmounted components
+- [x] Task 10: Implement translation performance optimizations (AC: #4)
+  - [x] Subtask 10.1: Only translate visible messages (use IntersectionObserver or virtual scrolling context)
+  - [x] Subtask 10.2: Debounce translation API calls (avoid spamming on rapid scroll)
+  - [x] Subtask 10.3: Cancel pending translations when component unmounts (AbortController cleanup in useEffect return)
+  - [x] Subtask 10.4: Prevent memory leaks by aborting fetch requests for unmounted components
 
-- [ ] Task 11: Write unit tests for translation logic (AC: All)
-  - [ ] Subtask 11.1: Test backend translation service with mock Groq API responses
-  - [ ] Subtask 11.2: Test language code mapping (en → English, ja → Japanese, etc.)
-  - [ ] Subtask 11.3: Test error handling (API failure, rate limit, invalid response)
-  - [ ] Subtask 11.4: Test database cache hit/miss scenarios
-  - [ ] Subtask 11.5: Test NestJS throttler rate limiting (short and long tiers)
-  - [ ] Subtask 11.6: Test encryption/decryption of translations
+- [x] Task 11: Write unit tests for translation logic (AC: All)
+  - [x] Subtask 11.1: Test backend translation service with mock Groq API responses
+  - [x] Subtask 11.2: Test language code mapping (en → English, ja → Japanese, etc.)
+  - [x] Subtask 11.3: Test error handling (API failure, rate limit, invalid response)
+  - [x] Subtask 11.4: Test database cache hit/miss scenarios
+  - [x] Subtask 11.5: Test NestJS throttler rate limiting (short and long tiers)
+  - [x] Subtask 11.6: Test encryption/decryption of translations
 
 - [ ] Task 12: Write integration tests for translation API (AC: All)
-  - [ ] Subtask 12.1: Test POST /api/translate endpoint with valid JWT
+  - [x] Subtask 12.1: Test POST /api/translate endpoint with valid JWT
   - [ ] Subtask 12.2: Test endpoint rejects unauthenticated requests (401)
   - [ ] Subtask 12.3: Test rate limiting returns 429 after threshold
   - [ ] Subtask 12.4: Test cached translations bypass rate limits
@@ -745,6 +745,14 @@ claude-sonnet-4-5-20250929
   - Created GraphQL `MessageTranslation` object type plus guarded resolver with `messageTranslation` query and `cacheMessageTranslation` mutation (translation module).
   - Extended translation service with reusable access checks, supported-language validation, and Prisma upsert for encrypted translations.
   - Added resolver unit tests to ensure user context propagates into caching/query operations.
+- 2025-11-03 – Frontend/Backend integration & validation:
+  - Added `TranslationDisplay` React component with visibility gating, debounce, rate-limit UX, and GraphQL cache integration.
+  - Wired Chat screen to surface automatic translations for non-self messages while respecting user language preferences and auto-translate toggles.
+  - Implemented IntersectionObserver + AbortController safeguards, and created Jest/Vitest suites covering translation service, Groq client, resolver/controller wiring, and UI behaviours.
+- 2025-11-03 – Implementation continuation plan (Tasks 5.6-13):
+  - Generate updated frontend GraphQL types to capture new MessageTranslation schema additions.
+  - Complete remaining backend/frontend functionality: CORS settings, TranslationDisplay component, MessageBubble wiring, performance protections.
+  - Author comprehensive unit/integration/E2E coverage and run full test + lint suite prior to finalizing story artifacts.
 
 ### Debug Log References
 
@@ -753,15 +761,15 @@ N/A - Initial story creation
 ### Completion Notes List
 
 - [ ] Database migration created and applied (backend)
-- [ ] NestJS TranslationModule created with REST controller
-- [ ] @nestjs/throttler configured and working
-- [ ] Groq API integration tested and working
-- [ ] Translation caching verified (database persistence)
-- [ ] CORS updated for Cloudflare Pages origin
-- [ ] All translation components implemented and functional
+- [x] NestJS TranslationModule created with REST controller
+- [x] @nestjs/throttler configured and working
+- [x] Groq API integration tested and working
+- [x] Translation caching verified (database persistence)
+- [x] CORS updated for Cloudflare Pages origin
+- [x] All translation components implemented and functional
 - [ ] Translation works for all 20+ supported languages
-- [ ] User preferences integration verified (Story 5.4 dependency)
-- [ ] Rate limiting tested (short and long tiers)
+- [x] User preferences integration verified (Story 5.4 dependency)
+- [x] Rate limiting tested (short and long tiers)
 - [ ] All tests passing (unit, integration, E2E)
 
 ### File List
@@ -784,24 +792,37 @@ N/A - Initial story creation
 
 **New Frontend Files Created:**
 - `src/components/chat/translation-display.tsx`
-- `src/components/chat/__tests__/translation-display.test.tsx`
-- `tests/e2e/story-2.5-message-translation.spec.ts`
+- `src/lib/translation/languages.ts`
+- `tests/unit/components/chat/translation-display.test.tsx`
 
 **Modified Backend Files:**
-- `apps/backend/src/app.module.ts` (add TranslationModule, ThrottlerModule)
+- `apps/backend/.env.example` (document Cloudflare-friendly CORS configuration)
 - `apps/backend/prisma/schema.prisma` (add MessageTranslation model)
-- `apps/backend/src/schema.gql` (add MessageTranslation type and mutations)
-- `apps/backend/.env` (add GROQ_API_KEY, update CORS_ALLOWED_ORIGINS)
-- `apps/backend/package.json` (add @nestjs/throttler dependency)
+- `apps/backend/src/app.module.ts` (wire TranslationModule + ThrottlerModule)
+- `apps/backend/src/auth/auth.service.ts` (map GraphQL payloads into domain types)
+- `apps/backend/src/messages/messages.service.ts` (reuse shared channel-access guard)
+- `apps/backend/src/translation/translation.controller.ts`
+- `apps/backend/src/translation/translation.resolver.ts`
+- `apps/backend/src/schema.gql` (MessageTranslation type and operations)
 
 **Modified Frontend Files:**
-- `src/components/chat/message-bubble.tsx` (integrate TranslationDisplay)
+- `src/app/chat/page.tsx` (hydrate decrypted messages, invoke TranslationDisplay)
+- `src/components/chat-screen.tsx` (render translation UI for remote messages)
+- `src/components/chat/message-bubble.tsx`
+- `src/components/chat/message-list.tsx`
+- `src/components/family/invite-member-button.tsx` (safe translation replacements)
+- `src/components/family/invite-qr-code.tsx` (use local QR renderer)
+- `src/lib/contexts/auth-context.tsx` (typed GraphQL helpers, preference refresh)
+- `src/lib/graphql/operations.ts`
+- `src/lib/hooks/use-messages.ts`
+- `src/lib/translations.ts`
+- `src/lib/utils/date-format.ts`
+- `codegen.ts` (client preset output)
 
 **Existing Files Used:**
 - `apps/backend/src/auth/*` (JWT guards and authentication)
 - `apps/backend/src/prisma/prisma.service.ts` (database access)
 - `apps/backend/src/main.ts` (CORS configuration)
-- `src/lib/contexts/auth-context.tsx` (useAuth hook for user.preferences.preferredLanguage)
 - `src/lib/e2ee/encryption.ts` (encryption utilities for translations)
 
 ### Change Log
@@ -839,6 +860,13 @@ N/A - Initial story creation
   - Still $0/month (no new infrastructure)
 - Status: Approved
 
+**2025-11-03 (v3.1 - UI Integration & QA Enhancements):**
+- Added client-side TranslationDisplay with cache-first rendering, debounce, and error UX.
+- Hooked Chat screen to auto-translate incoming messages using user preferences and family encryption keys.
+- Expanded test coverage: backend translation service/controller/resolver specs, Groq client error handling, and Vitest coverage for UI translation behaviour.
+- Updated CORS configuration guidance for Cloudflare Pages deployments and refreshed GraphQL codegen pipeline.
+- Status: In Progress (awaiting cross-origin manual verification & E2E scenarios)
+
 ## Follow-Up Tasks (Future Stories)
 
 **Story 2.6: Offline Translation (Deferred):**
@@ -861,4 +889,4 @@ N/A - Initial story creation
 
 ---
 
-**Last Updated:** 2025-11-02 (v3.0 - NestJS Backend Architecture)
+**Last Updated:** 2025-11-03 (v3.0 - NestJS Backend Architecture)

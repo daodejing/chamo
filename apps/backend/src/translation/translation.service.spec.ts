@@ -4,183 +4,170 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { TranslationService } from './translation.service';
-import { PrismaService } from '../prisma/prisma.service';
 import { GroqService } from './groq.service';
+import { PrismaService } from '../prisma/prisma.service';
 
-const prismaMock = {
-  message: {
-    findUnique: jest.fn(),
-  },
-  messageTranslation: {
-    findUnique: jest.fn(),
-    upsert: jest.fn(),
-  },
-} as unknown as jest.Mocked<PrismaService>;
-
-const groqMock = {
-  translateText: jest.fn(),
-} as unknown as jest.Mocked<GroqService>;
-
-const buildService = () =>
-  new TranslationService(
-    prismaMock as unknown as PrismaService,
-    groqMock as unknown as GroqService,
-  );
+type PrismaMock = jest.Mocked<Pick<
+  PrismaService,
+  'messageTranslation' | 'message' | 'familyMembership'
+>>;
 
 describe('TranslationService', () => {
+  let service: TranslationService;
+  let prisma: PrismaMock;
+  let groq: jest.Mocked<GroqService>;
+
+  const baseMessage = {
+    channel: {
+      familyId: 'family-1',
+    },
+  };
+
   beforeEach(() => {
-    jest.clearAllMocks();
+    prisma = {
+      messageTranslation: {
+        findUnique: jest.fn(),
+        upsert: jest.fn(),
+      },
+      message: {
+        findUnique: jest.fn(),
+      },
+      familyMembership: {} as never,
+    } as PrismaMock;
+
+    groq = {
+      translateText: jest.fn(),
+    } as unknown as jest.Mocked<GroqService>;
+
+    service = new TranslationService(prisma as unknown as PrismaService, groq);
   });
 
-  it('returns cached translation when present', async () => {
-    prismaMock.message.findUnique.mockResolvedValue({
-      channel: { familyId: 'family-1' },
-    } as any);
-    prismaMock.messageTranslation.findUnique.mockResolvedValue({
-      encryptedTranslation: 'ciphertext',
-    } as any);
-
-    const service = buildService();
-    const result = await service.translate({
-      messageId: 'msg-1',
-      targetLanguage: 'ja',
-      text: 'こんにちは',
-      userId: 'user-1',
-      familyId: 'family-1',
-    });
-
-    expect(result).toEqual({
-      cached: true,
-      encryptedTranslation: 'ciphertext',
-      targetLanguage: 'ja',
-    });
-    expect(groqMock.translateText).not.toHaveBeenCalled();
+  afterEach(() => {
+    jest.resetAllMocks();
   });
 
-  it('fetches translation when cache miss occurs', async () => {
-    prismaMock.message.findUnique.mockResolvedValue({
-      channel: { familyId: 'family-1' },
-    } as any);
-    prismaMock.messageTranslation.findUnique.mockResolvedValue(null);
-    groqMock.translateText.mockResolvedValue('Hello');
+  const accessParams = {
+    messageId: 'msg-1',
+    targetLanguage: 'en' as const,
+    userId: 'user-1',
+    familyId: 'family-1',
+  };
 
-    const service = buildService();
-    const result = await service.translate({
-      messageId: 'msg-1',
-      targetLanguage: 'en',
-      text: 'こんにちは',
-      userId: 'user-1',
-      familyId: 'family-1',
-    });
+  describe('translate', () => {
+    it('returns cached translation without calling Groq', async () => {
+      prisma.message.findUnique.mockResolvedValue(baseMessage);
+      prisma.messageTranslation.findUnique.mockResolvedValue({
+        encryptedTranslation: 'encrypted-text',
+      } as any);
 
-    expect(result).toEqual({
-      cached: false,
-      translation: 'Hello',
-      targetLanguage: 'en',
-    });
-    expect(groqMock.translateText).toHaveBeenCalledWith('こんにちは', 'en');
-  });
+      const result = await service.translate({
+        ...accessParams,
+        text: 'Hola',
+      });
 
-  it('throws when message does not exist', async () => {
-    prismaMock.message.findUnique.mockResolvedValue(null);
-
-    const service = buildService();
-    await expect(
-      service.translate({
-        messageId: 'missing',
+      expect(result).toEqual({
+        cached: true,
+        encryptedTranslation: 'encrypted-text',
         targetLanguage: 'en',
-        text: 'hola',
-        userId: 'user-1',
-        familyId: 'family-1',
-      }),
-    ).rejects.toBeInstanceOf(NotFoundException);
-  });
+      });
+      expect(groq.translateText).not.toHaveBeenCalled();
+    });
 
-  it('blocks access when family does not match', async () => {
-    prismaMock.message.findUnique.mockResolvedValue({
-      channel: { familyId: 'different-family' },
-    } as any);
+    it('calls Groq when cache miss occurs', async () => {
+      prisma.message.findUnique.mockResolvedValue(baseMessage);
+      prisma.messageTranslation.findUnique.mockResolvedValue(null);
+      groq.translateText.mockResolvedValue('Hello');
 
-    const service = buildService();
-    await expect(
-      service.translate({
-        messageId: 'msg-1',
+      const result = await service.translate({
+        ...accessParams,
+        text: 'Hola',
+      });
+
+      expect(result).toEqual({
+        cached: false,
+        translation: 'Hello',
         targetLanguage: 'en',
-        text: 'hola',
-        userId: 'user-1',
-        familyId: 'family-1',
-      }),
-    ).rejects.toBeInstanceOf(ForbiddenException);
+      });
+      expect(groq.translateText).toHaveBeenCalledWith('Hola', 'en');
+    });
+
+    it('throws ForbiddenException when family mismatch occurs', async () => {
+      prisma.message.findUnique.mockResolvedValue({
+        channel: { familyId: 'another-family' },
+      });
+
+      await expect(
+        service.translate({
+          ...accessParams,
+          text: 'Hola',
+        }),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+    });
+
+    it('throws NotFoundException when message missing', async () => {
+      prisma.message.findUnique.mockResolvedValue(null);
+
+      await expect(
+        service.translate({
+          ...accessParams,
+          text: 'Hola',
+        }),
+      ).rejects.toBeInstanceOf(NotFoundException);
+    });
+
+    it('rejects unsupported language codes', async () => {
+      prisma.message.findUnique.mockResolvedValue(baseMessage);
+      await expect(
+        service.translate({
+          ...accessParams,
+          targetLanguage: 'zz' as any,
+          text: 'Hola',
+        }),
+      ).rejects.toBeInstanceOf(BadRequestException);
+    });
   });
 
-  it('retrieves cached translation via dedicated method', async () => {
-    prismaMock.message.findUnique.mockResolvedValue({
-      channel: { familyId: 'family-1' },
-    } as any);
-    prismaMock.messageTranslation.findUnique.mockResolvedValue({
-      id: 'translation-1',
-    } as any);
+  describe('cacheTranslation', () => {
+    it('upserts encrypted translation after access validation', async () => {
+      prisma.message.findUnique.mockResolvedValue(baseMessage);
+      prisma.messageTranslation.upsert.mockResolvedValue({
+        id: 'cache-1',
+      } as any);
 
-    const service = buildService();
-    const result = await service.getCachedTranslation({
-      messageId: 'msg-1',
-      targetLanguage: 'en',
-      userId: 'user-1',
-      familyId: 'family-1',
-    });
+      const result = await service.cacheTranslation({
+        ...accessParams,
+        encryptedTranslation: 'cipher',
+      });
 
-    expect(result).toEqual({
-      id: 'translation-1',
-    });
-  });
-
-  it('caches encrypted translation via upsert', async () => {
-    prismaMock.message.findUnique.mockResolvedValue({
-      channel: { familyId: 'family-1' },
-    } as any);
-    prismaMock.messageTranslation.upsert.mockResolvedValue({
-      id: 'translation-1',
-    } as any);
-
-    const service = buildService();
-    const result = await service.cacheTranslation({
-      messageId: 'msg-1',
-      targetLanguage: 'en',
-      encryptedTranslation: 'ciphertext',
-      userId: 'user-1',
-      familyId: 'family-1',
-    });
-
-    expect(prismaMock.messageTranslation.upsert).toHaveBeenCalledWith({
-      where: {
-        messageId_targetLanguage: {
+      expect(prisma.messageTranslation.upsert).toHaveBeenCalledWith({
+        where: {
+          messageId_targetLanguage: {
+            messageId: 'msg-1',
+            targetLanguage: 'en',
+          },
+        },
+        update: {
+          encryptedTranslation: 'cipher',
+        },
+        create: {
           messageId: 'msg-1',
           targetLanguage: 'en',
+          encryptedTranslation: 'cipher',
         },
-      },
-      update: { encryptedTranslation: 'ciphertext' },
-      create: {
-        messageId: 'msg-1',
-        targetLanguage: 'en',
-        encryptedTranslation: 'ciphertext',
-      },
+      });
+      expect(result).toEqual({ id: 'cache-1' });
     });
-    expect(result).toEqual({ id: 'translation-1' });
   });
 
-  it('rejects unsupported languages', async () => {
-    prismaMock.message.findUnique.mockResolvedValue({
-      channel: { familyId: 'family-1' },
-    } as any);
+  describe('getCachedTranslation', () => {
+    it('returns translation after validating membership', async () => {
+      prisma.message.findUnique.mockResolvedValue(baseMessage);
+      prisma.messageTranslation.findUnique.mockResolvedValue({
+        id: 'cache',
+      } as any);
 
-    const service = buildService();
-    await expect(
-      service.getCachedTranslation({
-        messageId: 'msg-1',
-        targetLanguage: 'xx' as any,
-        userId: 'user-1',
-        familyId: 'family-1',
-      }),
-    ).rejects.toBeInstanceOf(BadRequestException);
+      const result = await service.getCachedTranslation(accessParams);
+      expect(result).toEqual({ id: 'cache' });
+    });
   });
 });

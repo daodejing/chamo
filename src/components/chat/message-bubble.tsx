@@ -7,6 +7,8 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { TranslationDisplay } from '@/components/chat/translation-display';
+import type { TranslationLanguage } from '@/components/settings/translation-language-selector';
 import {
   ContextMenu,
   ContextMenuContent,
@@ -32,6 +34,10 @@ export interface MessageBubbleProps {
   isEditing?: boolean;
   onEditStart?: (messageId: string) => void;
   onEditCancel?: () => void;
+  familyKey?: CryptoKey | null;
+  preferredLanguage?: TranslationLanguage | null;
+  showTranslation?: boolean;
+  autoTranslate?: boolean;
 }
 
 export function MessageBubble({
@@ -49,6 +55,10 @@ export function MessageBubble({
   isEditing = false,
   onEditStart,
   onEditCancel,
+  familyKey = null,
+  preferredLanguage,
+  showTranslation = true,
+  autoTranslate = true,
 }: MessageBubbleProps) {
   const [editedContent, setEditedContent] = useState(content);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -86,6 +96,8 @@ export function MessageBubble({
   const formattedTime = formatDistanceToNow(new Date(timestamp), {
     addSuffix: true,
   });
+  const translationEnabled =
+    !isMine && showTranslation !== false && autoTranslate !== false;
 
   const messageContent = (
     <div className={`flex gap-3 group ${isMine ? 'flex-row-reverse' : ''}`}>
@@ -164,6 +176,15 @@ export function MessageBubble({
             </>
           )}
         </div>
+        {translationEnabled && (
+          <TranslationDisplay
+            messageId={id}
+            originalText={content}
+            familyKey={familyKey}
+            preferredLanguage={preferredLanguage}
+            enabled={translationEnabled}
+          />
+        )}
 
         {/* Timestamp */}
         <span className="text-xs text-muted-foreground px-1">
