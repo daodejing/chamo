@@ -1,0 +1,284 @@
+<story-context id="bmad/bmm/workflows/4-implementation/story-context/template" v="1.0">
+  <metadata>
+    <epicId>1</epicId>
+    <storyId>4</storyId>
+    <title>Email Verification for Account Creation</title>
+    <status>Approved</status>
+    <generatedAt>2025-11-08</generatedAt>
+    <generator>BMAD Story Context Workflow</generator>
+    <sourceStoryPath>docs/stories/1-4-email-verification.md</sourceStoryPath>
+  </metadata>
+
+  <story>
+    <asA>user registering for OurChat</asA>
+    <iWant>to verify my email address ownership before gaining access to the platform</iWant>
+    <soThat>the system can confirm I control the email address and prevent account impersonation</soThat>
+    <tasks>
+### Task 1: Database Schema & Migrations (AC7)
+- [ ] **Subtask 1.1**: Add `emailVerified` and `emailVerifiedAt` fields to User model in Prisma schema
+- [ ] **Subtask 1.2**: Create `EmailVerificationToken` Prisma model with all required fields
+- [ ] **Subtask 1.3**: Generate Prisma migration: `pnpm prisma migrate dev --name add_email_verification`
+- [ ] **Subtask 1.4**: Apply migration to local database and verify schema
+- [ ] **Subtask 1.5**: Update GraphQL User type to include `emailVerified` field
+
+### Task 2: Backend - Token Generation & Email Sending (AC1, AC2)
+- [ ] **Subtask 2.1**: Create `generateVerificationToken()` util using `crypto.randomBytes(16)` for 128-bit token
+- [ ] **Subtask 2.2**: Create `hashToken()` util using SHA-256
+- [ ] **Subtask 2.3**: Update `auth.service.ts#register()` to create unverified account
+- [ ] **Subtask 2.4**: Store hashed token in `email_verification_tokens` table with 24h expiration
+- [ ] **Subtask 2.5**: Send verification email via EmailService (Story 1.6 dependency)
+- [ ] **Subtask 2.6**: Return `EmailVerificationResponse` instead of immediate JWT
+- [ ] **Subtask 2.7**: Update `auth.service.ts#joinFamily()` to follow same pattern
+
+### Task 3: Backend - Verification Endpoint (AC3)
+- [ ] **Subtask 3.1**: Create GraphQL mutation `verifyEmail(token: String!): AuthResponse!`
+- [ ] **Subtask 3.2**: Implement `AuthService.verifyEmail()` method
+- [ ] **Subtask 3.3**: Hash provided token and lookup in database
+- [ ] **Subtask 3.4**: Validate token exists, not expired (`expiresAt > NOW()`), not used (`usedAt IS NULL`)
+- [ ] **Subtask 3.5**: Update user: `emailVerified = true`, `emailVerifiedAt = NOW()`
+- [ ] **Subtask 3.6**: Mark token used: `usedAt = NOW()`
+- [ ] **Subtask 3.7**: Generate and return JWT access/refresh tokens
+- [ ] **Subtask 3.8**: Handle errors: token not found, expired, already used
+
+### Task 4: Backend - Resend Verification (AC4)
+- [ ] **Subtask 4.1**: Create GraphQL mutation `resendVerificationEmail(email: String!): GenericResponse!`
+- [ ] **Subtask 4.2**: Implement rate limiting: Redis or in-memory cache (5 attempts per 15 min)
+- [ ] **Subtask 4.3**: Find user by email (return generic success even if not found)
+- [ ] **Subtask 4.4**: Invalidate old unused tokens for user
+- [ ] **Subtask 4.5**: Generate new token and send verification email
+- [ ] **Subtask 4.6**: Return success response without leaking user existence
+
+### Task 5: Backend - Unverified User Guard (AC5)
+- [ ] **Subtask 5.1**: Update `JwtAuthGuard` to check `emailVerified` field
+- [ ] **Subtask 5.2**: Throw `EmailNotVerifiedException` for unverified users
+- [ ] **Subtask 5.3**: Update login mutation to check email verification
+- [ ] **Subtask 5.4**: Return error with `requiresEmailVerification: true` flag
+
+### Task 6: Frontend - Verification Pending Screen (AC6)
+- [ ] **Subtask 6.1**: Create `/verification-pending` page component
+- [ ] **Subtask 6.2**: Display "Check your email at {email}" message
+- [ ] **Subtask 6.3**: Implement "Resend Verification Email" button
+- [ ] **Subtask 6.4**: Show rate limit message when limit exceeded
+- [ ] **Subtask 6.5**: Display success message after resend
+
+### Task 7: Frontend - Email Verification Page (AC6)
+- [ ] **Subtask 7.1**: Create `/verify-email` page component
+- [ ] **Subtask 7.2**: Extract token from URL query parameter
+- [ ] **Subtask 7.3**: Call `verifyEmail` mutation on page load
+- [ ] **Subtask 7.4**: Show loading state during verification
+- [ ] **Subtask 7.5**: On success: redirect to login with success toast
+- [ ] **Subtask 7.6**: On error: show error message with resend option
+
+### Task 8: Frontend - Update Registration Flow (AC6)
+- [ ] **Subtask 8.1**: Update `UnifiedLoginScreen` to handle `EmailVerificationResponse`
+- [ ] **Subtask 8.2**: Redirect to `/verification-pending` after registration (not automatic login)
+- [ ] **Subtask 8.3**: Pass registered email to verification pending page
+- [ ] **Subtask 8.4**: Update login flow to handle unverified user error
+- [ ] **Subtask 8.5**: Redirect unverified login attempts to verification pending
+
+### Task 9: Email Templates (AC2)
+- [ ] **Subtask 9.1**: Create verification email HTML template (use Brevo template builder)
+- [ ] **Subtask 9.2**: Create verification email plain text fallback
+- [ ] **Subtask 9.3**: Include verification link, sender info, expiration notice (24h)
+- [ ] **Subtask 9.4**: Test email rendering in multiple clients (Gmail, Outlook, mobile)
+
+### Task 10: Testing (All ACs)
+- [ ] **Subtask 10.1**: Unit tests: token generation, hashing, expiration logic
+- [ ] **Subtask 10.2**: Unit tests: rate limiting for resend
+- [ ] **Subtask 10.3**: Integration tests: full registration → verification flow
+- [ ] **Subtask 10.4**: Integration tests: expired token rejection
+- [ ] **Subtask 10.5**: Integration tests: used token rejection
+- [ ] **Subtask 10.6**: Integration tests: unverified user blocked from queries
+- [ ] **Subtask 10.7**: E2E tests: complete user journey (register → email → verify → login)
+- [ ] **Subtask 10.8**: E2E tests: resend verification email flow
+- [ ] **Subtask 10.9**: E2E tests: invalid token error handling
+    </tasks>
+  </story>
+
+  <acceptanceCriteria>
+**AC1: Account Creation with Unverified State**
+- ✅ When user registers (createFamily or joinFamily), account is created in `emailVerified: false` state
+- ✅ System generates 22-character cryptographic random verification token (128-bit entropy)
+- ✅ Token is hashed with SHA-256 and stored in `email_verification_tokens` table
+- ✅ Token expires after 24 hours
+- ✅ User receives "Check your email to verify" response (no immediate JWT access)
+
+**AC2: Verification Email Delivery**
+- ✅ System sends verification email to registered address within 30 seconds
+- ✅ Email contains verification link: `{EMAIL_VERIFICATION_URL}?token={plain_token}`
+- ✅ Email uses professional template with OurChat branding
+- ✅ Email delivery uses Brevo service (Story 1.6 dependency)
+- ✅ Failed email sends are logged with error details
+
+**AC3: Email Verification Endpoint**
+- ✅ GraphQL mutation `verifyEmail(token: String!): AuthResponse!` validates token
+- ✅ Validates token exists, not expired, not already used
+- ✅ Marks user `emailVerified: true`, sets `emailVerifiedAt` timestamp
+- ✅ Marks token as used (`usedAt` timestamp)
+- ✅ Returns JWT access token and user data (normal login response)
+- ✅ Invalid/expired tokens return clear error message
+
+**AC4: Resend Verification Email**
+- ✅ GraphQL mutation `resendVerificationEmail(email: String!): GenericResponse!`
+- ✅ Rate limiting: Maximum 5 resends per 15 minutes per email
+- ✅ Generates new token, invalidates old unused tokens for that user
+- ✅ Sends new verification email
+- ✅ Returns success message even for non-existent emails (prevent email enumeration)
+
+**AC5: Unverified User Restrictions**
+- ✅ Users with `emailVerified: false` cannot access protected GraphQL queries/mutations
+- ✅ Login attempts for unverified users return error: "Email not verified. Check your inbox."
+- ✅ Error response includes `requiresEmailVerification: true` flag
+- ✅ Frontend redirects unverified users to verification pending screen
+
+**AC6: Frontend User Experience**
+- ✅ Registration success shows "Check your email" screen (not automatic login)
+- ✅ `/verification-pending` page displays: email sent to {email}, resend button
+- ✅ `/verify-email?token={token}` page validates token via mutation
+- ✅ Successful verification redirects to login with success message
+- ✅ Failed verification shows error with resend option
+- ✅ Unverified login attempts redirect to verification pending screen
+
+**AC7: Database Schema**
+- ✅ `users` table has `emailVerified BOOLEAN DEFAULT false`
+- ✅ `users` table has `emailVerifiedAt TIMESTAMP NULL`
+- ✅ `email_verification_tokens` table created with columns:
+  - `id` (UUID primary key)
+  - `userId` (UUID foreign key → users.id, ON DELETE CASCADE)
+  - `tokenHash` (VARCHAR(64) unique, indexed)
+  - `expiresAt` (TIMESTAMP)
+  - `createdAt` (TIMESTAMP)
+  - `usedAt` (TIMESTAMP NULL)
+  </acceptanceCriteria>
+
+  <artifacts>
+    <docs>
+      <doc path="docs/sprint-change-proposal-2025-11-08.md" title="Sprint Change Proposal: Email Verification & Email-Bound Invites" section="Section 2: Impact Analysis">
+        Defines the complete security gap, impact analysis, database schema additions (email_verification_tokens table with tokenHash, expiresAt, usedAt fields), GraphQL schema updates (verifyEmail, resendVerificationEmail mutations), environment variables (BREVO_API_KEY, EMAIL_FROM, EMAIL_VERIFICATION_URL), rate limiting (5 resends per 15 minutes), and implementation timeline.
+      </doc>
+      <doc path="docs/BREVO_SETUP.md" title="Brevo Email Service Setup Guide" section="Complete Guide">
+        Comprehensive guide for Brevo integration including API key generation, environment variable configuration, email template creation, troubleshooting, security best practices, and production deployment notes. Story 1.6 dependency provides EmailService infrastructure.
+      </doc>
+      <doc path="docs/stories/1-6-brevo-integration.md" title="Story 1.6: Brevo Email Service Integration" section="Complete Story (Status: done)">
+        COMPLETED story providing EmailService with sendVerificationEmail(), sendWelcomeEmail(), and sendInviteNotification() methods. All 25 unit tests passing. Production-ready email infrastructure available for use.
+      </doc>
+      <doc path="docs/tech-spec-epic-1.md" title="Tech Spec: Epic 1 - User Onboarding & Authentication" section="API Contracts & Security">
+        Legacy Supabase architecture reference (now NestJS+GraphQL+MySQL). Useful for: password hashing with bcrypt (10 rounds), session management patterns, rate limiting strategies, input validation with Zod, error handling patterns, and security considerations (OWASP compliance).
+      </doc>
+    </docs>
+    <code>
+      <artifact path="apps/backend/prisma/schema.prisma" kind="schema" symbol="User" lines="23-54" reason="Current User model - needs emailVerified and emailVerifiedAt fields added per AC7">
+        User model currently has: id, email, name, role, passwordHash, activeFamilyId. Missing email verification fields that must be added.
+      </artifact>
+      <artifact path="apps/backend/src/email/email.service.ts" kind="service" symbol="EmailService" lines="1-465" reason="Story 1.6 EmailService provides sendVerificationEmail(email, token) method required for AC2">
+        EmailService.sendVerificationEmail(email, token) builds verification URL using EMAIL_VERIFICATION_URL env var, sends professional HTML/plain-text email via Brevo, handles errors gracefully (fire-and-forget pattern), includes email format validation.
+      </artifact>
+      <artifact path="apps/backend/src/auth/auth.service.ts" kind="service" symbol="AuthService" lines="complete" reason="Existing auth service that must be updated for Tasks 2, 3, 4, 5 - handles register(), login(), joinFamily()">
+        Current implementation creates accounts with immediate JWT access. Must update register() and joinFamily() to create unverified accounts (AC1), add verifyEmail() method (AC3), add resendVerificationEmail() method (AC4), update login() to check emailVerified (AC5).
+      </artifact>
+      <artifact path="apps/backend/src/auth/auth.resolver.ts" kind="resolver" symbol="AuthResolver" lines="complete" reason="GraphQL resolver that needs new mutations: verifyEmail, resendVerificationEmail (AC3, AC4)">
+        Current resolver has login, register, joinFamily mutations. Must add verifyEmail(token: String!): AuthResponse! and resendVerificationEmail(email: String!): GenericResponse! mutations.
+      </artifact>
+    </code>
+    <dependencies>
+      <node>
+        <package>@getbrevo/brevo</package>
+        <version>3.0.1</version>
+        <reason>Email service SDK (Story 1.6 dependency - already installed)</reason>
+      </node>
+      <node>
+        <package>@nestjs/graphql</package>
+        <version>11.x</version>
+        <reason>GraphQL schema and resolver framework</reason>
+      </node>
+      <node>
+        <package>@prisma/client</package>
+        <version>current</version>
+        <reason>Database ORM for EmailVerificationToken model and User updates</reason>
+      </node>
+      <node>
+        <package>bcrypt</package>
+        <version>current</version>
+        <reason>Password hashing (already used in auth service)</reason>
+      </node>
+    </dependencies>
+  </artifacts>
+
+  <constraints>
+    <constraint>Token generation must use crypto.randomBytes(16) for 128-bit cryptographic randomness (OWASP-compliant)</constraint>
+    <constraint>Store SHA-256 hash in database, never plain token (security best practice)</constraint>
+    <constraint>24-hour token expiration enforced at database query level with WHERE expiresAt > NOW()</constraint>
+    <constraint>Single-use enforcement via usedAt timestamp column</constraint>
+    <constraint>Rate limiting: 5 resend attempts per 15 minutes per email address</constraint>
+    <constraint>Return generic success for non-existent emails to prevent email enumeration attacks</constraint>
+    <constraint>Email service uses fire-and-forget pattern: log errors, don't throw (from Story 1.6)</constraint>
+    <constraint>GraphQL schema changes must be reflected in apps/backend/src/schema.gql</constraint>
+    <constraint>All database changes require Prisma migration: pnpm prisma migrate dev --name add_email_verification</constraint>
+    <constraint>Frontend uses Next.js 15 + React 19 - must use 'use client' directive for interactive components</constraint>
+    <constraint>Environment variable EMAIL_VERIFICATION_URL must be configured (default: http://localhost:3002/verify-email)</constraint>
+  </constraints>
+  <interfaces>
+    <interface name="GraphQL Mutation: verifyEmail" kind="GraphQL" path="apps/backend/src/schema.gql">
+      <signature>verifyEmail(token: String!): AuthResponse!</signature>
+      <description>Validates email verification token, marks user verified, returns JWT access token</description>
+    </interface>
+    <interface name="GraphQL Mutation: resendVerificationEmail" kind="GraphQL" path="apps/backend/src/schema.gql">
+      <signature>resendVerificationEmail(email: String!): GenericResponse!</signature>
+      <description>Rate-limited resend of verification email (5 per 15 min), generic response to prevent enumeration</description>
+    </interface>
+    <interface name="EmailService.sendVerificationEmail" kind="TypeScript method" path="apps/backend/src/email/email.service.ts:72-110">
+      <signature>async sendVerificationEmail(email: string, token: string): Promise&lt;void&gt;</signature>
+      <description>Sends verification email with link containing token, 24-hour expiration notice, professional template</description>
+    </interface>
+    <interface name="Prisma User Model (updated)" kind="Database model" path="apps/backend/prisma/schema.prisma">
+      <signature>
+        model User {
+          emailVerified Boolean @default(false)
+          emailVerifiedAt DateTime?
+          // ... existing fields
+        }
+      </signature>
+      <description>User model with email verification fields added</description>
+    </interface>
+    <interface name="Prisma EmailVerificationToken Model" kind="Database model" path="apps/backend/prisma/schema.prisma">
+      <signature>
+        model EmailVerificationToken {
+          id String @id @default(uuid())
+          userId String
+          tokenHash String @unique // SHA-256 hash
+          expiresAt DateTime
+          createdAt DateTime @default(now())
+          usedAt DateTime?
+          user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+        }
+      </signature>
+      <description>Verification token storage with foreign key to users table</description>
+    </interface>
+  </interfaces>
+  <tests>
+    <standards>
+      NestJS backend uses Jest for unit and integration tests. Frontend uses Playwright for E2E tests. Test files located in apps/backend/src/**/*.spec.ts for unit tests, apps/backend/test/**/*.e2e-spec.ts for integration tests, and tests/e2e/**/*.spec.ts for E2E tests. Minimum 90% coverage for new services. All tests must pass before marking story complete.
+    </standards>
+    <locations>
+      <location>apps/backend/src/auth/auth.service.spec.ts</location>
+      <location>apps/backend/test/auth-verification.e2e-spec.ts</location>
+      <location>tests/e2e/email-verification.spec.ts</location>
+    </locations>
+    <ideas>
+      <test-idea ac="AC1">Unit test: generateVerificationToken() produces 22-character base64 string (128-bit)</test-idea>
+      <test-idea ac="AC1">Unit test: hashToken() produces consistent SHA-256 hash for same input</test-idea>
+      <test-idea ac="AC1">Integration test: register() creates user with emailVerified=false and stores hashed token</test-idea>
+      <test-idea ac="AC2">Integration test: sendVerificationEmail() called within 30 seconds of registration</test-idea>
+      <test-idea ac="AC3">Unit test: verifyEmail() validates token existence, expiration, and usage</test-idea>
+      <test-idea ac="AC3">Integration test: verifyEmail() marks user verified and returns JWT</test-idea>
+      <test-idea ac="AC3">Integration test: Expired token (>24h) returns error</test-idea>
+      <test-idea ac="AC3">Integration test: Already-used token returns error</test-idea>
+      <test-idea ac="AC4">Integration test: resendVerificationEmail() rate limiting blocks after 5 attempts</test-idea>
+      <test-idea ac="AC4">Integration test: resendVerificationEmail() returns generic success for non-existent email</test-idea>
+      <test-idea ac="AC5">Integration test: Unverified user blocked from protected GraphQL queries</test-idea>
+      <test-idea ac="AC5">Integration test: Login with unverified account returns requiresEmailVerification=true</test-idea>
+      <test-idea ac="AC6">E2E test: Register → see "check email" screen → verify via link → login success</test-idea>
+      <test-idea ac="AC6">E2E test: Register → try login before verify → redirected to verification pending</test-idea>
+    </ideas>
+  </tests>
+</story-context>
