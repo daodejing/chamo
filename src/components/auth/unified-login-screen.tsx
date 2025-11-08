@@ -181,7 +181,7 @@ export function UnifiedLoginScreen({
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background p-4">
+    <div className="min-h-screen flex items-center justify-center bg-background p-4" data-testid="auth-screen-container">
       <Card className="w-full max-w-md shadow-xl rounded-[20px]">
         <CardHeader className="text-center space-y-4">
           <div className="flex justify-center">
@@ -190,8 +190,8 @@ export function UnifiedLoginScreen({
             </div>
           </div>
           <div>
-            <CardTitle>{t('login.title', language)}</CardTitle>
-            <CardDescription>{getTitle()}</CardDescription>
+            <CardTitle data-testid="auth-screen-title">{t('login.title', language)}</CardTitle>
+              <CardDescription data-testid="auth-screen-mode">{getTitle()}</CardDescription>
           </div>
         </CardHeader>
         <CardContent>

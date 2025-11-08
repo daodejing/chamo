@@ -255,11 +255,12 @@ function AuthProviderInner({ children }: { children: React.ReactNode}) {
   // Login function
   const login = async (input: { email: string; password: string }): Promise<PendingVerificationResult | null> => {
     try {
-      const { data } = await loginMutation({
+      const result = await loginMutation({
         variables: { input },
+        errorPolicy: 'all',
       });
 
-      const payload = data?.login;
+      const payload = result.data?.login;
       if (payload) {
         setAuthToken(payload.accessToken);
         const activeFamilyPayload = payload.family ?? payload.user?.activeFamily ?? null;
@@ -272,6 +273,16 @@ function AuthProviderInner({ children }: { children: React.ReactNode}) {
 
         setUser(normalizedUser);
         setFamily(activeFamily);
+        return null;
+      }
+
+      const pendingFromResult = getPendingVerificationFromErrors(result.errors ?? [], input.email);
+      if (pendingFromResult) {
+        return pendingFromResult;
+      }
+
+      if (result.errors?.length) {
+        throw result.errors[0];
       }
 
       return null;
@@ -465,23 +476,72 @@ function extractPendingVerification(
   error: unknown,
   fallbackEmail: string,
 ): PendingVerificationResult | null {
-  if (!(error instanceof ApolloError)) {
-    return null;
+  const graphQlErrors = getGraphQlErrors(error);
+  return getPendingVerificationFromErrors(graphQlErrors, fallbackEmail);
+}
+
+type GraphQlErrorLike = {
+  extensions?: {
+    response?: {
+      requiresEmailVerification?: boolean;
+      email?: string;
+    };
+  };
+};
+
+function getGraphQlErrors(error: unknown): GraphQlErrorLike[] {
+  if (error instanceof ApolloError) {
+    return error.graphQLErrors;
   }
 
-  for (const graphQlError of error.graphQLErrors) {
-    const response = graphQlError.extensions?.response as
-      | {
-          requiresEmailVerification?: boolean;
-          email?: string;
-        }
-      | undefined;
+  const maybeErrors = (error as { graphQLErrors?: unknown })?.graphQLErrors;
+  if (Array.isArray(maybeErrors)) {
+    return maybeErrors as GraphQlErrorLike[];
+  }
+
+  return [];
+}
+
+function getPendingVerificationFromErrors(
+  errors: GraphQlErrorLike[],
+  fallbackEmail: string,
+): PendingVerificationResult | null {
+  for (const graphQlError of errors) {
+    const extensions = graphQlError.extensions ?? {};
+    const response =
+      (extensions.response as { requiresEmailVerification?: boolean; email?: string } | undefined) ??
+      (extensions.originalError as { requiresEmailVerification?: boolean; email?: string } | undefined) ??
+      (extensions.exception as { requiresEmailVerification?: boolean; email?: string } | undefined);
 
     if (response?.requiresEmailVerification) {
       return {
         email: response.email ?? fallbackEmail,
         requiresVerification: true,
       };
+    }
+
+    const directExtensions = extensions as
+      | {
+          requiresEmailVerification?: boolean;
+          email?: string;
+        }
+      | undefined;
+
+    if (directExtensions?.requiresEmailVerification) {
+      return {
+        email: directExtensions.email ?? fallbackEmail,
+        requiresVerification: true,
+      };
+    }
+
+    if (typeof graphQlError === 'object' && graphQlError && 'message' in graphQlError) {
+      const message = (graphQlError as { message?: string }).message ?? '';
+      if (message.toLowerCase().includes('email not verified')) {
+        return {
+          email: fallbackEmail,
+          requiresVerification: true,
+        };
+      }
     }
   }
 

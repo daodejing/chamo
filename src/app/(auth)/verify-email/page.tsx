@@ -2,17 +2,21 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { useMutation, gql } from '@apollo/client/react';
+import { gql } from '@apollo/client';
+import { useMutation } from '@apollo/client/react';
 import { initializeFamilyKey } from '@/lib/e2ee/key-management';
 import { clearPendingFamilySecrets, getPendingFamilySecrets } from '@/lib/contexts/auth-context';
 
 const VERIFY_EMAIL = gql`
   mutation VerifyEmail($token: String!) {
     verifyEmail(token: $token) {
+      accessToken
+      refreshToken
       user {
         id
         email
         name
+        emailVerified
       }
       family {
         id
@@ -42,9 +46,11 @@ export default function VerifyEmailPage() {
 
     const verify = async () => {
       try {
+        console.log('[VERIFY] Starting verification with token:', token);
         const { data } = await verifyMutation({
           variables: { token },
         });
+        console.log('[VERIFY] Mutation response:', JSON.stringify(data, null, 2));
 
         if (data?.verifyEmail) {
           const familyId = data.verifyEmail.family?.id ?? null;
@@ -62,19 +68,21 @@ export default function VerifyEmailPage() {
           }
           clearPendingFamilySecrets();
 
+          console.log('[VERIFY] Setting success and scheduling redirect');
           setSuccess(true);
           if (!redirectScheduledRef.current) {
             redirectScheduledRef.current = true;
+            const redirectUrl = `/login?verified=success&email=${encodeURIComponent(data.verifyEmail.user.email)}`;
+            console.log('[VERIFY] Will redirect to:', redirectUrl);
             setTimeout(() => {
-              router.replace(
-                `/login?verified=success&email=${encodeURIComponent(data.verifyEmail.user.email)}`,
-              );
+              console.log('[VERIFY] Redirecting now to:', redirectUrl);
+              router.replace(redirectUrl);
             }, 2500);
           }
         }
       } catch (err: unknown) {
         const error = err as Error;
-        console.error('Verification error:', error);
+        console.error('[VERIFY] Verification error:', error);
         if (error.message?.includes('already been used')) {
           setError('This verification link has already been used. Please log in.');
         } else if (error.message?.includes('expired')) {
