@@ -1,16 +1,16 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { MessageCircle, Fingerprint, Copy, X } from 'lucide-react';
+import { MessageCircle, Fingerprint } from 'lucide-react';
 import { toast } from 'sonner';
 import { t } from '@/lib/translations';
 import { useLanguage } from '@/lib/contexts/language-context';
 import { useAuth } from '@/lib/contexts/auth-context';
-import QRCode from 'react-qr-code';
 
 type AuthMode = 'login' | 'create' | 'join';
 
@@ -27,6 +27,7 @@ export function UnifiedLoginScreen({
 }: UnifiedLoginScreenProps) {
   const { language } = useLanguage();
   const { login, register: registerUser, joinFamily } = useAuth();
+  const router = useRouter();
 
   // Form state
   const [authMode, setAuthMode] = useState<AuthMode>(initialMode ?? 'login');
@@ -75,125 +76,38 @@ export function UnifiedLoginScreen({
       if (authMode === 'login') {
         await login({ email, password });
         toast.success(t('toast.loginSuccess', language));
+        onSuccess();
       } else if (authMode === 'create') {
-        const family = await registerUser({
+        const result = await registerUser({
           email,
           password,
           name: userName,
           familyName,
         });
-          // Display invite code in toast for sharing (AC3 from Story 1.1)
-        if (family?.inviteCode) {
-          // Display full invite code (FAMILY-XXXXXXXX:BASE64KEY) for sharing
-          // Members need both parts: code for backend, key for decryption
-          // Persist until user explicitly closes it (critical information)
-          const inviteCode = family.inviteCode;
-          const origin =
-            typeof window !== 'undefined' ? window.location.origin : '';
-          const shareLink = origin
-            ? `${origin}/join#code=${encodeURIComponent(inviteCode)}`
-            : '';
 
-          // Create dismiss callback that will be populated with toast ID
-          const dismissToast = { current: () => {} };
-
-          const toastContent = (
-            <div className="flex flex-col gap-2">
-              <div className="flex items-start justify-between gap-2">
-                <div className="font-semibold">
-                  Family Created! Share this invite code:
-                </div>
-                <Button
-                  type="button"
-                  size="icon"
-                  variant="ghost"
-                  onClick={() => dismissToast.current()}
-                  className="h-7 w-7 text-muted-foreground hover:text-foreground shrink-0"
-                >
-                  <X className="h-4 w-4" />
-                </Button>
-              </div>
-              <div className="flex items-center gap-2">
-                <code className="flex-1 bg-muted px-3 py-2 rounded text-sm font-mono select-text">
-                  {inviteCode}
-                </code>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={async () => {
-                    await navigator.clipboard.writeText(inviteCode);
-                    toast.success('Copied to clipboard!', { duration: 2000 });
-                  }}
-                  className="shrink-0"
-                >
-                  <Copy className="w-4 h-4" />
-                </Button>
-                </div>
-              <div className="text-xs text-muted-foreground">
-                This code contains the family ID and encryption key. Keep it safe!
-              </div>
-              <div className="mt-2 flex flex-col items-center gap-2 rounded-lg border border-dashed border-muted-foreground/40 bg-muted/40 p-3">
-                <span className="text-xs font-medium text-muted-foreground">
-                  Prefer scanning? Show this QR code.
-                </span>
-                <div className="rounded-md bg-background p-3 shadow-sm">
-                  <QRCode
-                    value={shareLink || inviteCode}
-                    size={168}
-                    style={{ height: '168px', width: '168px' }}
-                    viewBox="0 0 256 256"
-                  />
-                </div>
-                <span className="text-[11px] text-muted-foreground">
-                  Invitees can open their camera or QR scanner and paste the code automatically.
-                </span>
-              </div>
-              {shareLink && (
-                <div className="flex items-center gap-2">
-                  <code className="flex-1 bg-muted px-3 py-2 rounded text-xs font-mono break-all">
-                    {shareLink}
-                  </code>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={async () => {
-                      await navigator.clipboard.writeText(shareLink);
-                      toast.success('Invite link copied!', { duration: 2000 });
-                    }}
-                    className="shrink-0"
-                  >
-                    <Copy className="w-4 h-4" />
-                  </Button>
-                </div>
-              )}
-            </div>
-          );
-
-          // Show toast and capture ID for manual dismissal
-          const toastId = toast.success(toastContent, {
-            duration: Infinity,
-            className: 'invite-code-toast',
-          });
-
-          // Set dismiss callback now that we have the toast ID
-          dismissToast.current = () => toast.dismiss(toastId);
-        } else {
-          toast.success(t('toast.familyCreated', language), { duration: Infinity });
+        if (result?.requiresVerification) {
+          // Redirect to verification pending page
+          router.push(`/verification-pending?email=${encodeURIComponent(result.email)}`);
+          return; // Don't call onSuccess(), user needs to verify email first
         }
       } else if (authMode === 'join') {
-        await joinFamily({
+        const result = await joinFamily({
           email,
           password,
           name: userName,
           inviteCode,
         });
-        toast.success(t('toast.joinSuccess', language));
-      }
 
-      onSuccess();
-    } catch (error: any) {
-      console.error('Auth error:', error);
-      toast.error(error.message || t('toast.authFailed', language));
+        if (result?.requiresVerification) {
+          // Redirect to verification pending page
+          router.push(`/verification-pending?email=${encodeURIComponent(result.email)}`);
+          return; // Don't call onSuccess(), user needs to verify email first
+        }
+      }
+    } catch (error: unknown) {
+      const err = error as Error;
+      console.error('Auth error:', err);
+      toast.error(err.message || t('toast.authFailed', language));
     } finally {
       setIsSubmitting(false);
     }
@@ -213,7 +127,7 @@ export function UnifiedLoginScreen({
       // In a real app, this would use Web Authentication API
       // For now, just show success
       onSuccess();
-    } catch (error) {
+    } catch {
       toast.error(t('toast.authFailed', language), { id: 'biometric-auth' });
     } finally {
       setIsAuthenticating(false);

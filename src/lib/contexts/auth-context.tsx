@@ -73,14 +73,14 @@ interface AuthContextType {
     password: string;
     name: string;
     familyName: string;
-  }) => Promise<Family | null>;
+  }) => Promise<{ email: string; requiresVerification: boolean } | null>;
   login: (input: { email: string; password: string }) => Promise<void>;
   joinFamily: (input: {
     email: string;
     password: string;
     name: string;
     inviteCode: string;
-  }) => Promise<void>;
+  }) => Promise<{ email: string; requiresVerification: boolean } | null>;
   joinFamilyExisting: (inviteCodeWithKey: string, options?: { makeActive?: boolean }) => Promise<void>;
   switchActiveFamily: (familyId: string) => Promise<void>;
   logout: () => Promise<void>;
@@ -201,15 +201,15 @@ function AuthProviderInner({ children }: { children: React.ReactNode}) {
     SwitchActiveFamilyMutationVariables
   >(SWITCH_ACTIVE_FAMILY_MUTATION);
 
-  // Register function
+  // Register function - now returns email for verification redirect
   const register = async (input: {
     email: string;
     password: string;
     name: string;
     familyName: string;
-  }) => {
+  }): Promise<{ email: string; requiresVerification: boolean } | null> => {
     // Generate family encryption key client-side (E2EE)
-    const { familyKey, base64Key } = await generateFamilyKey();
+    const { base64Key } = await generateFamilyKey();
 
     // Generate invite code client-side
     const inviteCode = generateInviteCode();
@@ -226,49 +226,16 @@ function AuthProviderInner({ children }: { children: React.ReactNode}) {
 
     const payload = data?.register;
     if (payload) {
-      setAuthToken(payload.accessToken);
-      const familyData = payload.family;
-      if (!familyData?.id) {
-        throw new Error('Family identifier missing after registration.');
-      }
+      // New flow: registration returns EmailVerificationResponse
+      // User must verify email before logging in
+      // Store the family key temporarily in sessionStorage for after verification
+      sessionStorage.setItem('pending_family_key', base64Key);
+      sessionStorage.setItem('pending_family_invite', inviteCode);
 
-      // Store family key in IndexedDB for E2EE operations
-      await initializeFamilyKey(base64Key, familyData.id);
-
-      // Combine invite code with key for display to user
-      const fullInviteCode = createInviteCodeWithKey(familyData.inviteCode, base64Key);
-
-      const familyWithFullCode: Family = {
-        ...toFamily(familyData),
-        inviteCode: fullInviteCode,
+      return {
+        email: input.email,
+        requiresVerification: payload.requiresEmailVerification,
       };
-
-      const membershipsWithInvite = (payload.user?.memberships ?? []).map((membership) =>
-        membership.familyId === familyWithFullCode.id
-          ? {
-              ...membership,
-              family: {
-                ...membership.family,
-                inviteCode: fullInviteCode,
-              },
-            }
-          : membership,
-      );
-
-      const normalizedUser = normalizeUserPayload({
-        ...payload.user,
-        activeFamily: familyWithFullCode,
-        activeFamilyId: familyWithFullCode.id,
-        memberships: membershipsWithInvite,
-      });
-
-      if (!normalizedUser) {
-        throw new Error('Failed to normalize user after registration.');
-      }
-
-      setUser(normalizedUser);
-      setFamily(familyWithFullCode);
-      return familyWithFullCode;
     }
 
     return null;
@@ -302,7 +269,7 @@ function AuthProviderInner({ children }: { children: React.ReactNode}) {
     password: string;
     name: string;
     inviteCode: string; // Format: FAMILY-XXXXXXXX:BASE64KEY
-  }) => {
+  }): Promise<{ email: string; requiresVerification: boolean } | null> => {
     // Parse invite code to extract code and family encryption key (E2EE)
     const { code, base64Key } = parseInviteCode(input.inviteCode);
 
@@ -320,41 +287,19 @@ function AuthProviderInner({ children }: { children: React.ReactNode}) {
 
     const payload = data?.joinFamily;
     if (payload) {
-      setAuthToken(payload.accessToken);
-      const familyData = payload.family;
-      if (!familyData?.id) {
-        throw new Error('Family identifier missing after join.');
-      }
+      // New flow: join family returns EmailVerificationResponse
+      // User must verify email before logging in
+      // Store the family key temporarily in sessionStorage for after verification
+      sessionStorage.setItem('pending_family_key', base64Key);
+      sessionStorage.setItem('pending_family_invite', code);
 
-      await initializeFamilyKey(base64Key, familyData.id);
-
-      const familyWithFullCode: Family = {
-        ...toFamily(familyData),
-        inviteCode: input.inviteCode,
+      return {
+        email: input.email,
+        requiresVerification: payload.requiresEmailVerification,
       };
-
-      const membershipsWithInvite = (payload.user?.memberships ?? []).map((membership) =>
-        membership.familyId === familyWithFullCode.id
-          ? {
-              ...membership,
-              family: {
-                ...membership.family,
-                inviteCode: input.inviteCode,
-              },
-            }
-          : membership,
-      );
-
-      const normalizedUser = normalizeUserPayload({
-        ...payload.user,
-        activeFamily: familyWithFullCode,
-        activeFamilyId: familyWithFullCode.id,
-        memberships: membershipsWithInvite,
-      });
-
-      setUser(normalizedUser);
-      setFamily(familyWithFullCode);
     }
+
+    return null;
   };
 
   const joinFamilyExisting = async (
