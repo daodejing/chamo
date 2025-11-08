@@ -240,7 +240,7 @@ function AuthProviderInner({ children }: { children: React.ReactNode}) {
     if (payload) {
       // New flow: registration returns EmailVerificationResponse
       // User must verify email before logging in
-      // Store the family key temporarily in sessionStorage for after verification
+      // Store the family key temporarily in localStorage for after verification
       persistPendingFamilySecrets(base64Key, inviteCode);
 
       return {
@@ -261,20 +261,23 @@ function AuthProviderInner({ children }: { children: React.ReactNode}) {
       });
 
       const payload = result.data?.login;
-      if (payload) {
-        setAuthToken(payload.accessToken);
-        const activeFamilyPayload = payload.family ?? payload.user?.activeFamily ?? null;
-        const activeFamily = activeFamilyPayload ? toFamily(activeFamilyPayload) : null;
-        const normalizedUser = normalizeUserPayload({
-          ...payload.user,
-          activeFamily,
-          activeFamilyId: activeFamily?.id ?? null,
-        });
+    if (payload) {
+      setAuthToken(payload.accessToken);
+      const activeFamilyPayload = payload.family ?? payload.user?.activeFamily ?? null;
+      const activeFamily = activeFamilyPayload ? toFamily(activeFamilyPayload) : null;
+      const normalizedUser = normalizeUserPayload({
+        ...payload.user,
+        activeFamily,
+        activeFamilyId: activeFamily?.id ?? null,
+      });
 
-        setUser(normalizedUser);
-        setFamily(activeFamily);
-        return null;
-      }
+      setUser(normalizedUser);
+      setFamily(activeFamily);
+
+      await maybeHydratePendingFamilyKey(activeFamily?.id ?? payload.user?.activeFamilyId ?? null);
+
+      return null;
+    }
 
       const pendingFromResult = getPendingVerificationFromErrors(result.errors ?? [], input.email);
       if (pendingFromResult) {
@@ -321,7 +324,7 @@ function AuthProviderInner({ children }: { children: React.ReactNode}) {
     if (payload) {
       // New flow: join family returns EmailVerificationResponse
       // User must verify email before logging in
-      // Store the family key temporarily in sessionStorage for after verification
+      // Store the family key temporarily in localStorage for after verification
       persistPendingFamilySecrets(base64Key, code);
 
       return {
@@ -442,8 +445,8 @@ function persistPendingFamilySecrets(base64Key: string, inviteCode: string) {
     return;
   }
 
-  sessionStorage.setItem(PENDING_FAMILY_KEY_STORAGE_KEY, base64Key);
-  sessionStorage.setItem(PENDING_FAMILY_INVITE_STORAGE_KEY, inviteCode);
+  window.localStorage.setItem(PENDING_FAMILY_KEY_STORAGE_KEY, base64Key);
+  window.localStorage.setItem(PENDING_FAMILY_INVITE_STORAGE_KEY, inviteCode);
 }
 
 export function getPendingFamilySecrets(): PendingFamilySecrets | null {
@@ -451,12 +454,12 @@ export function getPendingFamilySecrets(): PendingFamilySecrets | null {
     return null;
   }
 
-  const base64Key = sessionStorage.getItem(PENDING_FAMILY_KEY_STORAGE_KEY);
+  const base64Key = window.localStorage.getItem(PENDING_FAMILY_KEY_STORAGE_KEY);
   if (!base64Key) {
     return null;
   }
 
-  const inviteCode = sessionStorage.getItem(PENDING_FAMILY_INVITE_STORAGE_KEY);
+  const inviteCode = window.localStorage.getItem(PENDING_FAMILY_INVITE_STORAGE_KEY);
   return {
     base64Key,
     inviteCode,
@@ -468,8 +471,8 @@ export function clearPendingFamilySecrets() {
     return;
   }
 
-  sessionStorage.removeItem(PENDING_FAMILY_KEY_STORAGE_KEY);
-  sessionStorage.removeItem(PENDING_FAMILY_INVITE_STORAGE_KEY);
+  window.localStorage.removeItem(PENDING_FAMILY_KEY_STORAGE_KEY);
+  window.localStorage.removeItem(PENDING_FAMILY_INVITE_STORAGE_KEY);
 }
 
 function extractPendingVerification(
@@ -546,4 +549,22 @@ function getPendingVerificationFromErrors(
   }
 
   return null;
+}
+
+async function maybeHydratePendingFamilyKey(familyId: string | null | undefined) {
+  if (!familyId) {
+    return;
+  }
+  const pendingSecrets = getPendingFamilySecrets();
+  if (!pendingSecrets?.base64Key) {
+    return;
+  }
+
+  try {
+    await initializeFamilyKey(pendingSecrets.base64Key, familyId);
+  } catch (error) {
+    console.error('Failed to initialize pending family key after login', error);
+  } finally {
+    clearPendingFamilySecrets();
+  }
 }

@@ -66,7 +66,6 @@ export default function VerifyEmailPage() {
           if (pendingSecrets?.inviteCode) {
             setInviteCode(pendingSecrets.inviteCode);
           }
-          clearPendingFamilySecrets();
 
           console.log('[VERIFY] Setting success and scheduling redirect');
           setSuccess(true);

@@ -75,8 +75,8 @@ test.describe('Email verification UX', () => {
   test('persists pending family keys on verification and redirects back to login', async ({ page }) => {
     await page.addInitScript(
       ([key, invite]) => {
-        sessionStorage.setItem('pending_family_key', key);
-        sessionStorage.setItem('pending_family_invite', invite);
+        localStorage.setItem('pending_family_key', key);
+        localStorage.setItem('pending_family_invite', invite);
       },
       [
         'MTIzNDU2Nzg5MDEyMzQ1Njc4OTAxMjM0NTY3ODkwMTI=',
@@ -101,7 +101,7 @@ test.describe('Email verification UX', () => {
 
     await expect(page).toHaveURL(/login\?verified=success/, { timeout: 10000 });
 
-    const pendingKey = await page.evaluate(() => sessionStorage.getItem('pending_family_key'));
+    const pendingKey = await page.evaluate(() => localStorage.getItem('pending_family_key'));
     expect(pendingKey).toBeNull();
   });
 });
