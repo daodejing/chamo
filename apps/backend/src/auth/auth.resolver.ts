@@ -14,7 +14,7 @@ import { JoinFamilyExistingInput } from './dto/join-family-existing.input';
 import { SwitchFamilyInput } from './dto/switch-family.input';
 import { LoginInput } from './dto/login.input';
 import { UpdateUserPreferencesInput } from './dto/update-user-preferences.input';
-import { AuthResponse, UserType } from './types/auth-response.type';
+import { AuthResponse, UserType, EmailVerificationResponse, GenericResponse } from './types/auth-response.type';
 import { FamilyType } from './types/family.type';
 import { FamilyMembershipType } from './types/family-membership.type';
 import { UserPreferencesType } from './types/user-preferences.type';
@@ -30,8 +30,8 @@ export class AuthResolver {
     private prisma: PrismaService,
   ) {}
 
-  @Mutation(() => AuthResponse)
-  async register(@Args('input') input: RegisterInput): Promise<AuthResponse> {
+  @Mutation(() => EmailVerificationResponse)
+  async register(@Args('input') input: RegisterInput): Promise<EmailVerificationResponse> {
     return this.authService.register(
       input.email,
       input.password,
@@ -41,16 +41,26 @@ export class AuthResolver {
     );
   }
 
-  @Mutation(() => AuthResponse)
+  @Mutation(() => EmailVerificationResponse)
   async joinFamily(
     @Args('input') input: JoinFamilyInput,
-  ): Promise<AuthResponse> {
+  ): Promise<EmailVerificationResponse> {
     return this.authService.joinFamily(
       input.email,
       input.password,
       input.name,
       input.inviteCode,
     );
+  }
+
+  @Mutation(() => AuthResponse)
+  async verifyEmail(@Args('token') token: string): Promise<AuthResponse> {
+    return this.authService.verifyEmail(token);
+  }
+
+  @Mutation(() => GenericResponse)
+  async resendVerificationEmail(@Args('email') email: string): Promise<GenericResponse> {
+    return this.authService.resendVerificationEmail(email);
   }
 
   @Mutation(() => FamilyType)

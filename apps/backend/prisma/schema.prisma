@@ -27,6 +27,8 @@ model User {
   avatar                  String?
   role                    Role                @default(MEMBER)
   passwordHash            String
+  emailVerified           Boolean             @default(false)
+  emailVerifiedAt         DateTime?
   joinedAt                DateTime            @default(now())
   lastSeenAt              DateTime?
   publicKey               String              @db.Text // E2EE public key (future)
@@ -36,14 +38,15 @@ model User {
   activeFamilyId          String?
   activeFamily            Family?             @relation("ActiveFamily", fields: [activeFamilyId], references: [id], onDelete: SetNull)
 
-  memberships      FamilyMembership[]
-  messages         Message[]
-  scheduledMessages ScheduledMessage[]
-  photos           Photo[]
-  photoComments    PhotoComment[]
-  calendarEvents   CalendarEvent[]
-  createdChannels  Channel[]
-  createdFolders   PhotoFolder[]
+  memberships            FamilyMembership[]
+  messages               Message[]
+  scheduledMessages      ScheduledMessage[]
+  photos                 Photo[]
+  photoComments          PhotoComment[]
+  calendarEvents         CalendarEvent[]
+  createdChannels        Channel[]
+  createdFolders         PhotoFolder[]
+  emailVerificationTokens EmailVerificationToken[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -234,4 +237,18 @@ model CalendarEvent {
   @@index([familyId])
   @@index([date])
   @@map("calendar_events")
+}
+
+model EmailVerificationToken {
+  id        String    @id @default(uuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String    @unique @db.VarChar(64) // SHA-256 hash
+  expiresAt DateTime
+  createdAt DateTime  @default(now())
+  usedAt    DateTime?
+
+  @@index([tokenHash])
+  @@index([userId])
+  @@map("email_verification_tokens")
 }

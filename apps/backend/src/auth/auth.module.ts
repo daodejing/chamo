@@ -5,6 +5,7 @@ import { AuthService } from './auth.service';
 import { AuthResolver } from './auth.resolver';
 import { JwtStrategy } from './jwt.strategy';
 import { PrismaService } from '../prisma/prisma.service';
+import { EmailModule } from '../email/email.module';
 
 @Module({
   imports: [
@@ -14,6 +15,7 @@ import { PrismaService } from '../prisma/prisma.service';
         process.env.JWT_SECRET ||
         'dev-jwt-secret-change-in-production-use-openssl-rand-base64-32',
     }),
+    EmailModule,
   ],
   providers: [AuthService, AuthResolver, JwtStrategy, PrismaService],
   exports: [AuthService, JwtStrategy, PassportModule],

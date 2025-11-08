@@ -21,6 +21,9 @@ export class UserType {
   @Field()
   role: string;
 
+  @Field(() => Boolean)
+  emailVerified: boolean;
+
   @Field(() => ID, { nullable: true })
   activeFamilyId?: string;
 
@@ -47,4 +50,22 @@ export class AuthResponse {
 
   @Field()
   refreshToken: string;
+}
+
+@ObjectType()
+export class EmailVerificationResponse {
+  @Field()
+  message: string;
+
+  @Field()
+  requiresEmailVerification: boolean;
+}
+
+@ObjectType()
+export class GenericResponse {
+  @Field()
+  success: boolean;
+
+  @Field()
+  message: string;
 }

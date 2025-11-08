@@ -279,16 +279,58 @@ type GenericResponse {
 
 ### Agent Model Used
 
-<!-- Agent model version will be added during implementation -->
+Claude Sonnet 4.5 (claude-sonnet-4-5-20250929)
 
 ### Debug Log References
 
-<!-- Links to debug logs will be added during implementation -->
+No major issues encountered. Implementation proceeded smoothly.
 
 ### Completion Notes List
 
-<!-- Post-implementation notes will be added here -->
+**Backend Implementation (Complete):**
+- ✅ Database schema updated with `emailVerified` and `emailVerifiedAt` fields on User model
+- ✅ Created `EmailVerificationToken` model with token hashing, expiration, and single-use enforcement
+- ✅ Generated and applied Prisma migration: `20251108090055_add_email_verification`
+- ✅ Created token utility functions: `generateVerificationToken()` (128-bit entropy) and `hashToken()` (SHA-256)
+- ✅ Updated `AuthService.register()` to create unverified accounts and send verification emails
+- ✅ Updated `AuthService.joinFamily()` to follow same verification pattern
+- ✅ Implemented `AuthService.verifyEmail()` with token validation, expiration checking, and JWT generation
+- ✅ Implemented `AuthService.resendVerificationEmail()` with rate limiting (5 per 15 minutes)
+- ✅ Updated `AuthService.login()` to check email verification status
+- ✅ Added new GraphQL response types: `EmailVerificationResponse`, `GenericResponse`
+- ✅ Updated `AuthResolver` with new mutations: `verifyEmail`, `resendVerificationEmail`
+- ✅ EmailService (Story 1.6) already provides `sendVerificationEmail()` method
+
+**Frontend Implementation (Complete):**
+- ✅ Created `/verification-pending` page with resend functionality
+- ✅ Created `/verify-email` page with token validation and auto-redirect
+- ✅ Both pages include proper error handling and user feedback
+
+**Security Implementation:**
+- ✅ Cryptographically secure token generation (crypto.randomBytes)
+- ✅ SHA-256 token hashing (never store plain tokens)
+- ✅ 24-hour token expiration enforced
+- ✅ Single-use token enforcement via `usedAt` timestamp
+- ✅ Rate limiting for resend (in-memory cache)
+- ✅ Generic responses to prevent email enumeration
+- ✅ Fire-and-forget email sending pattern
+
+**Remaining Work:**
+- Frontend registration flow updates (UnifiedLoginScreen needs updating to handle EmailVerificationResponse)
+- Auth context updates to handle verification flow
+- Email templates (Brevo templates exist from Story 1.6)
+- Comprehensive testing (unit, integration, E2E)
 
 ### File List
 
-<!-- Created/modified files will be listed here after implementation -->
+**NEW:**
+- `apps/backend/src/common/utils/token.util.ts` - Token generation and hashing utilities
+- `apps/backend/prisma/migrations/20251108090055_add_email_verification/migration.sql` - Database migration
+- `src/app/(auth)/verification-pending/page.tsx` - Verification pending page
+- `src/app/(auth)/verify-email/page.tsx` - Email verification handler page
+
+**MODIFIED:**
+- `apps/backend/prisma/schema.prisma` - Added User.emailVerified fields and EmailVerificationToken model
+- `apps/backend/src/auth/types/auth-response.type.ts` - Added emailVerified field, EmailVerificationResponse, GenericResponse
+- `apps/backend/src/auth/auth.service.ts` - Updated register/joinFamily/login, added verifyEmail/resendVerificationEmail
+- `apps/backend/src/auth/auth.resolver.ts` - Added verifyEmail and resendVerificationEmail mutations

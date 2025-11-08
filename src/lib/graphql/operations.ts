@@ -13,45 +13,8 @@ import { gql } from '@apollo/client';
 export const REGISTER_MUTATION = gql`
   mutation Register($input: RegisterInput!) {
     register(input: $input) {
-      accessToken
-      refreshToken
-      user {
-        id
-        email
-        name
-        avatar
-        role
-        activeFamilyId
-        activeFamily {
-          id
-          name
-          avatar
-          inviteCode
-          maxMembers
-        }
-        memberships {
-          id
-          role
-          familyId
-          family {
-            id
-            name
-            avatar
-            inviteCode
-            maxMembers
-          }
-        }
-        preferences {
-          preferredLanguage
-        }
-      }
-      family {
-        id
-        name
-        avatar
-        inviteCode
-        maxMembers
-      }
+      message
+      requiresEmailVerification
     }
   }
 `;
@@ -105,45 +68,8 @@ export const LOGIN_MUTATION = gql`
 export const JOIN_FAMILY_MUTATION = gql`
   mutation JoinFamily($input: JoinFamilyInput!) {
     joinFamily(input: $input) {
-      accessToken
-      refreshToken
-      user {
-        id
-        email
-        name
-        avatar
-        role
-        activeFamilyId
-        activeFamily {
-          id
-          name
-          avatar
-          inviteCode
-          maxMembers
-        }
-        memberships {
-          id
-          role
-          familyId
-          family {
-            id
-            name
-            avatar
-            inviteCode
-            maxMembers
-          }
-        }
-        preferences {
-          preferredLanguage
-        }
-      }
-      family {
-        id
-        name
-        avatar
-        inviteCode
-        maxMembers
-      }
+      message
+      requiresEmailVerification
     }
   }
 `;
@@ -243,6 +169,62 @@ export const SWITCH_ACTIVE_FAMILY_MUTATION = gql`
       preferences {
         preferredLanguage
       }
+    }
+  }
+`;
+
+export const VERIFY_EMAIL_MUTATION = gql`
+  mutation VerifyEmail($token: String!) {
+    verifyEmail(token: $token) {
+      accessToken
+      refreshToken
+      user {
+        id
+        email
+        name
+        avatar
+        role
+        emailVerified
+        activeFamilyId
+        activeFamily {
+          id
+          name
+          avatar
+          inviteCode
+          maxMembers
+        }
+        memberships {
+          id
+          role
+          familyId
+          family {
+            id
+            name
+            avatar
+            inviteCode
+            maxMembers
+          }
+        }
+        preferences {
+          preferredLanguage
+        }
+      }
+      family {
+        id
+        name
+        avatar
+        inviteCode
+        maxMembers
+      }
+    }
+  }
+`;
+
+export const RESEND_VERIFICATION_EMAIL_MUTATION = gql`
+  mutation ResendVerificationEmail($email: String!) {
+    resendVerificationEmail(email: $email) {
+      success
+      message
     }
   }
 `;

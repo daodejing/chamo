@@ -49,6 +49,11 @@ input EditMessageInput {
   messageId: ID!
 }
 
+type EmailVerificationResponse {
+  message: String!
+  requiresEmailVerification: Boolean!
+}
+
 type FamilyMembershipType {
   family: FamilyType!
   familyId: String!
@@ -63,6 +68,11 @@ type FamilyType {
   inviteCode: String!
   maxMembers: Float!
   name: String!
+}
+
+type GenericResponse {
+  message: String!
+  success: Boolean!
 }
 
 input GetMessagesInput {
@@ -118,11 +128,12 @@ type Mutation {
   cacheMessageTranslation(input: CacheMessageTranslationInput!): MessageTranslationType!
   deleteMessage(input: DeleteMessageInput!): DeleteMessageResponse!
   editMessage(input: EditMessageInput!): MessageWithUserType!
-  joinFamily(input: JoinFamilyInput!): AuthResponse!
+  joinFamily(input: JoinFamilyInput!): EmailVerificationResponse!
   joinFamilyAsMember(input: JoinFamilyExistingInput!): FamilyType!
   login(input: LoginInput!): AuthResponse!
   logout: Boolean!
-  register(input: RegisterInput!): AuthResponse!
+  register(input: RegisterInput!): EmailVerificationResponse!
+  resendVerificationEmail(email: String!): GenericResponse!
   sendMessage(input: SendMessageInput!): MessageWithUserType!
 
   """Send a test invite notification email (for development/testing only)"""
@@ -135,6 +146,7 @@ type Mutation {
   sendTestWelcomeEmail(email: String!, userName: String! = "Test User"): Boolean!
   switchActiveFamily(input: SwitchFamilyInput!): UserType!
   updateUserPreferences(input: UpdateUserPreferencesInput!): UserType!
+  verifyEmail(token: String!): AuthResponse!
 }
 
 type Query {
@@ -181,6 +193,7 @@ type UserType {
   activeFamilyId: ID
   avatar: String
   email: String!
+  emailVerified: Boolean!
   family: FamilyType
   id: ID!
   memberships: [FamilyMembershipType!]!

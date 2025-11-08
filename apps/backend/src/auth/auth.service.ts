@@ -3,14 +3,17 @@ import {
   UnauthorizedException,
   ConflictException,
   ForbiddenException,
+  BadRequestException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../prisma/prisma.service';
 import { Prisma, Role } from '@prisma/client';
-import type { AuthResponse, UserType } from './types/auth-response.type';
+import type { AuthResponse, UserType, EmailVerificationResponse, GenericResponse } from './types/auth-response.type';
 import type { FamilyType } from './types/family.type';
 import type { FamilyMembershipType } from './types/family-membership.type';
+import { EmailService } from '../email/email.service';
+import { generateVerificationToken, hashToken } from '../common/utils/token.util';
 
 type FamilySummary = {
   id: string;
@@ -22,9 +25,13 @@ type FamilySummary = {
 
 @Injectable()
 export class AuthService {
+  // In-memory rate limiting cache for email verification resends
+  private resendAttempts = new Map<string, { count: number; resetAt: number }>();
+
   constructor(
     private prisma: PrismaService,
     private jwtService: JwtService,
+    private emailService: EmailService,
   ) {}
 
   private readonly userInclude = {
@@ -114,6 +121,7 @@ export class AuthService {
       name: user.name,
       avatar: user.avatar ?? null,
       role: user.role,
+      emailVerified: user.emailVerified,
       activeFamilyId: user.activeFamilyId ?? null,
       activeFamily: user.activeFamily
         ? this.toFamilyType(user.activeFamily)
@@ -165,7 +173,7 @@ export class AuthService {
     name: string,
     familyName: string,
     inviteCode: string, // Client-generated invite code
-  ): Promise<AuthResponse> {
+  ): Promise<EmailVerificationResponse> {
     const existingUser = await this.prisma.user.findUnique({
       where: { email },
     });
@@ -177,7 +185,12 @@ export class AuthService {
     const passwordHash = await bcrypt.hash(password, 10);
     const publicKey = 'placeholder-public-key';
 
-    const { user, family } = await this.prisma.$transaction(async (tx) => {
+    // Generate verification token
+    const token = generateVerificationToken();
+    const tokenHash = hashToken(token);
+    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+
+    const { user } = await this.prisma.$transaction(async (tx) => {
       const createdFamily = await tx.family.create({
         data: {
           name: familyName,
@@ -194,6 +207,7 @@ export class AuthService {
           role: Role.ADMIN,
           publicKey,
           activeFamilyId: createdFamily.id,
+          emailVerified: false, // User starts unverified
         },
       });
 
@@ -221,26 +235,25 @@ export class AuthService {
         },
       });
 
-      return { user: createdUser, family: createdFamily };
+      // Store hashed verification token
+      await tx.emailVerificationToken.create({
+        data: {
+          userId: createdUser.id,
+          tokenHash,
+          expiresAt,
+        },
+      });
+
+      return { user: createdUser };
     });
 
-    const [userWithRelations, familyWithMeta] = await Promise.all([
-      this.requireUserWithMemberships(user.id),
-      this.requireFamilyWithMeta(family.id),
-    ]);
+    // Send verification email (fire and forget)
+    await this.emailService.sendVerificationEmail(email, token);
 
-    const accessToken = this.generateAccessToken(
-      userWithRelations.id,
-      userWithRelations.activeFamilyId,
-    );
-    const refreshToken = this.generateRefreshToken(userWithRelations.id);
-
-    return this.toAuthResponse({
-      user: userWithRelations,
-      family: familyWithMeta,
-      accessToken,
-      refreshToken,
-    });
+    return {
+      message: 'Registration successful. Please check your email to verify your account.',
+      requiresEmailVerification: true,
+    };
   }
 
   async joinFamily(
@@ -248,7 +261,7 @@ export class AuthService {
     password: string,
     name: string,
     inviteCode: string,
-  ): Promise<AuthResponse> {
+  ): Promise<EmailVerificationResponse> {
     const existingUser = await this.prisma.user.findUnique({
       where: { email },
     });
@@ -273,6 +286,11 @@ export class AuthService {
     const passwordHash = await bcrypt.hash(password, 10);
     const publicKey = 'placeholder-public-key';
 
+    // Generate verification token
+    const token = generateVerificationToken();
+    const tokenHash = hashToken(token);
+    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+
     const { user } = await this.prisma.$transaction(async (tx) => {
       const createdUser = await tx.user.create({
         data: {
@@ -282,6 +300,7 @@ export class AuthService {
           role: Role.MEMBER,
           publicKey,
           activeFamilyId: family.id,
+          emailVerified: false, // User starts unverified
         },
       });
 
@@ -293,26 +312,25 @@ export class AuthService {
         },
       });
 
+      // Store hashed verification token
+      await tx.emailVerificationToken.create({
+        data: {
+          userId: createdUser.id,
+          tokenHash,
+          expiresAt,
+        },
+      });
+
       return { user: createdUser };
     });
 
-    const [userWithRelations, familyWithMeta] = await Promise.all([
-      this.requireUserWithMemberships(user.id),
-      this.requireFamilyWithMeta(family.id),
-    ]);
+    // Send verification email (fire and forget)
+    await this.emailService.sendVerificationEmail(email, token);
 
-    const accessToken = this.generateAccessToken(
-      userWithRelations.id,
-      userWithRelations.activeFamilyId,
-    );
-    const refreshToken = this.generateRefreshToken(userWithRelations.id);
-
-    return this.toAuthResponse({
-      user: userWithRelations,
-      family: familyWithMeta,
-      accessToken,
-      refreshToken,
-    });
+    return {
+      message: 'Registration successful. Please check your email to verify your account.',
+      requiresEmailVerification: true,
+    };
   }
 
   async joinFamilyAsMember(
@@ -416,6 +434,11 @@ export class AuthService {
       throw new UnauthorizedException('Invalid credentials');
     }
 
+    // Check email verification
+    if (!user.emailVerified) {
+      throw new ForbiddenException('Email not verified. Please check your inbox for the verification email.');
+    }
+
     await this.prisma.user.update({
       where: { id: user.id },
       data: { lastSeenAt: new Date() },
@@ -450,6 +473,129 @@ export class AuthService {
   async validateUser(userId: string): Promise<UserType> {
     const user = await this.requireUserWithMemberships(userId);
     return this.toUserType(user);
+  }
+
+  async verifyEmail(token: string): Promise<AuthResponse> {
+    // Hash the provided token to look up in database
+    const tokenHash = hashToken(token);
+
+    // Find token in database
+    const verificationToken = await this.prisma.emailVerificationToken.findUnique({
+      where: { tokenHash },
+      include: { user: true },
+    });
+
+    if (!verificationToken) {
+      throw new BadRequestException('Invalid or expired verification token');
+    }
+
+    // Check if already used
+    if (verificationToken.usedAt) {
+      throw new BadRequestException('This verification token has already been used');
+    }
+
+    // Check if expired
+    if (verificationToken.expiresAt < new Date()) {
+      throw new BadRequestException('This verification token has expired. Please request a new one.');
+    }
+
+    // Mark user as verified and token as used
+    await this.prisma.$transaction(async (tx) => {
+      await tx.user.update({
+        where: { id: verificationToken.userId },
+        data: {
+          emailVerified: true,
+          emailVerifiedAt: new Date(),
+        },
+      });
+
+      await tx.emailVerificationToken.update({
+        where: { id: verificationToken.id },
+        data: { usedAt: new Date() },
+      });
+    });
+
+    // Get user with relations
+    const user = await this.requireUserWithMemberships(verificationToken.userId);
+
+    // Get active family
+    const targetFamilyId = user.activeFamilyId ?? user.memberships[0]?.familyId ?? null;
+
+    if (!targetFamilyId) {
+      throw new ForbiddenException('Active family not set for this user');
+    }
+
+    const family = await this.requireFamilyWithMeta(targetFamilyId);
+
+    // Generate tokens
+    const accessToken = this.generateAccessToken(user.id, user.activeFamilyId);
+    const refreshToken = this.generateRefreshToken(user.id);
+
+    return this.toAuthResponse({
+      user,
+      family,
+      accessToken,
+      refreshToken,
+    });
+  }
+
+  async resendVerificationEmail(email: string): Promise<GenericResponse> {
+    // Check rate limiting
+    const now = Date.now();
+    const attempts = this.resendAttempts.get(email);
+
+    if (attempts) {
+      if (attempts.resetAt > now) {
+        if (attempts.count >= 5) {
+          throw new BadRequestException('Too many resend attempts. Please try again in 15 minutes.');
+        }
+        attempts.count++;
+      } else {
+        // Reset window expired, start fresh
+        this.resendAttempts.set(email, { count: 1, resetAt: now + 15 * 60 * 1000 });
+      }
+    } else {
+      // First attempt
+      this.resendAttempts.set(email, { count: 1, resetAt: now + 15 * 60 * 1000 });
+    }
+
+    // Find user by email (return generic success even if not found to prevent enumeration)
+    const user = await this.prisma.user.findUnique({
+      where: { email },
+    });
+
+    if (user && !user.emailVerified) {
+      // Invalidate old unused tokens
+      await this.prisma.emailVerificationToken.updateMany({
+        where: {
+          userId: user.id,
+          usedAt: null,
+        },
+        data: { usedAt: new Date() }, // Mark as used to invalidate
+      });
+
+      // Generate new token
+      const token = generateVerificationToken();
+      const tokenHash = hashToken(token);
+      const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+
+      await this.prisma.emailVerificationToken.create({
+        data: {
+          userId: user.id,
+          tokenHash,
+          expiresAt,
+        },
+      });
+
+      // Send verification email
+      await this.emailService.sendVerificationEmail(email, token);
+    }
+
+    // Always return success to prevent email enumeration
+    return {
+      success: true,
+      message: 'If an account exists with this email, a verification email has been sent.',
+    };
   }
 
   private generateAccessToken(userId: string, activeFamilyId?: string | null) {
