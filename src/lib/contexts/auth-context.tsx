@@ -28,10 +28,12 @@ import type {
 import {
   generateFamilyKey,
   generateInviteCode,
-  createInviteCodeWithKey,
   parseInviteCode,
   initializeFamilyKey,
 } from '../e2ee/key-management';
+
+const PENDING_FAMILY_KEY_STORAGE_KEY = 'pending_family_key';
+const PENDING_FAMILY_INVITE_STORAGE_KEY = 'pending_family_invite';
 interface User {
   id: string;
   email: string;
@@ -62,6 +64,16 @@ interface FamilyMembership {
   family: Family;
 }
 
+type PendingVerificationResult = {
+  email: string;
+  requiresVerification: true;
+};
+
+interface PendingFamilySecrets {
+  base64Key: string;
+  inviteCode: string | null;
+}
+
 interface AuthContextType {
   user: User | null;
   family: Family | null;
@@ -74,7 +86,7 @@ interface AuthContextType {
     name: string;
     familyName: string;
   }) => Promise<{ email: string; requiresVerification: boolean } | null>;
-  login: (input: { email: string; password: string }) => Promise<void>;
+  login: (input: { email: string; password: string }) => Promise<PendingVerificationResult | null>;
   joinFamily: (input: {
     email: string;
     password: string;
@@ -229,8 +241,7 @@ function AuthProviderInner({ children }: { children: React.ReactNode}) {
       // New flow: registration returns EmailVerificationResponse
       // User must verify email before logging in
       // Store the family key temporarily in sessionStorage for after verification
-      sessionStorage.setItem('pending_family_key', base64Key);
-      sessionStorage.setItem('pending_family_invite', inviteCode);
+      persistPendingFamilySecrets(base64Key, inviteCode);
 
       return {
         email: input.email,
@@ -242,24 +253,34 @@ function AuthProviderInner({ children }: { children: React.ReactNode}) {
   };
 
   // Login function
-  const login = async (input: { email: string; password: string }) => {
-    const { data } = await loginMutation({
-      variables: { input },
-    });
-
-    const payload = data?.login;
-    if (payload) {
-      setAuthToken(payload.accessToken);
-      const activeFamilyPayload = payload.family ?? payload.user?.activeFamily ?? null;
-      const activeFamily = activeFamilyPayload ? toFamily(activeFamilyPayload) : null;
-      const normalizedUser = normalizeUserPayload({
-        ...payload.user,
-        activeFamily,
-        activeFamilyId: activeFamily?.id ?? null,
+  const login = async (input: { email: string; password: string }): Promise<PendingVerificationResult | null> => {
+    try {
+      const { data } = await loginMutation({
+        variables: { input },
       });
 
-      setUser(normalizedUser);
-      setFamily(activeFamily);
+      const payload = data?.login;
+      if (payload) {
+        setAuthToken(payload.accessToken);
+        const activeFamilyPayload = payload.family ?? payload.user?.activeFamily ?? null;
+        const activeFamily = activeFamilyPayload ? toFamily(activeFamilyPayload) : null;
+        const normalizedUser = normalizeUserPayload({
+          ...payload.user,
+          activeFamily,
+          activeFamilyId: activeFamily?.id ?? null,
+        });
+
+        setUser(normalizedUser);
+        setFamily(activeFamily);
+      }
+
+      return null;
+    } catch (error) {
+      const pendingVerification = extractPendingVerification(error, input.email);
+      if (pendingVerification) {
+        return pendingVerification;
+      }
+      throw error;
     }
   };
 
@@ -290,8 +311,7 @@ function AuthProviderInner({ children }: { children: React.ReactNode}) {
       // New flow: join family returns EmailVerificationResponse
       // User must verify email before logging in
       // Store the family key temporarily in sessionStorage for after verification
-      sessionStorage.setItem('pending_family_key', base64Key);
-      sessionStorage.setItem('pending_family_invite', code);
+      persistPendingFamilySecrets(base64Key, code);
 
       return {
         email: input.email,
@@ -404,4 +424,66 @@ export function useAuth() {
     throw new Error('useAuth must be used within AuthProvider');
   }
   return context;
+}
+
+function persistPendingFamilySecrets(base64Key: string, inviteCode: string) {
+  if (typeof window === 'undefined') {
+    return;
+  }
+
+  sessionStorage.setItem(PENDING_FAMILY_KEY_STORAGE_KEY, base64Key);
+  sessionStorage.setItem(PENDING_FAMILY_INVITE_STORAGE_KEY, inviteCode);
+}
+
+export function getPendingFamilySecrets(): PendingFamilySecrets | null {
+  if (typeof window === 'undefined') {
+    return null;
+  }
+
+  const base64Key = sessionStorage.getItem(PENDING_FAMILY_KEY_STORAGE_KEY);
+  if (!base64Key) {
+    return null;
+  }
+
+  const inviteCode = sessionStorage.getItem(PENDING_FAMILY_INVITE_STORAGE_KEY);
+  return {
+    base64Key,
+    inviteCode,
+  };
+}
+
+export function clearPendingFamilySecrets() {
+  if (typeof window === 'undefined') {
+    return;
+  }
+
+  sessionStorage.removeItem(PENDING_FAMILY_KEY_STORAGE_KEY);
+  sessionStorage.removeItem(PENDING_FAMILY_INVITE_STORAGE_KEY);
+}
+
+function extractPendingVerification(
+  error: unknown,
+  fallbackEmail: string,
+): PendingVerificationResult | null {
+  if (!(error instanceof ApolloError)) {
+    return null;
+  }
+
+  for (const graphQlError of error.graphQLErrors) {
+    const response = graphQlError.extensions?.response as
+      | {
+          requiresEmailVerification?: boolean;
+          email?: string;
+        }
+      | undefined;
+
+    if (response?.requiresEmailVerification) {
+      return {
+        email: response.email ?? fallbackEmail,
+        requiresVerification: true,
+      };
+    }
+  }
+
+  return null;
 }
