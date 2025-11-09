@@ -21,6 +21,9 @@ export class UserType {
   @Field()
   role: string;
 
+  @Field()
+  publicKey: string;
+
   @Field(() => Boolean)
   emailVerified: boolean;
 

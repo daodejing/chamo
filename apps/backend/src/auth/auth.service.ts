@@ -5,6 +5,7 @@ import {
   ForbiddenException,
   BadRequestException,
 } from '@nestjs/common';
+import { Buffer } from 'buffer';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../prisma/prisma.service';
@@ -33,6 +34,8 @@ export class AuthService {
     private jwtService: JwtService,
     private emailService: EmailService,
   ) {}
+
+  private readonly publicKeyPattern = /^[A-Za-z0-9+/]+={0,2}$/;
 
   private readonly userInclude = {
     activeFamily: true,
@@ -121,6 +124,7 @@ export class AuthService {
       name: user.name,
       avatar: user.avatar ?? null,
       role: user.role,
+      publicKey: user.publicKey,
       emailVerified: user.emailVerified,
       activeFamilyId: user.activeFamilyId ?? null,
       activeFamily: user.activeFamily
@@ -167,13 +171,44 @@ export class AuthService {
     } as AuthResponse;
   }
 
+  private validatePublicKey(publicKey: string): string {
+    const trimmed = publicKey?.trim();
+    if (!trimmed) {
+      throw new BadRequestException('Public key is required.');
+    }
+
+    if (trimmed.length !== 44 || !this.publicKeyPattern.test(trimmed)) {
+      throw new BadRequestException(
+        'Invalid public key format. Expected 44-character base64 string.',
+      );
+    }
+
+    let decoded: Buffer;
+    try {
+      decoded = Buffer.from(trimmed, 'base64');
+    } catch {
+      throw new BadRequestException('Invalid public key encoding.');
+    }
+
+    if (decoded.length !== 32) {
+      throw new BadRequestException(
+        'Invalid public key length. Expected 32 bytes.',
+      );
+    }
+
+    return trimmed;
+  }
+
   async register(
     email: string,
     password: string,
     name: string,
     familyName: string,
     inviteCode: string, // Client-generated invite code
+    publicKey: string,
   ): Promise<EmailVerificationResponse> {
+    const normalizedPublicKey = this.validatePublicKey(publicKey);
+
     const existingUser = await this.prisma.user.findUnique({
       where: { email },
     });
@@ -183,7 +218,6 @@ export class AuthService {
     }
 
     const passwordHash = await bcrypt.hash(password, 10);
-    const publicKey = 'placeholder-public-key';
 
     // Generate verification token
     const token = generateVerificationToken();
@@ -205,7 +239,7 @@ export class AuthService {
           name,
           passwordHash,
           role: Role.ADMIN,
-          publicKey,
+          publicKey: normalizedPublicKey,
           activeFamilyId: createdFamily.id,
           emailVerified: false, // User starts unverified
         },
@@ -261,7 +295,9 @@ export class AuthService {
     password: string,
     name: string,
     inviteCode: string,
+    publicKey: string,
   ): Promise<EmailVerificationResponse> {
+    const normalizedPublicKey = this.validatePublicKey(publicKey);
     const existingUser = await this.prisma.user.findUnique({
       where: { email },
     });
@@ -284,7 +320,6 @@ export class AuthService {
     }
 
     const passwordHash = await bcrypt.hash(password, 10);
-    const publicKey = 'placeholder-public-key';
 
     // Generate verification token
     const token = generateVerificationToken();
@@ -298,7 +333,7 @@ export class AuthService {
           name,
           passwordHash,
           role: Role.MEMBER,
-          publicKey,
+          publicKey: normalizedPublicKey,
           activeFamilyId: family.id,
           emailVerified: false, // User starts unverified
         },

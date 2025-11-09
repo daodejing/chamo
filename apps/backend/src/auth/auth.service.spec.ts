@@ -1,6 +1,8 @@
 import { Test } from '@nestjs/testing';
+import { BadRequestException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
+import { Buffer } from 'buffer';
 import { AuthService } from './auth.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { EmailService } from '../email/email.service';
@@ -95,6 +97,35 @@ describe('AuthService email verification workflows', () => {
     expect(response).toEqual({
       success: true,
       message: expect.stringContaining('If an account exists'),
+    });
+  });
+
+  describe('public key validation', () => {
+    it('accepts well-formed 32-byte base64 keys and trims whitespace', () => {
+      const raw = Buffer.alloc(32, 7);
+      const base64 = raw.toString('base64');
+      const result = (authService as any).validatePublicKey(`  ${base64}  `);
+      expect(result).toBe(base64);
+    });
+
+    it('rejects values that are not 44 characters long', () => {
+      expect(() => (authService as any).validatePublicKey('abcd')).toThrow(
+        BadRequestException,
+      );
+    });
+
+    it('rejects values that match base64 pattern but decode to wrong length', () => {
+      const invalid = 'A'.repeat(44);
+      expect(() => (authService as any).validatePublicKey(invalid)).toThrow(
+        BadRequestException,
+      );
+    });
+
+    it('rejects characters outside the base64 alphabet', () => {
+      const invalid = '!'.repeat(44);
+      expect(() => (authService as any).validatePublicKey(invalid)).toThrow(
+        BadRequestException,
+      );
     });
   });
 });

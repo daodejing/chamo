@@ -38,6 +38,7 @@ export class AuthResolver {
       input.name,
       input.familyName,
       input.inviteCode,
+      input.publicKey,
     );
   }
 
@@ -50,6 +51,7 @@ export class AuthResolver {
       input.password,
       input.name,
       input.inviteCode,
+      input.publicKey,
     );
   }
 
