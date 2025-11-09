@@ -36,7 +36,6 @@ export function UnifiedLoginScreen({
   const [email, setEmail] = useState(initialEmail ?? '');
   const [password, setPassword] = useState('');
   const [userName, setUserName] = useState('');
-  const [familyName, setFamilyName] = useState('');
   const [inviteCode, setInviteCode] = useState(initialInviteCode ?? '');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isAuthenticating, setIsAuthenticating] = useState(false);
@@ -70,7 +69,7 @@ export function UnifiedLoginScreen({
       return;
     }
 
-    if (authMode === 'create' && (!userName || !familyName)) {
+    if (authMode === 'create' && !userName) {
       toast.error(t('toast.fillAllFields', language));
       return;
     }
@@ -101,7 +100,6 @@ export function UnifiedLoginScreen({
           email,
           password,
           name: userName,
-          familyName,
         });
 
         if (result?.requiresVerification) {
@@ -266,24 +264,6 @@ export function UnifiedLoginScreen({
                 className="rounded-xl"
               />
             </div>
-
-            {/* Family name field - create mode only */}
-            {authMode === 'create' && (
-              <div className="space-y-2">
-                <Label htmlFor="familyName">{t('login.familyName', language)}</Label>
-                <Input
-                  id="familyName"
-                  name="familyName"
-                  type="text"
-                  placeholder={t('login.familyNamePlaceholder', language)}
-                  value={familyName}
-                  onChange={(e) => setFamilyName(e.target.value)}
-                  required
-                  disabled={isSubmitting || isGeneratingKeys}
-                  className="rounded-xl"
-                />
-              </div>
-            )}
 
             {/* Invite code field - join mode only */}
             {authMode === 'join' && (

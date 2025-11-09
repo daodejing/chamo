@@ -10,7 +10,7 @@ import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../prisma/prisma.service';
 import { Prisma, Role } from '@prisma/client';
-import type { AuthResponse, UserType, EmailVerificationResponse, GenericResponse } from './types/auth-response.type';
+import type { AuthResponse, UserType, EmailVerificationResponse, GenericResponse, CreateFamilyResponse } from './types/auth-response.type';
 import type { FamilyType } from './types/family.type';
 import type { FamilyMembershipType } from './types/family-membership.type';
 import { EmailService } from '../email/email.service';
@@ -159,13 +159,13 @@ export class AuthService {
           };
         };
       };
-    }>;
+    }> | null;
     accessToken: string;
     refreshToken: string;
   }): AuthResponse {
     return {
       user: this.toUserType(params.user),
-      family: this.toFamilyType(params.family),
+      family: params.family ? this.toFamilyType(params.family) : null,
       accessToken: params.accessToken,
       refreshToken: params.refreshToken,
     } as AuthResponse;
@@ -203,8 +203,6 @@ export class AuthService {
     email: string,
     password: string,
     name: string,
-    familyName: string,
-    inviteCode: string, // Client-generated invite code
     publicKey: string,
   ): Promise<EmailVerificationResponse> {
     const normalizedPublicKey = this.validatePublicKey(publicKey);
@@ -225,47 +223,15 @@ export class AuthService {
     const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
 
     const { user } = await this.prisma.$transaction(async (tx) => {
-      const createdFamily = await tx.family.create({
-        data: {
-          name: familyName,
-          inviteCode,
-          createdBy: email,
-        },
-      });
-
       const createdUser = await tx.user.create({
         data: {
           email,
           name,
           passwordHash,
-          role: Role.ADMIN,
+          role: Role.MEMBER, // No longer ADMIN by default - will be set when creating family
           publicKey: normalizedPublicKey,
-          activeFamilyId: createdFamily.id,
+          activeFamilyId: null, // No family yet
           emailVerified: false, // User starts unverified
-        },
-      });
-
-      await tx.family.update({
-        where: { id: createdFamily.id },
-        data: { createdBy: createdUser.id },
-      });
-
-      await tx.familyMembership.create({
-        data: {
-          familyId: createdFamily.id,
-          userId: createdUser.id,
-          role: Role.ADMIN,
-        },
-      });
-
-      await tx.channel.create({
-        data: {
-          name: 'General',
-          description: 'Default family channel',
-          icon: '💬',
-          isDefault: true,
-          familyId: createdFamily.id,
-          createdById: createdUser.id,
         },
       });
 
@@ -288,6 +254,82 @@ export class AuthService {
       message: 'Registration successful. Please check your email to verify your account.',
       requiresEmailVerification: true,
       userId: user.id,
+    };
+  }
+
+  async createFamily(
+    userId: string,
+    familyName: string,
+    inviteCode: string,
+  ): Promise<CreateFamilyResponse> {
+    // Verify user exists and is verified
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+    });
+
+    if (!user) {
+      throw new UnauthorizedException('User not found');
+    }
+
+    if (!user.emailVerified) {
+      throw new ForbiddenException('Email must be verified before creating a family');
+    }
+
+    // Check if user already has a family (as creator or member)
+    const existingMembership = await this.prisma.familyMembership.findFirst({
+      where: { userId },
+    });
+
+    if (existingMembership) {
+      throw new ConflictException('User is already a member of a family');
+    }
+
+    const result = await this.prisma.$transaction(async (tx) => {
+      // Create family
+      const createdFamily = await tx.family.create({
+        data: {
+          name: familyName,
+          inviteCode,
+          createdBy: userId,
+        },
+      });
+
+      // Update user to be admin and set active family
+      await tx.user.update({
+        where: { id: userId },
+        data: {
+          role: Role.ADMIN,
+          activeFamilyId: createdFamily.id,
+        },
+      });
+
+      // Create family membership
+      await tx.familyMembership.create({
+        data: {
+          familyId: createdFamily.id,
+          userId,
+          role: Role.ADMIN,
+        },
+      });
+
+      // Create default General channel
+      await tx.channel.create({
+        data: {
+          name: 'General',
+          description: 'Default family channel',
+          icon: '💬',
+          isDefault: true,
+          familyId: createdFamily.id,
+          createdById: userId,
+        },
+      });
+
+      return { family: createdFamily };
+    });
+
+    return {
+      family: this.toFamilyType(result.family as any),
+      inviteCode,
     };
   }
 
@@ -502,14 +544,11 @@ export class AuthService {
     const targetFamilyId =
       user.activeFamilyId ?? user.memberships[0]?.familyId ?? null;
 
-    if (!targetFamilyId) {
-      throw new ForbiddenException('Active family not set for this user');
-    }
-
-    const [userWithRelations, familyWithMeta] = await Promise.all([
-      this.requireUserWithMemberships(user.id),
-      this.requireFamilyWithMeta(targetFamilyId),
-    ]);
+    // Allow login without a family - user can create/join later
+    const userWithRelations = await this.requireUserWithMemberships(user.id);
+    const familyWithMeta = targetFamilyId
+      ? await this.requireFamilyWithMeta(targetFamilyId)
+      : null;
 
     const accessToken = this.generateAccessToken(
       userWithRelations.id,
@@ -573,14 +612,11 @@ export class AuthService {
     // Get user with relations
     const user = await this.requireUserWithMemberships(verificationToken.userId);
 
-    // Get active family
+    // Get active family - may be null if user hasn't created/joined a family yet
     const targetFamilyId = user.activeFamilyId ?? user.memberships[0]?.familyId ?? null;
-
-    if (!targetFamilyId) {
-      throw new ForbiddenException('Active family not set for this user');
-    }
-
-    const family = await this.requireFamilyWithMeta(targetFamilyId);
+    const family = targetFamilyId
+      ? await this.requireFamilyWithMeta(targetFamilyId)
+      : null;
 
     // Generate tokens
     const accessToken = this.generateAccessToken(user.id, user.activeFamilyId);

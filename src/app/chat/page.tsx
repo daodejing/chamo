@@ -214,13 +214,9 @@ export default function ChatPage() {
       }
 
       if (!family?.id) {
-        // Legacy session without family ID - silently clear and redirect
-        console.warn('[ChatPage] Missing family id for logged-in user. Clearing legacy session.');
-        // Clear old session data
-        localStorage.clear();
-        sessionStorage.clear();
-        // Redirect to login without error message
-        router.push('/login');
+        // User doesn't have a family yet - redirect to family setup
+        console.log('[ChatPage] User logged in without family. Redirecting to family setup.');
+        router.push('/family-setup');
         return;
       }
 

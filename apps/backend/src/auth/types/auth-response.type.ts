@@ -45,8 +45,8 @@ export class AuthResponse {
   @Field(() => UserType)
   user: UserType;
 
-  @Field(() => FamilyType)
-  family: FamilyType;
+  @Field(() => FamilyType, { nullable: true })
+  family: FamilyType | null;
 
   @Field()
   accessToken: string;
@@ -74,4 +74,13 @@ export class GenericResponse {
 
   @Field()
   message: string;
+}
+
+@ObjectType()
+export class CreateFamilyResponse {
+  @Field(() => FamilyType)
+  family: FamilyType;
+
+  @Field()
+  inviteCode: string;
 }

@@ -9,12 +9,13 @@ import {
 import { UseGuards } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { RegisterInput } from './dto/register.input';
+import { CreateFamilyInput } from './dto/create-family.input';
 import { JoinFamilyInput } from './dto/join-family.input';
 import { JoinFamilyExistingInput } from './dto/join-family-existing.input';
 import { SwitchFamilyInput } from './dto/switch-family.input';
 import { LoginInput } from './dto/login.input';
 import { UpdateUserPreferencesInput } from './dto/update-user-preferences.input';
-import { AuthResponse, UserType, EmailVerificationResponse, GenericResponse } from './types/auth-response.type';
+import { AuthResponse, UserType, EmailVerificationResponse, GenericResponse, CreateFamilyResponse } from './types/auth-response.type';
 import { FamilyType } from './types/family.type';
 import { FamilyMembershipType } from './types/family-membership.type';
 import { UserPreferencesType } from './types/user-preferences.type';
@@ -36,9 +37,20 @@ export class AuthResolver {
       input.email,
       input.password,
       input.name,
-      input.familyName,
-      input.inviteCode,
       input.publicKey,
+    );
+  }
+
+  @Mutation(() => CreateFamilyResponse)
+  @UseGuards(GqlAuthGuard)
+  async createFamily(
+    @CurrentUser() user: User,
+    @Args('input') input: CreateFamilyInput,
+  ): Promise<CreateFamilyResponse> {
+    return this.authService.createFamily(
+      user.id,
+      input.name,
+      input.inviteCode,
     );
   }
 

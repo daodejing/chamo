@@ -4,7 +4,7 @@
 
 type AuthResponse {
   accessToken: String!
-  family: FamilyType!
+  family: FamilyType
   refreshToken: String!
   user: UserType!
 }
@@ -24,6 +24,16 @@ type Channel {
   id: ID!
   isDefault: Boolean!
   name: String!
+}
+
+input CreateFamilyInput {
+  inviteCode: String!
+  name: String!
+}
+
+type CreateFamilyResponse {
+  family: FamilyType!
+  inviteCode: String!
 }
 
 """
@@ -128,6 +138,7 @@ type MessageWithUserType {
 
 type Mutation {
   cacheMessageTranslation(input: CacheMessageTranslationInput!): MessageTranslationType!
+  createFamily(input: CreateFamilyInput!): CreateFamilyResponse!
   deleteMessage(input: DeleteMessageInput!): DeleteMessageResponse!
   editMessage(input: EditMessageInput!): MessageWithUserType!
   joinFamily(input: JoinFamilyInput!): EmailVerificationResponse!
@@ -162,8 +173,6 @@ type Query {
 
 input RegisterInput {
   email: String!
-  familyName: String!
-  inviteCode: String!
   name: String!
   password: String!
   publicKey: String!

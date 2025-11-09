@@ -20,6 +20,21 @@ export const REGISTER_MUTATION = gql`
   }
 `;
 
+export const CREATE_FAMILY_MUTATION = gql`
+  mutation CreateFamily($input: CreateFamilyInput!) {
+    createFamily(input: $input) {
+      family {
+        id
+        name
+        avatar
+        inviteCode
+        maxMembers
+      }
+      inviteCode
+    }
+  }
+`;
+
 export const LOGIN_MUTATION = gql`
   mutation Login($input: LoginInput!) {
     login(input: $input) {

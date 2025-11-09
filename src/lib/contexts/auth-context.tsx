@@ -9,9 +9,12 @@ import {
   JOIN_FAMILY_MUTATION,
   JOIN_FAMILY_EXISTING_MUTATION,
   SWITCH_ACTIVE_FAMILY_MUTATION,
+  CREATE_FAMILY_MUTATION,
   ME_QUERY,
 } from '../graphql/operations';
 import type {
+  CreateFamilyMutation,
+  CreateFamilyMutationVariables,
   JoinFamilyExistingMutation,
   JoinFamilyExistingMutationVariables,
   JoinFamilyMutation,
@@ -25,7 +28,13 @@ import type {
   SwitchActiveFamilyMutation,
   SwitchActiveFamilyMutationVariables,
 } from '../graphql/generated/graphql';
-import { generateFamilyKey, generateInviteCode, parseInviteCode, initializeFamilyKey } from '../e2ee/key-management';
+import {
+  parseInviteCode,
+  initializeFamilyKey,
+  generateFamilyKey,
+  generateInviteCode,
+  createInviteCodeWithKey,
+} from '../e2ee/key-management';
 import { generateKeypair } from '@/lib/crypto/keypair';
 import { storePrivateKey, hasPrivateKey } from '@/lib/crypto/secure-storage';
 import {
@@ -90,8 +99,8 @@ interface AuthContextType {
     email: string;
     password: string;
     name: string;
-    familyName: string;
   }) => Promise<{ email: string; requiresVerification: boolean } | null>;
+  createFamily: (familyName: string) => Promise<{ family: Family; inviteCodeWithKey: string }>;
   login: (input: { email: string; password: string }) => Promise<PendingVerificationResult | null>;
   joinFamily: (input: {
     email: string;
@@ -246,6 +255,7 @@ function AuthProviderInner({ children }: { children: React.ReactNode}) {
 
   // Mutations
   const [registerMutation] = useMutation<RegisterMutation, RegisterMutationVariables>(REGISTER_MUTATION);
+  const [createFamilyMutation] = useMutation<CreateFamilyMutation, CreateFamilyMutationVariables>(CREATE_FAMILY_MUTATION);
   const [loginMutation] = useMutation<LoginMutation, LoginMutationVariables>(LOGIN_MUTATION);
   const [joinFamilyMutation] = useMutation<JoinFamilyMutation, JoinFamilyMutationVariables>(JOIN_FAMILY_MUTATION);
   const [joinFamilyExistingMutation] = useMutation<
@@ -262,21 +272,16 @@ function AuthProviderInner({ children }: { children: React.ReactNode}) {
     email: string;
     password: string;
     name: string;
-    familyName: string;
   }): Promise<{ email: string; requiresVerification: boolean } | null> => {
     const { publicKey, secretKey } = createKeypairOrThrow();
-    // Generate family encryption key client-side (E2EE)
-    const { base64Key } = await generateFamilyKey();
 
-    // Generate invite code client-side
-    const inviteCode = generateInviteCode();
-
-    // Call backend with invite code only (key never sent to backend)
+    // Call backend to create account (no family creation)
     const { data } = await registerMutation({
       variables: {
         input: {
-          ...input,
-          inviteCode, // Send only invite code, not the key
+          email: input.email,
+          password: input.password,
+          name: input.name,
           publicKey,
         },
       },
@@ -285,10 +290,8 @@ function AuthProviderInner({ children }: { children: React.ReactNode}) {
     const payload = data?.register;
     if (payload) {
       await storePrivateKeyOrThrow(payload.userId, secretKey);
-      // New flow: registration returns EmailVerificationResponse
       // User must verify email before logging in
-      // Store the family key temporarily in localStorage for after verification
-      persistPendingFamilySecrets(base64Key, inviteCode);
+      // After verification, user can create or join a family
 
       return {
         email: input.email,
@@ -297,6 +300,52 @@ function AuthProviderInner({ children }: { children: React.ReactNode}) {
     }
 
     return null;
+  };
+
+  // Create family function - authenticated users only
+  const createFamily = async (
+    familyName: string,
+  ): Promise<{ family: Family; inviteCodeWithKey: string }> => {
+    if (!user) {
+      throw new Error('Must be authenticated to create a family');
+    }
+
+    // Generate family encryption key (E2EE)
+    const { base64Key } = await generateFamilyKey();
+
+    // Generate invite code
+    const inviteCode = generateInviteCode();
+
+    // Call backend to create family (key never sent to backend)
+    const { data } = await createFamilyMutation({
+      variables: {
+        input: {
+          name: familyName,
+          inviteCode,
+        },
+      },
+    });
+
+    const payload = data?.createFamily;
+    if (!payload) {
+      throw new Error('Failed to create family');
+    }
+
+    // Store family key locally (E2EE)
+    await initializeFamilyKey(base64Key, payload.family.id);
+
+    // Refresh user to get updated role (ADMIN) and family
+    await refreshUser();
+
+    const createdFamily = toFamily(payload.family);
+    setFamily(createdFamily);
+
+    // Return family and shareable invite code with key
+    const inviteCodeWithKey = createInviteCodeWithKey(inviteCode, base64Key);
+    return {
+      family: createdFamily,
+      inviteCodeWithKey,
+    };
   };
 
   // Login function
@@ -473,6 +522,7 @@ function AuthProviderInner({ children }: { children: React.ReactNode}) {
         lostKeyModalOpen,
         dismissLostKeyModal: handleDismissLostKeyModal,
         register,
+        createFamily,
         login,
         joinFamily,
         joinFamilyExisting,
