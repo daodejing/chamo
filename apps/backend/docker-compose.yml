@@ -19,6 +19,26 @@ services:
     networks:
       - ourchat_network
 
+  postgres-test:
+    image: postgres:16-alpine
+    container_name: ourchat_postgres_test
+    restart: unless-stopped
+    ports:
+      - "5433:5432"
+    environment:
+      POSTGRES_DB: ourchat_test
+      POSTGRES_USER: ourchat_test_user
+      POSTGRES_PASSWORD: ourchat_test_password
+    volumes:
+      - postgres_test_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ourchat_test_user -d ourchat_test"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - ourchat_network
+
   backend:
     build:
       context: .
@@ -50,6 +70,8 @@ services:
 
 volumes:
   postgres_data:
+    driver: local
+  postgres_test_data:
     driver: local
 
 networks:
