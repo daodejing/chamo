@@ -27,11 +27,17 @@ import type {
 } from '../graphql/generated/graphql';
 import { generateFamilyKey, generateInviteCode, parseInviteCode, initializeFamilyKey } from '../e2ee/key-management';
 import { generateKeypair } from '@/lib/crypto/keypair';
-import { storePrivateKey } from '@/lib/crypto/secure-storage';
+import { storePrivateKey, hasPrivateKey } from '@/lib/crypto/secure-storage';
+import {
+  LostKeyModal,
+  hasSeenLostKeyModal,
+  markLostKeyModalShown,
+  clearLostKeyModalFlag,
+} from '@/components/auth/lost-key-modal';
 
 const PENDING_FAMILY_KEY_STORAGE_KEY = 'pending_family_key';
 const PENDING_FAMILY_INVITE_STORAGE_KEY = 'pending_family_invite';
-const ENCRYPTION_KEY_ERROR = 'Failed to secure encryption keys. Please try again.';
+export const ENCRYPTION_KEY_ERROR_CODE = 'toast.encryptionKeyError';
 interface User {
   id: string;
   email: string;
@@ -76,6 +82,8 @@ interface AuthContextType {
   user: User | null;
   family: Family | null;
   loading: boolean;
+  lostKeyModalOpen: boolean;
+  dismissLostKeyModal: () => void;
   refreshUser: () => Promise<void>;
   updateUserPreferences: (preferences: Record<string, unknown> | null) => void;
   register: (input: {
@@ -134,6 +142,7 @@ function AuthProviderInner({ children }: { children: React.ReactNode}) {
   const [family, setFamily] = useState<Family | null>(null);
   const [isClient, setIsClient] = useState(false);
   const [hasCompletedInitialQuery, setHasCompletedInitialQuery] = useState(false);
+  const [lostKeyModalOpen, setLostKeyModalOpen] = useState(false);
 
   // Set isClient to true only on client-side
   useEffect(() => {
@@ -160,6 +169,7 @@ function AuthProviderInner({ children }: { children: React.ReactNode}) {
       setAuthToken(null);
       setUser(null);
       setFamily(null);
+      setLostKeyModalOpen(false);
     }
   };
 
@@ -195,8 +205,44 @@ function AuthProviderInner({ children }: { children: React.ReactNode}) {
     } else {
       setUser(null);
       setFamily(null);
+      setLostKeyModalOpen(false);
     }
   }, [data, error, loading, isClient]);
+
+  useEffect(() => {
+    if (!isClient) return;
+
+    let cancelled = false;
+
+    const check = async () => {
+      if (!user) {
+        clearLostKeyModalFlag();
+        setLostKeyModalOpen(false);
+        return;
+      }
+
+      try {
+        const exists = await hasPrivateKey(user.id);
+        if (cancelled) return;
+        if (!exists) {
+          if (!hasSeenLostKeyModal(user.id)) {
+            setLostKeyModalOpen(true);
+          }
+        } else {
+          clearLostKeyModalFlag(user.id);
+          setLostKeyModalOpen(false);
+        }
+      } catch (err) {
+        console.warn('Failed to evaluate lost key state', err);
+      }
+    };
+
+    check();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [user, isClient]);
 
   // Mutations
   const [registerMutation] = useMutation<RegisterMutation, RegisterMutationVariables>(REGISTER_MUTATION);
@@ -265,20 +311,21 @@ function AuthProviderInner({ children }: { children: React.ReactNode}) {
       if (payload) {
         setAuthToken(payload.accessToken);
         const activeFamilyPayload = payload.family ?? payload.user?.activeFamily ?? null;
-      const activeFamily = activeFamilyPayload ? toFamily(activeFamilyPayload) : null;
-      const normalizedUser = normalizeUserPayload({
-        ...payload.user,
+        const activeFamily = activeFamilyPayload ? toFamily(activeFamilyPayload) : null;
+        const normalizedUser = normalizeUserPayload({
+          ...payload.user,
         activeFamily,
         activeFamilyId: activeFamily?.id ?? null,
       });
 
-      setUser(normalizedUser);
-      setFamily(activeFamily);
+        setUser(normalizedUser);
+        setFamily(activeFamily);
+        setLostKeyModalOpen(false);
 
       await maybeHydratePendingFamilyKey(activeFamily?.id ?? payload.user?.activeFamilyId ?? null);
 
-      return null;
-    }
+        return null;
+      }
 
       const pendingFromResult = getPendingVerificationFromErrors(result.errors ?? [], input.email);
       if (pendingFromResult) {
@@ -401,11 +448,21 @@ function AuthProviderInner({ children }: { children: React.ReactNode}) {
 
     // Clear tokens and auth state
     setAuthToken(null);
+    if (user?.id) {
+      clearLostKeyModalFlag(user.id);
+    }
     setUser(null);
     setFamily(null);
+    setLostKeyModalOpen(false);
     apolloClient.clearStore();
   };
 
+  const handleDismissLostKeyModal = () => {
+    if (user?.id) {
+      markLostKeyModalShown(user.id);
+    }
+    setLostKeyModalOpen(false);
+  };
 
   return (
     <AuthContext.Provider
@@ -413,6 +470,8 @@ function AuthProviderInner({ children }: { children: React.ReactNode}) {
         user,
         family,
         loading: !hasCompletedInitialQuery, // Loading until initial auth check completes
+        lostKeyModalOpen,
+        dismissLostKeyModal: handleDismissLostKeyModal,
         register,
         login,
         joinFamily,
@@ -424,6 +483,7 @@ function AuthProviderInner({ children }: { children: React.ReactNode}) {
       }}
     >
       {children}
+      <LostKeyModal open={lostKeyModalOpen} onContinue={handleDismissLostKeyModal} />
     </AuthContext.Provider>
   );
 }
@@ -449,7 +509,7 @@ function createKeypairOrThrow() {
     return generateKeypair();
   } catch (error) {
     console.error('Failed to generate encryption keys', error);
-    throw new Error(ENCRYPTION_KEY_ERROR);
+    throw translationError(ENCRYPTION_KEY_ERROR_CODE);
   }
 }
 
@@ -458,8 +518,14 @@ async function storePrivateKeyOrThrow(userId: string, secretKey: Uint8Array) {
     await storePrivateKey(userId, secretKey);
   } catch (error) {
     console.error('Failed to store encryption keys', error);
-    throw new Error(ENCRYPTION_KEY_ERROR);
+    throw translationError(ENCRYPTION_KEY_ERROR_CODE);
   }
+}
+
+function translationError(key: string): Error {
+  const err = new Error(key);
+  (err as Error & { translationKey?: string }).translationKey = key;
+  return err;
 }
 
 function persistPendingFamilySecrets(base64Key: string, inviteCode: string) {

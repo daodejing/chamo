@@ -132,15 +132,15 @@ This story implements the foundation of Chamo's per-user asymmetric keypair E2EE
 
 ### Task 7: Lost Key Detection & UI
 
-- [ ] Create `/src/components/auth/LostKeyModal.tsx` component
-- [ ] Modal content:
+- [x] Create `/src/components/auth/LostKeyModal.tsx` component
+- [x] Modal content:
   - Title: "Encryption Keys Not Found"
   - Message: "Your encryption keys are not available on this device. This can happen if you cleared browser data or are using a new device."
   - Warning: "You will not be able to decrypt messages or photos sent before this point."
   - Options:
     - "Continue" button (dismisses modal, allows limited app use)
     - Link to help docs: "Learn about encryption keys"
-- [ ] Add check in app initialization (`/src/app/layout.tsx` or auth context):
+- [x] Add check in app initialization (`/src/app/layout.tsx` or auth context):
   - On user authenticated: Check `hasPrivateKey(userId)`
   - If false: Show `LostKeyModal`
   - Store modal shown flag in localStorage (don't spam on every page load)
@@ -479,6 +479,16 @@ pnpm prisma generate
   2. Mutations now send `publicKey` and hydrate secure storage with the returned `userId` before persisting pending family secrets.
   3. `UnifiedLoginScreen` shows a dedicated key-generation spinner string (`login.generatingKeys`) so the loading state is user-visible.
   4. Translations + GraphQL operation documents updated; lint/test suite (13 files / 131 tests) remains green. E2E coverage still pending per story task list.
+- 2025-11-09 – Task 7 plan:
+  1. Build `LostKeyModal` UI referencing translations + help link.
+  2. Hook AuthContext to check IndexedDB via `hasPrivateKey(userId)` after login/me fetch, gating on localStorage throttling so modal isn’t spammy.
+  3. Provide dismissal helpers + session storage (24h window) and ensure logout clears flags.
+  4. Update repository preferences (AGENTS.md) clarifying the i18n workflow so future copy additions use translations.
+- 2025-11-09 – Task 7 execution:
+  1. Implemented `LostKeyModal` + persistence helpers, wired AuthProvider to render it and expose dismissal handlers.
+  2. Added client-side detection to AuthContext using secure storage `hasPrivateKey` and localStorage gating keyed per-user.
+  3. Added localized copy (`lostKey.*` keys) and surfaced translation-aware error handling for key generation failures.
+  4. Documented the localization requirement in `AGENTS.md`. Help docs + E2E coverage remain TODO.
 
 ### Completion Notes
 
@@ -490,6 +500,7 @@ pnpm prisma generate
 - ✅ **Task 4 progress:** Backend now accepts/stores client public keys with strict validation, GraphQL exposes `publicKey`, Prisma index/migration added, and Jest coverage ensures invalid inputs are rejected. Pending action: run migration against shared test DB once `DATABASE_URL` is configured.
 - ✅ **Task 5 complete:** Added authenticated `getUserPublicKey(email)` query backed by Prisma lookup with unit coverage; schema regenerated and full lint/test suite (13 files / 131 tests) stays green.
 - ✅ **Task 6 in progress:** Frontend registration/join flows now generate keypairs client-side, submit `publicKey`, persist `secretKey` in secure storage, and surface a dedicated loading state. E2E tests for the flow remain outstanding.
+- ✅ **Task 7 in progress:** Lost key detection modal implemented (translations + AuthContext hook) with local persistence; still need help docs + E2E coverage.
 
 ## File List
 
@@ -514,6 +525,8 @@ pnpm prisma generate
 - `src/lib/graphql/operations.ts` – `register`/`joinFamily` mutations request the new `publicKey` and return `userId`.
 - `src/components/auth/unified-login-screen.tsx` – Displays key-generation loading state and disables inputs during cryptographic setup.
 - `src/lib/translations.ts` – Added `login.generatingKeys` string for UX messaging.
+- `src/components/auth/lost-key-modal.tsx` – Lost-key warning dialog with localization + help link.
+- `AGENTS.md` – Documented localization/i18n expectations for future contributors.
 
 ## Change Log
 
@@ -523,3 +536,4 @@ pnpm prisma generate
 - **2025-11-09:** Task 4 backend public key storage implemented (GraphQL DTOs + service validation + Prisma index/migration). Migration execution pending shared DB credentials.
 - **2025-11-09:** Task 5 public key retrieval API implemented (resolver/service/tests) with schema update.
 - **2025-11-09:** Task 6 frontend registration integration underway (client keypair generation, secure storage, loading state) with lint/test verification; E2E coverage pending.
+- **2025-11-09:** Task 7 lost-key detection modal + localization updates shipped; docs/E2E follow-up pending.

@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { MessageCircle, Fingerprint } from 'lucide-react';
 import { toast } from 'sonner';
-import { t } from '@/lib/translations';
+import { t, translations } from '@/lib/translations';
 import { useLanguage } from '@/lib/contexts/language-context';
 import { useAuth } from '@/lib/contexts/auth-context';
 
@@ -124,9 +124,17 @@ export function UnifiedLoginScreen({
         }
       }
     } catch (error: unknown) {
-      const err = error as Error;
+      const err = error as Error & { translationKey?: string };
       console.error('Auth error:', err);
-      toast.error(err.message || t('toast.authFailed', language));
+      const translationKey =
+        err.translationKey ||
+        (typeof err.message === 'string' && err.message.startsWith('toast.')
+          ? err.message
+          : null);
+      const message = translationKey
+        ? t(translationKey as keyof typeof translations['en'], language)
+        : err.message || t('toast.authFailed', language);
+      toast.error(message);
     } finally {
       setIsSubmitting(false);
       if (needsKeyGeneration) {

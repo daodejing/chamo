@@ -9,6 +9,11 @@ Install dependencies with `pnpm install`. `pnpm dev` boots the realtime proxy pl
 ## Coding Style & Naming Conventions
 Prettier 3 and the Next.js ESLint config own formatting, so run `pnpm lint --fix` when unsure. Stick to functional components exporting PascalCase identifiers while file names stay kebab-case (`calendar-view.tsx`). Co-locate hooks or helpers inside `src/lib/<feature>`, group Tailwind classes by layout → spacing → color, and avoid mixing server and client logic in a single module.
 
+### Localization / i18n
+- All user-facing strings must be pulled from `src/lib/translations.ts` via the `t()` helper; never hardcode copy directly in components.
+- When adding a new phrase, add both English (`en`) and Japanese (`ja`) entries and keep the keys short but descriptive (e.g., `lostKey.title`).
+- UI states should display translation keys for toasts/errors instead of raw copy so multi-language behavior stays consistent.
+
 ## Testing Guidelines
 Unit coverage uses Vitest; store files as `<feature>.test.ts` inside `tests/unit/**` and prefer explicit assertions over broad snapshots. Run `pnpm test` locally, `pnpm test -u` when updating snapshots, and `pnpm test:coverage` before major refactors. Playwright flows live in `tests/e2e`; start Docker services and the backend, then execute `pnpm test:e2e` or `pnpm test:e2e --project=chromium` for browser-specific runs.
 

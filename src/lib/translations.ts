@@ -43,6 +43,7 @@ export const translations = {
     "toast.logoutSuccess": "ログアウトしました",
     "toast.authSuccess": "認証成功！",
     "toast.authFailed": "認証に失敗しました",
+    "toast.encryptionKeyError": "暗号鍵の処理に失敗しました。もう一度お試しください。",
     "toast.authenticating": "Face IDで認証中...",
     "toast.fillAllFields": "すべての項目を入力してください",
     "toast.familyCreated": "家族を作成しました！招待コードを共有してください",
@@ -81,6 +82,12 @@ export const translations = {
     "toast.languageChanging": "新しい言語を適用するためにリロードしています",
     "toast.translationLanguageUpdated": "翻訳言語を更新しました",
     "toast.translationLanguageUpdateFailed": "翻訳言語の更新に失敗しました",
+    "lostKey.title": "暗号鍵が見つかりません",
+    "lostKey.message": "このデバイスには暗号鍵が保存されていません。",
+    "lostKey.warning": "過去のメッセージや写真を復号できません。新しいメッセージのみ閲覧できます。",
+    "lostKey.helpText": "ヘルプ記事で詳細と復旧方法をご確認ください。",
+    "lostKey.learnMore": "暗号鍵について学ぶ",
+    "lostKey.continue": "続行",
 
     // Chat Screen
     "chat.members": "メンバー",
@@ -318,6 +325,7 @@ export const translations = {
     "toast.logoutSuccess": "Logged out",
     "toast.authSuccess": "Authentication successful!",
     "toast.authFailed": "Authentication failed",
+    "toast.encryptionKeyError": "We couldn't secure your encryption keys. Please try again.",
     "toast.authenticating": "Authenticating with Face ID...",
     "toast.fillAllFields": "Please fill in all fields",
     "toast.familyCreated": "Family created! Share the invite code",
@@ -356,6 +364,12 @@ export const translations = {
     "toast.languageChanging": "Reloading to apply new language",
     "toast.translationLanguageUpdated": "Translation language updated successfully",
     "toast.translationLanguageUpdateFailed": "Failed to update translation language",
+    "lostKey.title": "Encryption Keys Not Found",
+    "lostKey.message": "We couldn’t locate your encryption keys on this device.",
+    "lostKey.warning": "You won’t be able to decrypt past messages or photos. New ones will still be readable going forward.",
+    "lostKey.helpText": "Review the help article for recovery instructions and best practices.",
+    "lostKey.learnMore": "Learn about encryption keys",
+    "lostKey.continue": "Continue",
 
     // Chat Screen
     "chat.members": "members",
