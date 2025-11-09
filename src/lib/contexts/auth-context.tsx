@@ -10,6 +10,7 @@ import {
   JOIN_FAMILY_EXISTING_MUTATION,
   SWITCH_ACTIVE_FAMILY_MUTATION,
   CREATE_FAMILY_MUTATION,
+  ACCEPT_INVITE_MUTATION,
   ME_QUERY,
 } from '../graphql/operations';
 import type {
@@ -27,6 +28,8 @@ import type {
   RegisterMutationVariables,
   SwitchActiveFamilyMutation,
   SwitchActiveFamilyMutationVariables,
+  AcceptInviteMutation,
+  AcceptInviteMutationVariables,
 } from '../graphql/generated/graphql';
 import {
   parseInviteCode,
@@ -35,6 +38,7 @@ import {
   generateInviteCode,
   createInviteCodeWithKey,
 } from '../e2ee/key-management';
+import { decryptFamilyKey } from '../e2ee/invite-encryption';
 import { generateKeypair } from '@/lib/crypto/keypair';
 import { storePrivateKey, hasPrivateKey } from '@/lib/crypto/secure-storage';
 import {
@@ -109,6 +113,7 @@ interface AuthContextType {
     inviteCode: string;
   }) => Promise<{ email: string; requiresVerification: boolean } | null>;
   joinFamilyExisting: (inviteCodeWithKey: string, options?: { makeActive?: boolean }) => Promise<void>;
+  acceptInvite: (inviteCode: string) => Promise<{ familyId: string; familyName: string }>;
   switchActiveFamily: (familyId: string) => Promise<void>;
   logout: () => Promise<void>;
 }
@@ -262,6 +267,7 @@ function AuthProviderInner({ children }: { children: React.ReactNode}) {
     JoinFamilyExistingMutation,
     JoinFamilyExistingMutationVariables
   >(JOIN_FAMILY_EXISTING_MUTATION);
+  const [acceptInviteMutation] = useMutation<AcceptInviteMutation, AcceptInviteMutationVariables>(ACCEPT_INVITE_MUTATION);
   const [switchFamilyMutation] = useMutation<
     SwitchActiveFamilyMutation,
     SwitchActiveFamilyMutationVariables
@@ -471,6 +477,45 @@ function AuthProviderInner({ children }: { children: React.ReactNode}) {
     }
   };
 
+  const acceptInvite = async (inviteCode: string): Promise<{ familyId: string; familyName: string }> => {
+    if (!user) {
+      throw new Error('Must be authenticated to accept an invite');
+    }
+
+    // Call backend to accept invite and get encrypted family key
+    const { data } = await acceptInviteMutation({
+      variables: {
+        input: {
+          inviteCode,
+        },
+      },
+    });
+
+    const response = data?.acceptInvite;
+    if (!response) {
+      throw new Error('Failed to accept invite');
+    }
+
+    // Decrypt the family key using the inviter's public key and recipient's private key
+    const decryptedFamilyKeyBase64 = await decryptFamilyKey(
+      response.encryptedFamilyKey,
+      response.nonce,
+      response.inviterPublicKey,
+      user.id
+    );
+
+    // Store the decrypted family key in IndexedDB
+    await initializeFamilyKey(decryptedFamilyKeyBase64, response.familyId);
+
+    // Refresh user to get updated family membership
+    await refreshUser();
+
+    return {
+      familyId: response.familyId,
+      familyName: response.familyName,
+    };
+  };
+
   const switchActiveFamily = async (familyId: string) => {
     const { data } = await switchFamilyMutation({
       variables: {
@@ -526,6 +571,7 @@ function AuthProviderInner({ children }: { children: React.ReactNode}) {
         login,
         joinFamily,
         joinFamilyExisting,
+        acceptInvite,
         switchActiveFamily,
         logout,
         refreshUser,

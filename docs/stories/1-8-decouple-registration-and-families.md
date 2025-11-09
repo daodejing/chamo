@@ -60,7 +60,7 @@ To fix this, we will adopt per-user keypairs at registration time, move all fami
 - [x] If NO public key: Show "User not registered" UI, offer "Send Registration Link" option
 - [x] If public key exists: Encrypt family key with invitee's public key
 - [x] Store encrypted invite with inviteeEmail, encryptedFamilyKey, nonce, and inviterId
-- [ ] Implement invite acceptance flow with key decryption
+- [x] Implement invite acceptance flow with key decryption
 
 ### Task 5: Testing & Instrumentation
 - [ ] Unit/integration tests for keypair generation, invite encryption/decryption, and login gating.
@@ -236,6 +236,21 @@ IF NOT registered (no publicKey):
 - Added comprehensive translations (Japanese + English) for invite dialog and toasts
 - All UI components use existing crypto utilities from Story 1.9
 
+**2025-11-09: Task 4 - Implement Invite Acceptance Flow**
+- Updated AcceptInviteResponse to include inviterPublicKey field
+- Modified auth.service.ts acceptInvite to fetch and return inviter's public key
+- Added acceptInvite function to auth context:
+  - Calls acceptInvite mutation
+  - Decrypts family key using decryptFamilyKey utility (inviter's public key + recipient's private key)
+  - Stores decrypted key in IndexedDB via initializeFamilyKey
+  - Refreshes user to update family membership
+- Created accept invite page at /accept-invite with query parameter support (?code=XXX)
+- Page auto-accepts invite on load if user is authenticated
+- Shows success state with family name and redirects to chat
+- Shows error state with retry button
+- Added comprehensive translations (Japanese + English) for accept invite flow
+- Complete E2EE flow: Admin encrypts → Server stores encrypted → Invitee decrypts client-side
+
 ### Completion Notes
 
 *To be filled as tasks complete.*
@@ -245,10 +260,12 @@ IF NOT registered (no publicKey):
 ### Modified Files
 - `apps/backend/prisma/schema.prisma` - Added Invite model and InviteStatus enum
 - `apps/backend/src/auth/auth.resolver.ts` - Added createEncryptedInvite and acceptInvite mutations
-- `apps/backend/src/auth/auth.service.ts` - Implemented invite creation and acceptance logic
+- `apps/backend/src/auth/auth.service.ts` - Implemented invite creation and acceptance logic (includes inviterPublicKey)
+- `apps/backend/src/auth/types/invite.type.ts` - Updated AcceptInviteResponse with inviterPublicKey field
+- `src/lib/contexts/auth-context.tsx` - Added acceptInvite function with client-side key decryption
 - `src/lib/graphql/generated/graphql.ts` - Auto-generated with new Invite types and mutations
 - `src/lib/graphql/operations.ts` - Added CREATE_ENCRYPTED_INVITE_MUTATION and ACCEPT_INVITE_MUTATION
-- `src/lib/translations.ts` - Added invite dialog and toast translations (Japanese + English)
+- `src/lib/translations.ts` - Added invite dialog, accept invite, and toast translations (Japanese + English)
 
 ### New Files
 - `apps/backend/prisma/migrations/20251109122850_add_invites_table/migration.sql` - Database migration for invites table
@@ -257,9 +274,11 @@ IF NOT registered (no publicKey):
 - `apps/backend/src/auth/types/invite.type.ts` - GraphQL types for Invite responses
 - `src/components/family/invite-member-dialog.tsx` - Dialog component for inviting members with encryption
 - `src/app/family/settings/page.tsx` - Family settings page with invite functionality
+- `src/app/(auth)/accept-invite/page.tsx` - Accept invite page with client-side key decryption
 
 ## Change Log
 
 - **2025-11-09**: Added Prisma Invite model with encryption support (Task 4)
 - **2025-11-09**: Implemented createEncryptedInvite and acceptInvite GraphQL mutations (Task 4)
 - **2025-11-09**: Built InviteMemberDialog component and family settings page with full E2EE invite flow (Task 4)
+- **2025-11-09**: Implemented complete invite acceptance flow with client-side key decryption (Task 4) ✅ **TASK 4 COMPLETE**

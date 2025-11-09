@@ -10,6 +10,7 @@ type AcceptInviteResponse {
   encryptedFamilyKey: String!
   familyId: ID!
   familyName: String!
+  inviterPublicKey: String!
   message: String!
   nonce: String!
   success: Boolean!

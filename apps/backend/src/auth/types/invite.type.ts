@@ -77,4 +77,7 @@ export class AcceptInviteResponse {
 
   @Field()
   nonce: string;
+
+  @Field()
+  inviterPublicKey: string;
 }

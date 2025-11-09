@@ -796,6 +796,7 @@ export class AuthService {
       where: { inviteCode },
       include: {
         family: true,
+        inviter: true,
       },
     });
 
@@ -876,6 +877,7 @@ export class AuthService {
       familyName: invite.family.name,
       encryptedFamilyKey: invite.encryptedFamilyKey,
       nonce: invite.nonce,
+      inviterPublicKey: invite.inviter.publicKey,
     };
   }
 }

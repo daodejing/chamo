@@ -181,6 +181,7 @@ export const ACCEPT_INVITE_MUTATION = gql`
       familyName
       encryptedFamilyKey
       nonce
+      inviterPublicKey
     }
   }
 `;
