@@ -11,6 +11,7 @@ import {
   SWITCH_ACTIVE_FAMILY_MUTATION,
   CREATE_FAMILY_MUTATION,
   ACCEPT_INVITE_MUTATION,
+  REPORT_INVITE_DECRYPT_FAILURE_MUTATION,
   ME_QUERY,
 } from '../graphql/operations';
 import type {
@@ -30,6 +31,8 @@ import type {
   SwitchActiveFamilyMutationVariables,
   AcceptInviteMutation,
   AcceptInviteMutationVariables,
+  ReportInviteDecryptFailureMutation,
+  ReportInviteDecryptFailureMutationVariables,
 } from '../graphql/generated/graphql';
 import {
   parseInviteCode,
@@ -47,6 +50,7 @@ import {
   markLostKeyModalShown,
   clearLostKeyModalFlag,
 } from '@/components/auth/lost-key-modal';
+import { getPendingInviteCodeForRegistration } from '@/lib/invite/pending-invite';
 
 const PENDING_FAMILY_KEY_STORAGE_KEY = 'pending_family_key';
 const PENDING_FAMILY_INVITE_STORAGE_KEY = 'pending_family_invite';
@@ -268,6 +272,10 @@ function AuthProviderInner({ children }: { children: React.ReactNode}) {
     JoinFamilyExistingMutationVariables
   >(JOIN_FAMILY_EXISTING_MUTATION);
   const [acceptInviteMutation] = useMutation<AcceptInviteMutation, AcceptInviteMutationVariables>(ACCEPT_INVITE_MUTATION);
+  const [reportInviteDecryptFailure] = useMutation<
+    ReportInviteDecryptFailureMutation,
+    ReportInviteDecryptFailureMutationVariables
+  >(REPORT_INVITE_DECRYPT_FAILURE_MUTATION);
   const [switchFamilyMutation] = useMutation<
     SwitchActiveFamilyMutation,
     SwitchActiveFamilyMutationVariables
@@ -280,6 +288,7 @@ function AuthProviderInner({ children }: { children: React.ReactNode}) {
     name: string;
   }): Promise<{ email: string; requiresVerification: boolean } | null> => {
     const { publicKey, secretKey } = createKeypairOrThrow();
+    const pendingInviteCode = getPendingInviteCodeForRegistration();
 
     // Call backend to create account (no family creation)
     const { data } = await registerMutation({
@@ -289,6 +298,7 @@ function AuthProviderInner({ children }: { children: React.ReactNode}) {
           password: input.password,
           name: input.name,
           publicKey,
+          ...(pendingInviteCode ? { pendingInviteCode } : {}),
         },
       },
     });
@@ -497,12 +507,30 @@ function AuthProviderInner({ children }: { children: React.ReactNode}) {
     }
 
     // Decrypt the family key using the inviter's public key and recipient's private key
-    const decryptedFamilyKeyBase64 = await decryptFamilyKey(
-      response.encryptedFamilyKey,
-      response.nonce,
-      response.inviterPublicKey,
-      user.id
-    );
+    let decryptedFamilyKeyBase64: string;
+    try {
+      decryptedFamilyKeyBase64 = await decryptFamilyKey(
+        response.encryptedFamilyKey,
+        response.nonce,
+        response.inviterPublicKey,
+        user.id
+      );
+    } catch (decryptError) {
+      await reportInviteDecryptFailure({
+        variables: {
+          input: {
+            inviteCode,
+            reason:
+              decryptError instanceof Error
+                ? decryptError.message
+                : 'Unknown invite decrypt failure',
+          },
+        },
+      }).catch((telemetryError) => {
+        console.warn('Failed to report invite decrypt failure', telemetryError);
+      });
+      throw decryptError;
+    }
 
     // Store the decrypted family key in IndexedDB
     await initializeFamilyKey(decryptedFamilyKeyBase64, response.familyId);

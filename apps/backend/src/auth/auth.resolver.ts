@@ -18,6 +18,7 @@ import { UpdateUserPreferencesInput } from './dto/update-user-preferences.input'
 import { CreateEncryptedInviteInput } from './dto/create-encrypted-invite.input';
 import { AcceptInviteInput } from './dto/accept-invite.input';
 import { CreatePendingInviteInput } from './dto/create-pending-invite.input';
+import { ReportInviteDecryptFailureInput } from './dto/report-invite-decrypt-failure.input';
 import { AuthResponse, UserType, EmailVerificationResponse, GenericResponse, CreateFamilyResponse } from './types/auth-response.type';
 import { CreateInviteResponse, AcceptInviteResponse, InviteType } from './types/invite.type';
 import { FamilyType } from './types/family.type';
@@ -42,6 +43,7 @@ export class AuthResolver {
       input.password,
       input.name,
       input.publicKey,
+      input.pendingInviteCode ?? null,
     );
   }
 
@@ -227,5 +229,14 @@ export class AuthResolver {
     @Args('familyId') familyId: string,
   ): Promise<InviteType[]> {
     return this.authService.getPendingInvites(user.id, familyId);
+  }
+
+  @Mutation(() => GenericResponse)
+  @UseGuards(GqlAuthGuard)
+  async reportInviteDecryptFailure(
+    @CurrentUser() user: User,
+    @Args('input') input: ReportInviteDecryptFailureInput,
+  ): Promise<GenericResponse> {
+    return this.authService.recordInviteDecryptFailure(user.id, input.inviteCode, input.reason);
   }
 }

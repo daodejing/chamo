@@ -15,6 +15,7 @@ import type { FamilyType } from './types/family.type';
 import type { FamilyMembershipType } from './types/family-membership.type';
 import { EmailService } from '../email/email.service';
 import { generateVerificationToken, hashToken } from '../common/utils/token.util';
+import { TelemetryService } from '../telemetry/telemetry.service';
 
 type FamilySummary = {
   id: string;
@@ -33,6 +34,7 @@ export class AuthService {
     private prisma: PrismaService,
     private jwtService: JwtService,
     private emailService: EmailService,
+    private readonly telemetry: TelemetryService,
   ) {}
 
   private readonly publicKeyPattern = /^[A-Za-z0-9+/]+={0,2}$/;
@@ -204,8 +206,13 @@ export class AuthService {
     password: string,
     name: string,
     publicKey: string,
+    pendingInviteCode?: string | null,
   ): Promise<EmailVerificationResponse> {
     const normalizedPublicKey = this.validatePublicKey(publicKey);
+    const normalizedPendingInvite =
+      pendingInviteCode && pendingInviteCode.trim().length > 0
+        ? pendingInviteCode.trim()
+        : null;
 
     const existingUser = await this.prisma.user.findUnique({
       where: { email },
@@ -241,6 +248,7 @@ export class AuthService {
           userId: createdUser.id,
           tokenHash,
           expiresAt,
+          pendingInviteCode: normalizedPendingInvite,
         },
       });
 
@@ -529,6 +537,7 @@ export class AuthService {
 
     // Check email verification
     if (!user.emailVerified) {
+      this.telemetry.recordUnverifiedLogin(user.email, 'login');
       throw new ForbiddenException({
         message: 'Email not verified. Please check your inbox.',
         requiresEmailVerification: true,
@@ -593,6 +602,8 @@ export class AuthService {
       throw new BadRequestException('This verification token has expired. Please request a new one.');
     }
 
+    const pendingInviteCode = verificationToken.pendingInviteCode ?? null;
+
     // Mark user as verified and token as used
     await this.prisma.$transaction(async (tx) => {
       await tx.user.update({
@@ -622,12 +633,16 @@ export class AuthService {
     const accessToken = this.generateAccessToken(user.id, user.activeFamilyId);
     const refreshToken = this.generateRefreshToken(user.id);
 
-    return this.toAuthResponse({
+    const response = this.toAuthResponse({
       user,
       family,
       accessToken,
       refreshToken,
     });
+
+    response.pendingInviteCode = pendingInviteCode;
+
+    return response;
   }
 
   async resendVerificationEmail(email: string): Promise<GenericResponse> {
@@ -686,6 +701,18 @@ export class AuthService {
     return {
       success: true,
       message: 'If an account exists with this email, a verification email has been sent.',
+    };
+  }
+
+  async recordInviteDecryptFailure(
+    userId: string,
+    inviteCode: string,
+    reason: string,
+  ): Promise<GenericResponse> {
+    this.telemetry.recordInviteDecryptFailure(userId, inviteCode, reason);
+    return {
+      success: true,
+      message: 'Invite decrypt failure recorded',
     };
   }
 

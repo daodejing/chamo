@@ -24,4 +24,8 @@ export class RegisterInput {
     message: 'publicKey must be base64-encoded (44 chars)',
   })
   publicKey: string;
+
+  @Field({ nullable: true })
+  @IsString()
+  pendingInviteCode?: string | null;
 }

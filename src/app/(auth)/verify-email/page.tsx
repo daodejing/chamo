@@ -6,6 +6,7 @@ import { gql } from '@apollo/client';
 import { useMutation } from '@apollo/client/react';
 import { initializeFamilyKey } from '@/lib/e2ee/key-management';
 import { clearPendingFamilySecrets, getPendingFamilySecrets } from '@/lib/contexts/auth-context';
+import { storePersistentPendingInviteCode } from '@/lib/invite/pending-invite';
 
 const VERIFY_EMAIL = gql`
   mutation VerifyEmail($token: String!) {
@@ -23,6 +24,7 @@ const VERIFY_EMAIL = gql`
         name
         inviteCode
       }
+      pendingInviteCode
     }
   }
 `;
@@ -55,6 +57,7 @@ export default function VerifyEmailPage() {
         if (data?.verifyEmail) {
           const familyId = data.verifyEmail.family?.id ?? null;
           const pendingSecrets = getPendingFamilySecrets();
+          const pendingInviteFromServer = data.verifyEmail.pendingInviteCode ?? null;
 
           if (pendingSecrets?.base64Key && familyId) {
             try {
@@ -63,8 +66,14 @@ export default function VerifyEmailPage() {
               console.error('Failed to persist family key after verification', keyError);
             }
           }
-          if (pendingSecrets?.inviteCode) {
-            setInviteCode(pendingSecrets.inviteCode);
+          if (pendingInviteFromServer) {
+            storePersistentPendingInviteCode(pendingInviteFromServer);
+          } else {
+            storePersistentPendingInviteCode(null);
+          }
+          const inviteToDisplay = pendingSecrets?.inviteCode ?? pendingInviteFromServer ?? null;
+          if (inviteToDisplay) {
+            setInviteCode(inviteToDisplay);
           }
 
           console.log('[VERIFY] Setting success and scheduling redirect');

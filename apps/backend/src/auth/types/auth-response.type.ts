@@ -53,6 +53,9 @@ export class AuthResponse {
 
   @Field()
   refreshToken: string;
+
+  @Field(() => String, { nullable: true })
+  pendingInviteCode?: string | null;
 }
 
 @ObjectType()

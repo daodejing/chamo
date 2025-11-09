@@ -258,6 +258,7 @@ model EmailVerificationToken {
   expiresAt DateTime
   createdAt DateTime  @default(now())
   usedAt    DateTime?
+  pendingInviteCode String?   @db.Text
 
   @@index([tokenHash])
   @@index([userId])

@@ -17,6 +17,7 @@ type AcceptInviteResponse {
 }
 
 type AuthResponse {
+  pendingInviteCode: String
   accessToken: String!
   family: FamilyType
   refreshToken: String!
@@ -208,6 +209,7 @@ type Mutation {
   logout: Boolean!
   register(input: RegisterInput!): EmailVerificationResponse!
   resendVerificationEmail(email: String!): GenericResponse!
+  reportInviteDecryptFailure(input: ReportInviteDecryptFailureInput!): GenericResponse!
   sendMessage(input: SendMessageInput!): MessageWithUserType!
 
   """Send a test invite notification email (for development/testing only)"""
@@ -238,6 +240,12 @@ input RegisterInput {
   name: String!
   password: String!
   publicKey: String!
+  pendingInviteCode: String
+}
+
+input ReportInviteDecryptFailureInput {
+  inviteCode: String!
+  reason: String!
 }
 
 input SendMessageInput {

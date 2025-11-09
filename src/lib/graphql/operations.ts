@@ -205,6 +205,15 @@ export const CREATE_PENDING_INVITE_MUTATION = gql`
   }
 `;
 
+export const REPORT_INVITE_DECRYPT_FAILURE_MUTATION = gql`
+  mutation ReportInviteDecryptFailure($input: ReportInviteDecryptFailureInput!) {
+    reportInviteDecryptFailure(input: $input) {
+      success
+      message
+    }
+  }
+`;
+
 export const GET_PENDING_INVITES_QUERY = gql`
   query GetPendingInvites($familyId: String!) {
     getPendingInvites(familyId: $familyId) {

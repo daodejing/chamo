@@ -6,6 +6,8 @@ import { AuthResolver } from './auth.resolver';
 import { JwtStrategy } from './jwt.strategy';
 import { PrismaService } from '../prisma/prisma.service';
 import { EmailModule } from '../email/email.module';
+import { TelemetryService } from '../telemetry/telemetry.service';
+import { JwtAuthGuard } from './guards/jwt-auth.guard';
 
 @Module({
   imports: [
@@ -17,7 +19,14 @@ import { EmailModule } from '../email/email.module';
     }),
     EmailModule,
   ],
-  providers: [AuthService, AuthResolver, JwtStrategy, PrismaService],
+  providers: [
+    AuthService,
+    AuthResolver,
+    JwtStrategy,
+    PrismaService,
+    TelemetryService,
+    JwtAuthGuard,
+  ],
   exports: [AuthService, JwtStrategy, PassportModule],
 })
 export class AuthModule {}

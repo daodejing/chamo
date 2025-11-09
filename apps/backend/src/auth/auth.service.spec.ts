@@ -6,6 +6,7 @@ import { Buffer } from 'buffer';
 import { AuthService } from './auth.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { EmailService } from '../email/email.service';
+import { TelemetryService } from '../telemetry/telemetry.service';
 
 describe('AuthService email verification workflows', () => {
   let authService: AuthService;
@@ -32,6 +33,10 @@ describe('AuthService email verification workflows', () => {
   const jwtServiceMock: any = {
     sign: jest.fn().mockReturnValue('test-token'),
   };
+  const telemetryMock: any = {
+    recordUnverifiedLogin: jest.fn(),
+    recordInviteDecryptFailure: jest.fn(),
+  };
 
   beforeEach(async () => {
     jest.resetAllMocks();
@@ -42,6 +47,7 @@ describe('AuthService email verification workflows', () => {
         { provide: PrismaService, useValue: prismaMock as PrismaService },
         { provide: EmailService, useValue: emailServiceMock as EmailService },
         { provide: JwtService, useValue: jwtServiceMock as JwtService },
+        { provide: TelemetryService, useValue: telemetryMock as TelemetryService },
       ],
     }).compile();
 
