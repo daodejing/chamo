@@ -43,8 +43,8 @@ development_status:
   1-3-session-persistence: done
   1-4-email-verification: review
   1-6-brevo-integration: done
-  1-9-per-user-keypairs: in-progress  # Foundation for E2EE (Story 1.9)
-  1-8-decouple-registration-and-families: drafted  # Depends on 1.9
+  1-9-per-user-keypairs: done  # Foundation for E2EE (Story 1.9) - All ACs complete, tests passing
+  1-8-decouple-registration-and-families: in-progress  # Depends on 1.9
   1-5-email-bound-invites: drafted  # Depends on 1.8, 1.9
   epic-1-retrospective: optional
 

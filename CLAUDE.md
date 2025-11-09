@@ -1,1 +1,2 @@
 - The backend is in @apps/backend/ and uses docker-compose to restart
+- NEVER hardcode human language strings in UI components. All user-facing text must use the translation system in src/lib/translations.ts

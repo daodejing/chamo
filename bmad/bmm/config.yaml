@@ -19,3 +19,14 @@ output_folder: '{project-root}/docs'
 # Project Branding
 product_name: Chamo
 product_tagline: 'Family communication made simple'
+
+# Project Status & Deployment
+deployment_status: pre-production
+production_users: false
+production_data: false
+# Note: No production code or data exists yet. Safe to make breaking schema changes,
+# wipe test databases, and refactor architecture without migration concerns.
+
+# Development Workflow Configuration
+run_until_complete: false  # Pause for approval between major steps
+run_tests_command: 'pnpm test'  # Command to run test suite
