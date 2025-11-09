@@ -714,4 +714,168 @@ export class AuthService {
       include: this.familyInclude,
     });
   }
+
+  async createEncryptedInvite(
+    inviterId: string,
+    familyId: string,
+    inviteeEmail: string,
+    encryptedFamilyKey: string,
+    nonce: string,
+    inviteCode: string,
+    expiresAt: Date,
+  ) {
+    // Verify inviter is a member of the family
+    const membership = await this.prisma.familyMembership.findUnique({
+      where: {
+        userId_familyId: {
+          userId: inviterId,
+          familyId,
+        },
+      },
+    });
+
+    if (!membership) {
+      throw new ForbiddenException('You must be a family member to create invites');
+    }
+
+    // Verify invitee is not already a member
+    const normalizedEmail = inviteeEmail.trim().toLowerCase();
+    const inviteeUser = await this.prisma.user.findUnique({
+      where: { email: normalizedEmail },
+      include: {
+        memberships: {
+          where: { familyId },
+        },
+      },
+    });
+
+    if (inviteeUser && inviteeUser.memberships.length > 0) {
+      throw new ConflictException('User is already a member of this family');
+    }
+
+    // Check for existing pending invite
+    const existingInvite = await this.prisma.invite.findFirst({
+      where: {
+        familyId,
+        inviteeEmail: normalizedEmail,
+        status: 'PENDING',
+      },
+    });
+
+    if (existingInvite) {
+      throw new ConflictException('A pending invite already exists for this email');
+    }
+
+    // Create the invite
+    const invite = await this.prisma.invite.create({
+      data: {
+        familyId,
+        inviterId,
+        inviteeEmail: normalizedEmail,
+        encryptedFamilyKey,
+        nonce,
+        inviteCode,
+        status: 'PENDING',
+        expiresAt,
+      },
+    });
+
+    return {
+      invite: {
+        ...invite,
+        acceptedAt: invite.acceptedAt ?? undefined,
+      },
+      inviteCode: invite.inviteCode,
+      message: `Invite created successfully for ${inviteeEmail}`,
+    };
+  }
+
+  async acceptInvite(userId: string, inviteCode: string) {
+    // Find the invite
+    const invite = await this.prisma.invite.findUnique({
+      where: { inviteCode },
+      include: {
+        family: true,
+      },
+    });
+
+    if (!invite) {
+      throw new BadRequestException('Invalid invite code');
+    }
+
+    if (invite.status !== 'PENDING') {
+      throw new BadRequestException('This invite has already been used or revoked');
+    }
+
+    if (invite.expiresAt < new Date()) {
+      // Mark as expired
+      await this.prisma.invite.update({
+        where: { id: invite.id },
+        data: { status: 'EXPIRED' },
+      });
+      throw new BadRequestException('This invite has expired');
+    }
+
+    // Verify the user's email matches the invite
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+    });
+
+    if (!user) {
+      throw new UnauthorizedException('User not found');
+    }
+
+    if (user.email !== invite.inviteeEmail) {
+      throw new ForbiddenException('This invite was sent to a different email address');
+    }
+
+    // Check if user is already a member
+    const existingMembership = await this.prisma.familyMembership.findUnique({
+      where: {
+        userId_familyId: {
+          userId,
+          familyId: invite.familyId,
+        },
+      },
+    });
+
+    if (existingMembership) {
+      throw new ConflictException('You are already a member of this family');
+    }
+
+    // Create family membership
+    await this.prisma.familyMembership.create({
+      data: {
+        userId,
+        familyId: invite.familyId,
+        role: Role.MEMBER,
+      },
+    });
+
+    // Update user's active family if they don't have one
+    if (!user.activeFamilyId) {
+      await this.prisma.user.update({
+        where: { id: userId },
+        data: { activeFamilyId: invite.familyId },
+      });
+    }
+
+    // Mark invite as accepted
+    await this.prisma.invite.update({
+      where: { id: invite.id },
+      data: {
+        status: 'ACCEPTED',
+        acceptedAt: new Date(),
+      },
+    });
+
+    return {
+      success: true,
+      message: `Successfully joined ${invite.family.name}`,
+      familyId: invite.familyId,
+      familyName: invite.family.name,
+      encryptedFamilyKey: invite.encryptedFamilyKey,
+      nonce: invite.nonce,
+    };
+  }
 }

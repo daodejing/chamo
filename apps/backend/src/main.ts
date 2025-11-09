@@ -1,6 +1,7 @@
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { AppModule } from './app.module';
+import { buildCorsOptions } from './config/cors.config';
 
 /**
  * Validates required environment variables at startup.
@@ -46,23 +47,7 @@ async function bootstrap() {
     .CORS_ALLOWED_ORIGINS!.split(',')
     .map((origin) => origin.trim());
 
-  app.enableCors({
-    origin: (origin, callback) => {
-      // Allow requests with no origin (like mobile apps or curl requests)
-      if (!origin) return callback(null, true);
-
-      if (allowedOrigins.includes(origin)) {
-        callback(null, true);
-      } else {
-        callback(
-          new Error(
-            `Origin ${origin} not allowed by CORS. Allowed origins: ${allowedOrigins.join(', ')}`,
-          ),
-        );
-      }
-    },
-    credentials: true,
-  });
+  app.enableCors(buildCorsOptions(allowedOrigins));
 
   // Enable validation pipes for DTOs
   app.useGlobalPipes(

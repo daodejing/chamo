@@ -2,6 +2,19 @@
 # THIS FILE WAS AUTOMATICALLY GENERATED (DO NOT MODIFY)
 # ------------------------------------------------------
 
+input AcceptInviteInput {
+  inviteCode: String!
+}
+
+type AcceptInviteResponse {
+  encryptedFamilyKey: String!
+  familyId: ID!
+  familyName: String!
+  message: String!
+  nonce: String!
+  success: Boolean!
+}
+
 type AuthResponse {
   accessToken: String!
   family: FamilyType
@@ -26,6 +39,15 @@ type Channel {
   name: String!
 }
 
+input CreateEncryptedInviteInput {
+  encryptedFamilyKey: String!
+  expiresAt: String!
+  familyId: String!
+  inviteCode: String!
+  inviteeEmail: String!
+  nonce: String!
+}
+
 input CreateFamilyInput {
   inviteCode: String!
   name: String!
@@ -34,6 +56,12 @@ input CreateFamilyInput {
 type CreateFamilyResponse {
   family: FamilyType!
   inviteCode: String!
+}
+
+type CreateInviteResponse {
+  invite: InviteType!
+  inviteCode: String!
+  message: String!
 }
 
 """
@@ -92,6 +120,29 @@ input GetMessagesInput {
   limit: Int = 50
 }
 
+"""The status of a family invite"""
+enum InviteStatus {
+  ACCEPTED
+  EXPIRED
+  PENDING
+  REVOKED
+}
+
+type InviteType {
+  acceptedAt: DateTime
+  createdAt: DateTime!
+  encryptedFamilyKey: String!
+  expiresAt: DateTime!
+  familyId: ID!
+  id: ID!
+  inviteCode: String!
+  inviteeEmail: String!
+  inviterId: ID!
+  nonce: String!
+  status: InviteStatus!
+  updatedAt: DateTime!
+}
+
 input JoinFamilyExistingInput {
   inviteCode: String!
   makeActive: Boolean! = true
@@ -137,7 +188,9 @@ type MessageWithUserType {
 }
 
 type Mutation {
+  acceptInvite(input: AcceptInviteInput!): AcceptInviteResponse!
   cacheMessageTranslation(input: CacheMessageTranslationInput!): MessageTranslationType!
+  createEncryptedInvite(input: CreateEncryptedInviteInput!): CreateInviteResponse!
   createFamily(input: CreateFamilyInput!): CreateFamilyResponse!
   deleteMessage(input: DeleteMessageInput!): DeleteMessageResponse!
   editMessage(input: EditMessageInput!): MessageWithUserType!

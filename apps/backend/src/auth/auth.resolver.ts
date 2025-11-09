@@ -15,7 +15,10 @@ import { JoinFamilyExistingInput } from './dto/join-family-existing.input';
 import { SwitchFamilyInput } from './dto/switch-family.input';
 import { LoginInput } from './dto/login.input';
 import { UpdateUserPreferencesInput } from './dto/update-user-preferences.input';
+import { CreateEncryptedInviteInput } from './dto/create-encrypted-invite.input';
+import { AcceptInviteInput } from './dto/accept-invite.input';
 import { AuthResponse, UserType, EmailVerificationResponse, GenericResponse, CreateFamilyResponse } from './types/auth-response.type';
+import { CreateInviteResponse, AcceptInviteResponse } from './types/invite.type';
 import { FamilyType } from './types/family.type';
 import { FamilyMembershipType } from './types/family-membership.type';
 import { UserPreferencesType } from './types/user-preferences.type';
@@ -175,5 +178,31 @@ export class AuthResolver {
     });
 
     return (await this.authService.validateUser(user.id)) as UserType;
+  }
+
+  @Mutation(() => CreateInviteResponse)
+  @UseGuards(GqlAuthGuard)
+  async createEncryptedInvite(
+    @CurrentUser() user: User,
+    @Args('input') input: CreateEncryptedInviteInput,
+  ): Promise<CreateInviteResponse> {
+    return this.authService.createEncryptedInvite(
+      user.id,
+      input.familyId,
+      input.inviteeEmail,
+      input.encryptedFamilyKey,
+      input.nonce,
+      input.inviteCode,
+      new Date(input.expiresAt),
+    );
+  }
+
+  @Mutation(() => AcceptInviteResponse)
+  @UseGuards(GqlAuthGuard)
+  async acceptInvite(
+    @CurrentUser() user: User,
+    @Args('input') input: AcceptInviteInput,
+  ): Promise<AcceptInviteResponse> {
+    return this.authService.acceptInvite(user.id, input.inviteCode);
   }
 }

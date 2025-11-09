@@ -53,8 +53,8 @@ To fix this, we will adopt per-user keypairs at registration time, move all fami
 ### Task 4: Invite Encryption Flow (Registered Users Only)
 - [x] Create cryptographic utilities for invite encryption/decryption using nacl.box
 - [x] Add GET_USER_PUBLIC_KEY_QUERY to check if invitee is registered
-- [ ] Add Prisma Invite model to store encrypted invites
-- [ ] Create backend mutations: createEncryptedInvite, acceptInvite
+- [x] Add Prisma Invite model to store encrypted invites
+- [x] Create backend mutations: createEncryptedInvite, acceptInvite
 - [ ] Build InviteMemberDialog UI component with email input
 - [ ] Check if invitee email has registered account with public key
 - [ ] If NO public key: Show "User not registered" UI, offer "Send Registration Link" option
@@ -201,3 +201,51 @@ IF NOT registered (no publicKey):
 ## Story Context Reference
 
 - [x] Story context XML exists at `docs/stories/1-8-decouple-registration-and-families.context.xml`.
+
+## Dev Agent Record
+
+### Debug Log
+
+**2025-11-09: Task 4 - Add Prisma Invite Model**
+- Created Invite model in schema.prisma with fields: familyId, inviterId, inviteeEmail, encryptedFamilyKey, nonce, inviteCode, status, expiresAt, acceptedAt
+- Added InviteStatus enum (PENDING, ACCEPTED, EXPIRED, REVOKED)
+- Added relations: Family→invites, User→sentInvites
+- Ran schema-updater workflow:
+  - Applied Prisma migration `20251109122850_add_invites_table`
+  - Restarted backend to regenerate GraphQL schema
+  - Regenerated frontend TypeScript types
+- Migration includes all indexes (inviteCode, inviteeEmail, familyId, status) and foreign key constraints
+
+**2025-11-09: Task 4 - Create Backend Mutations**
+- Created DTOs: CreateEncryptedInviteInput, AcceptInviteInput
+- Created response types: InviteType, CreateInviteResponse, AcceptInviteResponse
+- Added GraphQL mutations to auth.resolver.ts: createEncryptedInvite, acceptInvite
+- Implemented business logic in auth.service.ts:
+  - createEncryptedInvite: Validates membership, checks for existing invites, creates encrypted invite
+  - acceptInvite: Validates invite code/expiry/email, creates family membership, marks invite accepted
+- Both mutations include proper error handling (ForbiddenException, ConflictException, BadRequestException)
+- Backend restarted with 0 TypeScript errors, GraphQL schema regenerated
+- Frontend types regenerated to include new mutations
+
+### Completion Notes
+
+*To be filled as tasks complete.*
+
+## File List
+
+### Modified Files
+- `apps/backend/prisma/schema.prisma` - Added Invite model and InviteStatus enum
+- `apps/backend/src/auth/auth.resolver.ts` - Added createEncryptedInvite and acceptInvite mutations
+- `apps/backend/src/auth/auth.service.ts` - Implemented invite creation and acceptance logic
+- `src/lib/graphql/generated/graphql.ts` - Auto-generated with new Invite types and mutations
+
+### New Files
+- `apps/backend/prisma/migrations/20251109122850_add_invites_table/migration.sql` - Database migration for invites table
+- `apps/backend/src/auth/dto/create-encrypted-invite.input.ts` - DTO for createEncryptedInvite mutation
+- `apps/backend/src/auth/dto/accept-invite.input.ts` - DTO for acceptInvite mutation
+- `apps/backend/src/auth/types/invite.type.ts` - GraphQL types for Invite responses
+
+## Change Log
+
+- **2025-11-09**: Added Prisma Invite model with encryption support (Task 4)
+- **2025-11-09**: Implemented createEncryptedInvite and acceptInvite GraphQL mutations (Task 4)

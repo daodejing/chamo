@@ -153,6 +153,38 @@ export const GET_USER_PUBLIC_KEY_QUERY = gql`
   }
 `;
 
+export const CREATE_ENCRYPTED_INVITE_MUTATION = gql`
+  mutation CreateEncryptedInvite($input: CreateEncryptedInviteInput!) {
+    createEncryptedInvite(input: $input) {
+      invite {
+        id
+        familyId
+        inviterId
+        inviteeEmail
+        inviteCode
+        status
+        expiresAt
+        createdAt
+      }
+      inviteCode
+      message
+    }
+  }
+`;
+
+export const ACCEPT_INVITE_MUTATION = gql`
+  mutation AcceptInvite($input: AcceptInviteInput!) {
+    acceptInvite(input: $input) {
+      success
+      message
+      familyId
+      familyName
+      encryptedFamilyKey
+      nonce
+    }
+  }
+`;
+
 export const JOIN_FAMILY_EXISTING_MUTATION = gql`
   mutation JoinFamilyExisting($input: JoinFamilyExistingInput!) {
     joinFamilyAsMember(input: $input) {
