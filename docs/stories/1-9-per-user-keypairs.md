@@ -53,34 +53,35 @@ This story implements the foundation of Chamo's per-user asymmetric keypair E2EE
 
 ### Task 2: Client-Side Keypair Generation Module
 
-- [ ] Create `/src/lib/crypto/keypair.ts` module
-- [ ] Implement `generateKeypair(): { publicKey: string; secretKey: Uint8Array }` function
+- [x] Create `/src/lib/crypto/keypair.ts` module
+- [x] Implement `generateKeypair(): { publicKey: string; secretKey: Uint8Array }` function
   - Use `nacl.box.keyPair()` from tweetnacl
   - Encode public key as base64 string
   - Return secret key as Uint8Array for secure storage
-- [ ] Implement `encodePublicKey(key: Uint8Array): string` - base64 encoding
-- [ ] Implement `decodePublicKey(key: string): Uint8Array` - base64 decoding
-- [ ] Add error handling for WebCrypto API not available (old browsers)
-- [ ] Unit tests: Verify keypair format, encoding/decoding correctness
-- [ ] Unit tests: Verify public/private key length (32 bytes each)
+- [x] Implement `encodePublicKey(key: Uint8Array): string` - base64 encoding
+- [x] Implement `decodePublicKey(key: string): Uint8Array` - base64 decoding
+- [x] Add error handling for WebCrypto API not available (old browsers)
+- [x] Unit tests: Verify keypair format, encoding/decoding correctness
+- [x] Unit tests: Verify public/private key length (32 bytes each)
 
 ### Task 3: Secure Storage Implementation
 
-- [ ] Create `/src/lib/crypto/secure-storage.ts` module
-- [ ] Initialize Dexie database `encryptionDB` with table `userKeys`
-- [ ] Configure `dexie-encrypted` with device fingerprint derivation
+- [x] Create `/src/lib/crypto/secure-storage.ts` module
+- [x] Initialize Dexie database `encryptionDB` with table `userKeys`
+- [x] Configure `dexie-encrypted` with device fingerprint derivation
   - Use: `navigator.userAgent + screen.width + screen.height + language`
   - Hash with SHA-256 to derive encryption key
-- [ ] Implement `storePrivateKey(userId: string, secretKey: Uint8Array): Promise<void>`
+- [x] Implement `storePrivateKey(userId: string, secretKey: Uint8Array): Promise<void>`
   - Encrypt and store in IndexedDB
   - Handle quota exceeded errors
-- [ ] Implement `getPrivateKey(userId: string): Promise<Uint8Array | null>`
+- [x] Implement `getPrivateKey(userId: string): Promise<Uint8Array | null>`
   - Retrieve and decrypt from IndexedDB
   - Return null if not found
-- [ ] Implement `hasPrivateKey(userId: string): Promise<boolean>`
+- [x] Implement `hasPrivateKey(userId: string): Promise<boolean>`
   - Check existence without loading key
-- [ ] Unit tests: Storage round-trip (store → retrieve → verify)
-- [ ] Unit tests: Multiple users (no key collision)
+- [x] Unit tests: Storage round-trip (store → retrieve → verify)
+- [x] Unit tests: Multiple users (no key collision)
+- [x] Unit tests: Device fingerprint determinism + IndexedDB guardrails
 
 ### Task 4: Backend - Public Key Storage
 
@@ -428,19 +429,50 @@ pnpm prisma generate
   3. Added `src/lib/crypto/config.ts` exporting `cryptoStorageConfig`, constants for table names, and ordered fingerprint seeds for later hashing.
   4. Pulled npm `dist.unpackedSize` metrics (tweetnacl 171 KB, dexie 2.9 MB, dexie-encrypted 52 KB) to document aggregate bundle impact (~42 KB minified chunk per architect note).
   5. Ran `pnpm lint`; existing warnings persist but no new errors introduced.
+- 2025-11-09 – Task 2 plan:
+  1. Review existing `src/lib/e2ee/*` utilities to align naming/patterns for new crypto modules.
+  2. Implement `src/lib/crypto/keypair.ts` exporting `generateKeypair`, `encodePublicKey`, `decodePublicKey`, constants for key lengths, and guard for `crypto.getRandomValues` availability.
+  3. Implement portable base64 helpers (browser + Node) to avoid relying on `Buffer` during client builds.
+  4. Author Vitest coverage at `tests/unit/lib/crypto/keypair.test.ts` for: base64 length (44 chars), secret key length (32 bytes), encode/decode round-trip, and invalid input rejection.
+  5. Update story Task 2 checkboxes + File List after implementation, then run `pnpm test` to exercise the new unit suite.
+- 2025-11-09 – Task 2 execution:
+  1. Created `src/lib/crypto/keypair.ts` with nacl-backed key generation, base64 helpers that fall back to `Buffer` when `btoa/atob` unavailable, and guards for missing WebCrypto entropy sources.
+  2. Exported constants (`PUBLIC_KEY_BYTE_LENGTH`, `SECRET_KEY_BYTE_LENGTH`, `PUBLIC_KEY_BASE64_LENGTH`) plus encode/decode helpers to keep future modules consistent.
+  3. Added Vitest coverage at `tests/unit/lib/crypto/keypair.test.ts` covering key length expectations, uniqueness, round-trip encoding, and invalid data rejection.
+  4. Ran `pnpm lint` (existing warnings only) and `pnpm test` (entire suite; 12 files / 125 tests passing) to confirm no regressions.
+- 2025-11-09 – Task 3 plan:
+  1. Verify Dexie + dexie-encrypted usage (middleware must run before `.version()`) and map config fields from `cryptoStorageConfig`.
+  2. Draft device fingerprint resolver that tolerates SSR (feature detection) and hashes combined seed via `crypto.subtle.digest('SHA-256', ...)`.
+  3. Implement secure storage helpers: caching Dexie instance, encoding secret keys as base64, quota error surfacing, and test-only reset hooks.
+  4. Add `fake-indexeddb` dev dependency to supply IndexedDB APIs under Vitest; craft unit tests for round-trip, multi-user, deterministic fingerprint, missing IndexedDB, and invalid key length cases.
+  5. Execute `pnpm lint` + `pnpm test` to validate.
+- 2025-11-09 – Task 3 execution:
+  1. Added `fake-indexeddb@^5.0.2` dev dependency, then implemented `src/lib/crypto/secure-storage.ts` using Dexie + dexie-encrypted with fingerprint-derived keys, storage helpers, and best-effort quota handling.
+  2. Exported `__dangerous__close/wipe` helpers for deterministic tests and wired base64 utilities with fallback to Node Buffers for SSR safety.
+  3. Authored `tests/unit/lib/crypto/secure-storage.test.ts` (6 tests) covering round-trip, multi-user, hasPrivateKey, persistence across reloads, IndexedDB guardrails, and key length validation.
+  4. Full `pnpm lint` and `pnpm test` runs succeed (13 files / 131 tests).
 
 ### Completion Notes
 
 - ✅ **Task 1 complete:** Crypto dependencies installed at workspace root, config scaffolding added under `src/lib/crypto/config.ts`, and size assumptions validated via npm metadata. `tweetnacl` ships its own `nacl.d.ts`, so no external `@types` package exists.
 - 🧪 **Validation:** `pnpm lint` (warnings already tracked in repo, no regressions).
 - 📦 **Bundle tracking:** Documented npm package sizes to keep total crypto footprint within the 42 KB budget cited in Story Context.
+- ✅ **Task 2 complete:** Added nacl-powered keypair module plus encode/decode helpers with Web Crypto guardrails, paired with Vitest coverage for key sizes, uniqueness, and invalid input handling. Full `pnpm test` suite passes (125 tests) ensuring no regressions.
+- ✅ **Task 3 complete:** Implemented Dexie + dexie-encrypted secure storage with device fingerprint hashing, storage APIs (`storePrivateKey`, `getPrivateKey`, `hasPrivateKey`), and comprehensive Vitest coverage (including fake IndexedDB) with full repo tests passing (131 tests).
 
 ## File List
 
 - `package.json` – Added `tweetnacl`, `dexie`, and `dexie-encrypted` runtime dependencies.
 - `pnpm-lock.yaml` – Updated lockfile entries for new crypto dependencies.
 - `src/lib/crypto/config.ts` – New crypto storage configuration scaffold (Task 1 deliverable).
+- `src/lib/crypto/keypair.ts` – TweetNaCl keypair utilities with encode/decode helpers and Web Crypto guards.
+- `tests/unit/lib/crypto/keypair.test.ts` – Vitest coverage for keypair generation and base64 helpers.
+- `src/lib/crypto/secure-storage.ts` – Dexie + dexie-encrypted secure storage implementation with device fingerprint derivation and storage helpers.
+- `tests/unit/lib/crypto/secure-storage.test.ts` – IndexedDB-backed Vitest coverage (round-trip, multi-user, determinism, error guards).
+- `package.json` (devDependencies) – Added `fake-indexeddb` for unit testing Dexie flows (with lockfile alignment).
 
 ## Change Log
 
 - **2025-11-09:** Started implementation of Story 1.9 (status → in-progress) and completed Task 1 dependency setup plus crypto config scaffolding.
+- **2025-11-09:** Completed Task 2 keypair module and tests; verified via `pnpm lint` and `pnpm test`.
+- **2025-11-09:** Completed Task 3 secure storage implementation, added fake IndexedDB test harness, and re-ran full lint/test suites (13 files / 131 tests).

@@ -252,6 +252,9 @@ importers:
       eslint-config-next:
         specifier: ^15.0.3
         version: 15.5.4(eslint@9.37.0(jiti@2.6.1))(typescript@5.9.3)
+      fake-indexeddb:
+        specifier: ^5.0.2
+        version: 5.0.2
       happy-dom:
         specifier: ^20.0.0
         version: 20.0.0
@@ -4964,6 +4967,10 @@ packages:
 
   exsolve@1.0.7:
     resolution: {integrity: sha512-VO5fQUzZtI6C+vx4w/4BWJpg3s/5l+6pRQEHzFRM8WFi4XffSP1Z+4qi7GbjWbvRQEbdIco5mIMq+zX4rPuLrw==}
+
+  fake-indexeddb@5.0.2:
+    resolution: {integrity: sha512-cB507r5T3D55DfclY01GLkninZLfU7HXV/mhVRTnTRm5k2u+fY7Fof2dBkr80p5t7G7dlA/G5dI87QiMdPpMCQ==}
+    engines: {node: '>=18'}
 
   fast-check@3.23.2:
     resolution: {integrity: sha512-h5+1OzzfCC3Ef7VbtKdcv7zsstUQwUDlYpUTvjeUsJAssPgLn7QzbboPtL5ro04Mq0rPOsMzl7q5hIbRs2wD1A==}
@@ -13009,6 +13016,8 @@ snapshots:
       - supports-color
 
   exsolve@1.0.7: {}
+
+  fake-indexeddb@5.0.2: {}
 
   fast-check@3.23.2:
     dependencies:
