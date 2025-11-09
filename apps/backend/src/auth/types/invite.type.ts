@@ -21,11 +21,11 @@ export class InviteType {
   @Field()
   inviteeEmail: string;
 
-  @Field()
-  encryptedFamilyKey: string;
+  @Field(() => String, { nullable: true })
+  encryptedFamilyKey?: string | null;
 
-  @Field()
-  nonce: string;
+  @Field(() => String, { nullable: true })
+  nonce?: string | null;
 
   @Field()
   inviteCode: string;

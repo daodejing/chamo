@@ -270,6 +270,23 @@ IF NOT registered (no publicKey):
   - File: `tests/e2e/story-1.8-encrypted-invites.spec.ts`
 - All tests verify E2EE principles: server never sees plaintext family keys
 
+**2025-11-09: Task 6 - Admin Notification System (Backend)**
+- Updated Prisma schema to add PENDING_REGISTRATION status to InviteStatus enum
+- Made encryptedFamilyKey and nonce nullable in Invite model for pending registration invites
+- Applied Prisma migration `20251109132223_add_pending_registration_status`
+- Created backend DTOs and mutations:
+  - CreatePendingInviteInput DTO for pending registration invites
+  - createPendingInvite mutation (creates invite with PENDING_REGISTRATION status, no encryption keys)
+  - getPendingInvites query (lists all pending and pending_registration invites for a family)
+- Implemented service methods in auth.service.ts:
+  - createPendingInvite: Validates membership, checks registration status, creates pending invite
+  - getPendingInvites: Returns all invites awaiting registration or acceptance
+  - generateInviteCode: Utility to generate unique invite codes (INV-XXXX-YYYY format)
+- Fixed GraphQL type decorators for nullable fields (encryptedFamilyKey, nonce) in InviteType
+- Backend restarted successfully with 0 TypeScript errors
+- Added GraphQL operations to operations.ts: CREATE_PENDING_INVITE_MUTATION, GET_PENDING_INVITES_QUERY
+- Regenerated frontend TypeScript types with new mutations
+
 ### Completion Notes
 
 *To be filled as tasks complete.*
@@ -277,19 +294,21 @@ IF NOT registered (no publicKey):
 ## File List
 
 ### Modified Files
-- `apps/backend/prisma/schema.prisma` - Added Invite model and InviteStatus enum
-- `apps/backend/src/auth/auth.resolver.ts` - Added createEncryptedInvite and acceptInvite mutations
-- `apps/backend/src/auth/auth.service.ts` - Implemented invite creation and acceptance logic (includes inviterPublicKey)
-- `apps/backend/src/auth/types/invite.type.ts` - Updated AcceptInviteResponse with inviterPublicKey field
+- `apps/backend/prisma/schema.prisma` - Added Invite model, InviteStatus enum (including PENDING_REGISTRATION), nullable encryption fields
+- `apps/backend/src/auth/auth.resolver.ts` - Added createEncryptedInvite, acceptInvite, createPendingInvite mutations, and getPendingInvites query
+- `apps/backend/src/auth/auth.service.ts` - Implemented invite creation/acceptance logic, createPendingInvite, getPendingInvites, generateInviteCode
+- `apps/backend/src/auth/types/invite.type.ts` - Updated AcceptInviteResponse with inviterPublicKey, made encryptedFamilyKey and nonce nullable
 - `src/lib/contexts/auth-context.tsx` - Added acceptInvite function with client-side key decryption
 - `src/lib/graphql/generated/graphql.ts` - Auto-generated with new Invite types and mutations
-- `src/lib/graphql/operations.ts` - Added CREATE_ENCRYPTED_INVITE_MUTATION and ACCEPT_INVITE_MUTATION
+- `src/lib/graphql/operations.ts` - Added CREATE_ENCRYPTED_INVITE_MUTATION, ACCEPT_INVITE_MUTATION, CREATE_PENDING_INVITE_MUTATION, GET_PENDING_INVITES_QUERY
 - `src/lib/translations.ts` - Added invite dialog, accept invite, and toast translations (Japanese + English)
 
 ### New Files
 - `apps/backend/prisma/migrations/20251109122850_add_invites_table/migration.sql` - Database migration for invites table
+- `apps/backend/prisma/migrations/20251109132223_add_pending_registration_status/migration.sql` - Migration for PENDING_REGISTRATION status
 - `apps/backend/src/auth/dto/create-encrypted-invite.input.ts` - DTO for createEncryptedInvite mutation
 - `apps/backend/src/auth/dto/accept-invite.input.ts` - DTO for acceptInvite mutation
+- `apps/backend/src/auth/dto/create-pending-invite.input.ts` - DTO for createPendingInvite mutation
 - `apps/backend/src/auth/types/invite.type.ts` - GraphQL types for Invite responses
 - `apps/backend/src/auth/invite.service.spec.ts` - Backend integration tests (9 tests)
 - `src/components/family/invite-member-dialog.tsx` - Dialog component for inviting members with encryption
@@ -305,3 +324,4 @@ IF NOT registered (no publicKey):
 - **2025-11-09**: Built InviteMemberDialog component and family settings page with full E2EE invite flow (Task 4)
 - **2025-11-09**: Implemented complete invite acceptance flow with client-side key decryption (Task 4) ✅ **TASK 4 COMPLETE**
 - **2025-11-09**: Added comprehensive test coverage: 11 unit tests, 9 backend integration tests, 3 E2E tests (Task 5) ✅ **TASK 5 COMPLETE**
+- **2025-11-09**: Implemented backend for pending registration invites: createPendingInvite mutation, getPendingInvites query, PENDING_REGISTRATION status (Task 6 - Backend) ✅ **TASK 6 BACKEND COMPLETE**

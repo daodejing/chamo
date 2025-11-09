@@ -17,8 +17,9 @@ import { LoginInput } from './dto/login.input';
 import { UpdateUserPreferencesInput } from './dto/update-user-preferences.input';
 import { CreateEncryptedInviteInput } from './dto/create-encrypted-invite.input';
 import { AcceptInviteInput } from './dto/accept-invite.input';
+import { CreatePendingInviteInput } from './dto/create-pending-invite.input';
 import { AuthResponse, UserType, EmailVerificationResponse, GenericResponse, CreateFamilyResponse } from './types/auth-response.type';
-import { CreateInviteResponse, AcceptInviteResponse } from './types/invite.type';
+import { CreateInviteResponse, AcceptInviteResponse, InviteType } from './types/invite.type';
 import { FamilyType } from './types/family.type';
 import { FamilyMembershipType } from './types/family-membership.type';
 import { UserPreferencesType } from './types/user-preferences.type';
@@ -204,5 +205,27 @@ export class AuthResolver {
     @Args('input') input: AcceptInviteInput,
   ): Promise<AcceptInviteResponse> {
     return this.authService.acceptInvite(user.id, input.inviteCode);
+  }
+
+  @Mutation(() => CreateInviteResponse)
+  @UseGuards(GqlAuthGuard)
+  async createPendingInvite(
+    @CurrentUser() user: User,
+    @Args('input') input: CreatePendingInviteInput,
+  ): Promise<CreateInviteResponse> {
+    return this.authService.createPendingInvite(
+      user.id,
+      input.familyId,
+      input.inviteeEmail,
+    );
+  }
+
+  @Query(() => [InviteType])
+  @UseGuards(GqlAuthGuard)
+  async getPendingInvites(
+    @CurrentUser() user: User,
+    @Args('familyId') familyId: string,
+  ): Promise<InviteType[]> {
+    return this.authService.getPendingInvites(user.id, familyId);
   }
 }

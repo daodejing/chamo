@@ -186,6 +186,42 @@ export const ACCEPT_INVITE_MUTATION = gql`
   }
 `;
 
+export const CREATE_PENDING_INVITE_MUTATION = gql`
+  mutation CreatePendingInvite($input: CreatePendingInviteInput!) {
+    createPendingInvite(input: $input) {
+      invite {
+        id
+        familyId
+        inviterId
+        inviteeEmail
+        inviteCode
+        status
+        expiresAt
+        createdAt
+      }
+      inviteCode
+      message
+    }
+  }
+`;
+
+export const GET_PENDING_INVITES_QUERY = gql`
+  query GetPendingInvites($familyId: String!) {
+    getPendingInvites(familyId: $familyId) {
+      id
+      familyId
+      inviterId
+      inviteeEmail
+      encryptedFamilyKey
+      nonce
+      inviteCode
+      status
+      expiresAt
+      createdAt
+    }
+  }
+`;
+
 export const JOIN_FAMILY_EXISTING_MUTATION = gql`
   mutation JoinFamilyExisting($input: JoinFamilyExistingInput!) {
     joinFamilyAsMember(input: $input) {

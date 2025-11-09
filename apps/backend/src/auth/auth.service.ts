@@ -783,6 +783,8 @@ export class AuthService {
     return {
       invite: {
         ...invite,
+        encryptedFamilyKey: invite.encryptedFamilyKey!, // Non-null assertion: always provided for encrypted invites
+        nonce: invite.nonce!, // Non-null assertion: always provided for encrypted invites
         acceptedAt: invite.acceptedAt ?? undefined,
       },
       inviteCode: invite.inviteCode,
@@ -875,9 +877,148 @@ export class AuthService {
       message: `Successfully joined ${invite.family.name}`,
       familyId: invite.familyId,
       familyName: invite.family.name,
-      encryptedFamilyKey: invite.encryptedFamilyKey,
-      nonce: invite.nonce,
+      encryptedFamilyKey: invite.encryptedFamilyKey!, // Non-null assertion: always present for PENDING status invites
+      nonce: invite.nonce!, // Non-null assertion: always present for PENDING status invites
       inviterPublicKey: invite.inviter.publicKey,
     };
+  }
+
+  async createPendingInvite(
+    inviterId: string,
+    familyId: string,
+    inviteeEmail: string,
+  ) {
+    // Verify inviter is a member of the family
+    const membership = await this.prisma.familyMembership.findUnique({
+      where: {
+        userId_familyId: {
+          userId: inviterId,
+          familyId,
+        },
+      },
+    });
+
+    if (!membership) {
+      throw new ForbiddenException('You must be a family member to create invites');
+    }
+
+    // Verify invitee is not already a member
+    const normalizedEmail = inviteeEmail.trim().toLowerCase();
+    const inviteeUser = await this.prisma.user.findUnique({
+      where: { email: normalizedEmail },
+      include: {
+        memberships: {
+          where: { familyId },
+        },
+      },
+    });
+
+    if (inviteeUser && inviteeUser.memberships.length > 0) {
+      throw new ConflictException('User is already a member of this family');
+    }
+
+    // Check if invitee is registered (has a public key)
+    if (inviteeUser?.publicKey) {
+      throw new BadRequestException(
+        'User is already registered. Use createEncryptedInvite to send them an invite.',
+      );
+    }
+
+    // Check for existing pending registration invite
+    const existingInvite = await this.prisma.invite.findFirst({
+      where: {
+        familyId,
+        inviteeEmail: normalizedEmail,
+        status: 'PENDING_REGISTRATION',
+      },
+    });
+
+    if (existingInvite) {
+      throw new ConflictException(
+        'A pending registration invite already exists for this email',
+      );
+    }
+
+    // Generate unique invite code
+    const inviteCode = this.generateInviteCode();
+
+    // Create the pending registration invite (no encryption keys yet)
+    const invite = await this.prisma.invite.create({
+      data: {
+        familyId,
+        inviterId,
+        inviteeEmail: normalizedEmail,
+        inviteCode,
+        status: 'PENDING_REGISTRATION',
+        expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days
+      },
+    });
+
+    return {
+      invite: {
+        ...invite,
+        encryptedFamilyKey: null,
+        nonce: null,
+        acceptedAt: invite.acceptedAt ?? undefined,
+      },
+      inviteCode: invite.inviteCode,
+      message: `Registration invitation created for ${inviteeEmail}. They must register before you can complete the invite.`,
+    };
+  }
+
+  async getPendingInvites(userId: string, familyId: string) {
+    // Verify user is a member of the family
+    const membership = await this.prisma.familyMembership.findUnique({
+      where: {
+        userId_familyId: {
+          userId,
+          familyId,
+        },
+      },
+    });
+
+    if (!membership) {
+      throw new ForbiddenException('You must be a family member to view invites');
+    }
+
+    // Get all pending invites for this family
+    const invites = await this.prisma.invite.findMany({
+      where: {
+        familyId,
+        status: {
+          in: ['PENDING_REGISTRATION', 'PENDING'],
+        },
+      },
+      include: {
+        inviter: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+    });
+
+    return invites.map((invite) => ({
+      ...invite,
+      encryptedFamilyKey: invite.encryptedFamilyKey ?? null,
+      nonce: invite.nonce ?? null,
+      acceptedAt: invite.acceptedAt ?? undefined,
+    }));
+  }
+
+  private generateInviteCode(): string {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // Avoid ambiguous characters
+    const parts = [4, 4, 4]; // INV-XXXX-YYYY format
+    const code = parts
+      .map((length) =>
+        Array.from({ length }, () => chars[Math.floor(Math.random() * chars.length)]).join(''),
+      )
+      .join('-');
+    return `INV-${code}`;
   }
 }

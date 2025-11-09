@@ -65,6 +65,11 @@ type CreateInviteResponse {
   message: String!
 }
 
+input CreatePendingInviteInput {
+  familyId: String!
+  inviteeEmail: String!
+}
+
 """
 A date-time string at UTC, such as 2019-12-03T09:54:33Z, compliant with the date-time format.
 """
@@ -126,20 +131,21 @@ enum InviteStatus {
   ACCEPTED
   EXPIRED
   PENDING
+  PENDING_REGISTRATION
   REVOKED
 }
 
 type InviteType {
   acceptedAt: DateTime
   createdAt: DateTime!
-  encryptedFamilyKey: String!
+  encryptedFamilyKey: String
   expiresAt: DateTime!
   familyId: ID!
   id: ID!
   inviteCode: String!
   inviteeEmail: String!
   inviterId: ID!
-  nonce: String!
+  nonce: String
   status: InviteStatus!
   updatedAt: DateTime!
 }
@@ -193,6 +199,7 @@ type Mutation {
   cacheMessageTranslation(input: CacheMessageTranslationInput!): MessageTranslationType!
   createEncryptedInvite(input: CreateEncryptedInviteInput!): CreateInviteResponse!
   createFamily(input: CreateFamilyInput!): CreateFamilyResponse!
+  createPendingInvite(input: CreatePendingInviteInput!): CreateInviteResponse!
   deleteMessage(input: DeleteMessageInput!): DeleteMessageResponse!
   editMessage(input: EditMessageInput!): MessageWithUserType!
   joinFamily(input: JoinFamilyInput!): EmailVerificationResponse!
@@ -220,6 +227,7 @@ type Query {
   getChannel(id: String!): Channel
   getChannels: [Channel!]!
   getMessages(input: GetMessagesInput!): [MessageWithUserType!]!
+  getPendingInvites(familyId: String!): [InviteType!]!
   getUserPublicKey(email: String!): String
   me: UserType!
   messageTranslation(messageId: String!, targetLanguage: String!): MessageTranslationType

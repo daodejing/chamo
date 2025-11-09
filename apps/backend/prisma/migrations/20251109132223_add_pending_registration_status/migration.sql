@@ -1,0 +1,6 @@
+-- AlterEnum
+ALTER TYPE "InviteStatus" ADD VALUE 'PENDING_REGISTRATION';
+
+-- AlterTable
+ALTER TABLE "invites" ALTER COLUMN "encryptedFamilyKey" DROP NOT NULL,
+ALTER COLUMN "nonce" DROP NOT NULL;

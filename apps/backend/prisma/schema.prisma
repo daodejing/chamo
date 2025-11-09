@@ -21,7 +21,8 @@ enum ScheduledMessageStatus {
 }
 
 enum InviteStatus {
-  PENDING
+  PENDING_REGISTRATION // Waiting for invitee to register
+  PENDING              // Registered, waiting for acceptance
   ACCEPTED
   EXPIRED
   REVOKED
@@ -270,8 +271,8 @@ model Invite {
   inviterId          String
   inviter            User         @relation("InviterInvites", fields: [inviterId], references: [id], onDelete: Cascade)
   inviteeEmail       String
-  encryptedFamilyKey String       @db.Text // Family key encrypted with invitee's public key
-  nonce              String       @db.Text // Cryptographic nonce for nacl.box
+  encryptedFamilyKey String?      @db.Text // Family key encrypted with invitee's public key (null for PENDING_REGISTRATION)
+  nonce              String?      @db.Text // Cryptographic nonce for nacl.box (null for PENDING_REGISTRATION)
   inviteCode         String       @unique // Unique code for acceptance (e.g., INV-XXXX-YYYY)
   status             InviteStatus @default(PENDING)
   expiresAt          DateTime
