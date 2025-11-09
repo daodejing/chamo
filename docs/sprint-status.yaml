@@ -44,7 +44,7 @@ development_status:
   1-4-email-verification: review
   1-6-brevo-integration: done
   1-9-per-user-keypairs: done  # Foundation for E2EE (Story 1.9) - All ACs complete, tests passing
-  1-8-decouple-registration-and-families: review  # All tasks complete, ready for code review
+  1-8-decouple-registration-and-families: review  # All ACs satisfied (AC5 & AC6 blockers resolved), ready for final approval
   1-5-email-bound-invites: drafted  # Depends on 1.8, 1.9
   epic-1-retrospective: optional
 
