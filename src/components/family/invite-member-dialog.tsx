@@ -18,7 +18,7 @@ import { Label } from '@/components/ui/label';
 import { useAuth } from '@/lib/contexts/auth-context';
 import { useLanguage } from '@/lib/contexts/language-context';
 import { t } from '@/lib/translations';
-import { GET_USER_PUBLIC_KEY_QUERY, CREATE_ENCRYPTED_INVITE_MUTATION } from '@/lib/graphql/operations';
+import { GET_USER_PUBLIC_KEY_QUERY, CREATE_ENCRYPTED_INVITE_MUTATION, CREATE_PENDING_INVITE_MUTATION } from '@/lib/graphql/operations';
 import { encryptFamilyKeyForRecipient } from '@/lib/e2ee/invite-encryption';
 import { getFamilyKeyBase64, generateInviteCode } from '@/lib/e2ee/key-management';
 
@@ -46,11 +46,58 @@ export function InviteMemberDialog({
   const [createEncryptedInvite, { loading: isCreatingInvite }] = useMutation(
     CREATE_ENCRYPTED_INVITE_MUTATION
   );
+  const [createPendingInvite, { loading: isCreatingPendingInvite }] = useMutation(
+    CREATE_PENDING_INVITE_MUTATION
+  );
 
   const handleClose = () => {
     setEmail('');
     setUserNotRegistered(false);
     onOpenChange(false);
+  };
+
+  const handleSendRegistrationLink = async () => {
+    if (!email.trim()) {
+      toast.error(t('toast.emailRequired', language));
+      return;
+    }
+
+    if (!user) {
+      toast.error(t('toast.notAuthenticated', language));
+      return;
+    }
+
+    try {
+      // Calculate expiration (30 days for pending registration invites)
+      const expiresAt = new Date();
+      expiresAt.setDate(expiresAt.getDate() + 30);
+
+      const { data } = await createPendingInvite({
+        variables: {
+          input: {
+            familyId,
+            inviteeEmail: email.trim().toLowerCase(),
+            expiresAt: expiresAt.toISOString(),
+          },
+        },
+      });
+
+      if (data?.createPendingInvite) {
+        toast.success(
+          t('toast.pendingInviteCreated', language, {
+            email: email.trim(),
+          })
+        );
+        handleClose();
+      }
+    } catch (error) {
+      console.error('Pending invite creation error:', error);
+      if (error instanceof Error) {
+        toast.error(error.message);
+      } else {
+        toast.error(t('toast.pendingInviteCreationFailed', language));
+      }
+    }
   };
 
   const handleCheckAndInvite = async (e: React.FormEvent) => {
@@ -172,13 +219,35 @@ export function InviteMemberDialog({
               />
             </div>
             {userNotRegistered && (
-              <div className="p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-md">
-                <p className="text-sm text-yellow-800 dark:text-yellow-200">
-                  {t('inviteDialog.userNotRegistered', language, { email })}
-                </p>
-                <p className="text-xs text-yellow-700 dark:text-yellow-300 mt-1">
-                  {t('inviteDialog.userNotRegisteredHint', language)}
-                </p>
+              <div className="p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-md space-y-3">
+                <div>
+                  <p className="text-sm text-yellow-800 dark:text-yellow-200">
+                    {t('inviteDialog.userNotRegistered', language, { email })}
+                  </p>
+                  <p className="text-xs text-yellow-700 dark:text-yellow-300 mt-1">
+                    {t('inviteDialog.userNotRegisteredHint', language)}
+                  </p>
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={handleSendRegistrationLink}
+                  disabled={isCreatingPendingInvite}
+                  className="w-full"
+                >
+                  {isCreatingPendingInvite ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                      {t('inviteDialog.sendingRegistrationLink', language)}
+                    </>
+                  ) : (
+                    <>
+                      <Mail className="w-4 h-4 mr-2" />
+                      {t('inviteDialog.sendRegistrationLink', language)}
+                    </>
+                  )}
+                </Button>
               </div>
             )}
           </div>
@@ -188,28 +257,30 @@ export function InviteMemberDialog({
               type="button"
               variant="outline"
               onClick={handleClose}
-              disabled={isChecking || isCreatingInvite}
+              disabled={isChecking || isCreatingInvite || isCreatingPendingInvite}
             >
               {t('chat.cancel', language)}
             </Button>
-            <Button
-              type="submit"
-              disabled={isChecking || isCreatingInvite || !email.trim()}
-            >
-              {isChecking || isCreatingInvite ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  {isChecking
-                    ? t('inviteDialog.checking', language)
-                    : t('inviteDialog.creating', language)}
-                </>
-              ) : (
-                <>
-                  <UserPlus className="w-4 h-4" />
-                  {t('inviteDialog.sendInvite', language)}
-                </>
-              )}
-            </Button>
+            {!userNotRegistered && (
+              <Button
+                type="submit"
+                disabled={isChecking || isCreatingInvite || !email.trim()}
+              >
+                {isChecking || isCreatingInvite ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    {isChecking
+                      ? t('inviteDialog.checking', language)
+                      : t('inviteDialog.creating', language)}
+                  </>
+                ) : (
+                  <>
+                    <UserPlus className="w-4 h-4" />
+                    {t('inviteDialog.sendInvite', language)}
+                  </>
+                )}
+              </Button>
+            )}
           </DialogFooter>
         </form>
       </DialogContent>

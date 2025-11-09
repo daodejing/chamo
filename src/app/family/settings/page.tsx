@@ -12,6 +12,7 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { InviteMemberDialog } from '@/components/family/invite-member-dialog';
+import { PendingInvitationsSection } from '@/components/family/pending-invitations-section';
 import { useAuth } from '@/lib/contexts/auth-context';
 import { useLanguage } from '@/lib/contexts/language-context';
 
@@ -79,6 +80,9 @@ export default function FamilySettingsPage() {
             </div>
           </CardContent>
         </Card>
+
+        {/* Pending Invitations */}
+        <PendingInvitationsSection familyId={activeFamily.id} />
       </div>
 
       {/* Invite Dialog */}
