@@ -1,0 +1,318 @@
+<story-context id="bmad/bmm/workflows/4-implementation/story-context/template" v="1.0">
+  <metadata>
+    <epicId>1</epicId>
+    <storyId>9</storyId>
+    <title>Per-User Keypair Generation and Secure Storage</title>
+    <status>Drafted</status>
+    <generatedAt>2025-11-09</generatedAt>
+    <generator>BMAD Story Context Workflow</generator>
+    <sourceStoryPath>docs/stories/1-9-per-user-keypairs.md</sourceStoryPath>
+  </metadata>
+
+  <story>
+    <asA>Chamo user</asA>
+    <iWant>to have my own encryption keypair generated automatically during registration</iWant>
+    <soThat>I can receive encrypted family invitations and participate in end-to-end encrypted communication without managing keys manually</soThat>
+    <tasks>
+### Task 1: Setup Cryptography Libraries
+- Install `tweetnacl`, `@types/tweetnacl`, `dexie`, `dexie-encrypted`
+- Create `/src/lib/crypto/config.ts`
+- Verify bundle size impact (~42KB)
+
+### Task 2: Client-Side Keypair Generation Module
+- Create `/src/lib/crypto/keypair.ts`
+- Implement `generateKeypair()`, `encodePublicKey()`, `decodePublicKey()`
+- Unit tests for keypair generation and encoding
+
+### Task 3: Secure Storage Implementation
+- Create `/src/lib/crypto/secure-storage.ts`
+- Initialize Dexie with dexie-encrypted
+- Implement `storePrivateKey()`, `getPrivateKey()`, `hasPrivateKey()`
+- Device fingerprint derivation
+
+### Task 4: Backend - Public Key Storage
+- Update Prisma schema: Add `publicKey` and `emailVerified` to User
+- GraphQL User type updates
+- Update `register` mutation to accept `publicKey`
+- Validate public key format (base64, 44 chars)
+
+### Task 5: Public Key Retrieval API
+- Create GraphQL query `getUserPublicKey(email: String!): String`
+- Implement resolver with auth guard
+- Integration tests
+
+### Task 6: Registration Flow Integration
+- Update `/src/components/auth/RegistrationForm.tsx`
+- Generate keypair before GraphQL call
+- Store private key after successful registration
+- Error handling with retry
+
+### Task 7: Lost Key Detection & UI
+- Create `/src/components/auth/LostKeyModal.tsx`
+- Add check in app initialization
+- Update help documentation
+
+### Task 8: Testing
+- Unit tests: Keypair generation, storage, encoding
+- Integration tests: Registration, public key API
+- E2E tests: Full flow, key persistence, lost key modal
+</tasks>
+  </story>
+
+  <acceptanceCriteria>
+- **AC1: Client-Side Keypair Generation** – X25519/Ed25519 keypair generated using `tweetnacl` during registration. Loading state shown (<500ms).
+
+- **AC2: Secure Private Key Storage** – Private key encrypted and stored in IndexedDB using `dexie-encrypted` with device-derived key. NEVER sent to server.
+
+- **AC3: Public Key Server Storage** – Registration accepts `publicKey` parameter (base64, 44 chars). Stored in `users.publicKey` with index.
+
+- **AC4: Public Key Retrieval API** – GraphQL query `getUserPublicKey(email: String!): String` returns public key or null. Auth required.
+
+- **AC5: Lost Key Detection** – Modal shown if user authenticated but private key missing from IndexedDB. "Continue" option available.
+
+- **AC6: Registration Flow Integration** – Existing registration enhanced with keypair generation. All new users get keypairs. No breaking UI changes.
+</acceptanceCriteria>
+
+  <artifacts>
+    <docs>
+      <doc>
+        <path>docs/PRD.md</path>
+        <title>Product Requirements Document</title>
+        <section>FR-1.7: Per-User Keypair Generation</section>
+        <snippet>Users generate asymmetric keypairs (X25519 public/private keys) during registration for E2EE. Public keys stored server-side, private keys stored encrypted in browser IndexedDB.</snippet>
+      </doc>
+      <doc>
+        <path>docs/PRD.md</path>
+        <title>Product Requirements Document</title>
+        <section>FR-1.8: Registration-First Invitation Flow</section>
+        <snippet>Family invitations require the invitee to be registered before invite creation. Admin checks registration status via email lookup. This ensures invitee's public key exists for encrypting the family key.</snippet>
+      </doc>
+      <doc>
+        <path>docs/PRD.md</path>
+        <title>Product Requirements Document</title>
+        <section>NFR-1.3: Private Key Storage</section>
+        <snippet>Private encryption keys never leave client devices (stored encrypted in IndexedDB). Public keys stored server-side for invite encryption.</snippet>
+      </doc>
+      <doc>
+        <path>docs/PRD.md</path>
+        <title>Product Requirements Document</title>
+        <section>NFR-1.8: Cryptographic Standards</section>
+        <snippet>E2EE uses industry-standard cryptography: X25519 (ECDH), Ed25519 (signing), AES-256-GCM (symmetric encryption), following Signal Protocol patterns.</snippet>
+      </doc>
+      <doc>
+        <path>docs/solution-architecture.md</path>
+        <title>Solution Architecture</title>
+        <section>Section 6: End-to-End Encryption Implementation</section>
+        <snippet>Per-user asymmetric keypairs with encrypted family key distribution (Signal-inspired pattern). Each user generates X25519/Ed25519 keypair at registration. Private keys stored encrypted in IndexedDB, public keys server-side.</snippet>
+      </doc>
+      <doc>
+        <path>docs/solution-architecture.md</path>
+        <title>Solution Architecture</title>
+        <section>Section 6: E2EE Key Flow - Registration</section>
+        <snippet>1. User registers → Client generates keypair (tweetnacl), 2. Public key → Server database, 3. Private key → IndexedDB (encrypted with device fingerprint)</snippet>
+      </doc>
+      <doc>
+        <path>docs/tech-spec-epic-7.md</path>
+        <title>Technical Specification - Epic 7 (E2EE)</title>
+        <section>3.1: Encryption Model</section>
+        <snippet>ADR-002-v2: Use per-user asymmetric keypairs (Ed25519/X25519) with family key distributed via encrypted envelopes (Signal-inspired pattern). Server cannot read messages/photos (zero-knowledge).</snippet>
+      </doc>
+      <doc>
+        <path>docs/tech-spec-epic-7.md</path>
+        <title>Technical Specification - Epic 7 (E2EE)</title>
+        <section>3.2a: Cryptography Libraries</section>
+        <snippet>tweetnacl (7KB, Cure53 audited), 2key-ratchet (Signal Double Ratchet), dexie-encrypted (secure IndexedDB storage with AES-256-GCM)</snippet>
+      </doc>
+      <doc>
+        <path>docs/tech-spec-epic-7.md</path>
+        <title>Technical Specification - Epic 7 (E2EE)</title>
+        <section>3.2b: Key Lifecycle</section>
+        <snippet>User Registration: const keypair = nacl.box.keyPair(); keypair.publicKey → Server database; keypair.secretKey → IndexedDB encrypted</snippet>
+      </doc>
+      <doc>
+        <path>docs/tech-spec-epic-7.md</path>
+        <title>Technical Specification - Epic 7 (E2EE)</title>
+        <section>3.2c: Database Schema Updates</section>
+        <snippet>User model adds: publicKey String @db.Text, encryptedFamilyKey String? @db.Text, emailVerified Boolean, @@index([publicKey])</snippet>
+      </doc>
+      <doc>
+        <path>docs/sprint-change-proposal-2025-11-09.md</path>
+        <title>Sprint Change Proposal - E2EE Migration</title>
+        <section>Section 4.6: Story 1.9 Creation</section>
+        <snippet>New story for per-user keypair generation foundation. CRITICAL dependency for Stories 1.5 and 1.8. Implements ADR-002-v2.</snippet>
+      </doc>
+    </docs>
+    <code>
+      <artifact>
+        <path>src/components/auth/unified-login-screen.tsx</path>
+        <kind>component</kind>
+        <symbol>UnifiedLoginScreen</symbol>
+        <lines>full file</lines>
+        <reason>Contains registration form that needs enhancement with keypair generation (Task 6). Current registration flow to be extended with generateKeypair() call before GraphQL mutation.</reason>
+      </artifact>
+      <artifact>
+        <path>apps/backend/src/auth/auth.resolver.ts</path>
+        <kind>resolver</kind>
+        <symbol>AuthResolver</symbol>
+        <lines>full file</lines>
+        <reason>GraphQL resolver for auth mutations. Needs updates: 1) register mutation to accept publicKey parameter (Task 4), 2) Add getUserPublicKey query (Task 5).</reason>
+      </artifact>
+      <artifact>
+        <path>apps/backend/src/auth/auth.service.ts</path>
+        <kind>service</kind>
+        <symbol>AuthService</symbol>
+        <lines>full file</lines>
+        <reason>Backend authentication service. register() method needs to validate and store publicKey parameter. Public key validation logic goes here (base64, 44 chars).</reason>
+      </artifact>
+      <artifact>
+        <path>apps/backend/prisma/schema.prisma</path>
+        <kind>schema</kind>
+        <symbol>User model</symbol>
+        <lines>User model section</lines>
+        <reason>Prisma schema requires updates per Task 4: Add publicKey String @db.Text, emailVerified Boolean @default(false), @@index([publicKey]). Migration needed.</reason>
+      </artifact>
+      <artifact>
+        <path>src/lib/crypto/keypair.ts</path>
+        <kind>module (to create)</kind>
+        <symbol>generateKeypair, encodePublicKey, decodePublicKey</symbol>
+        <lines>N/A - new file</lines>
+        <reason>Core keypair generation module (Task 2). Implements tweetnacl wrapper functions for client-side key generation.</reason>
+      </artifact>
+      <artifact>
+        <path>src/lib/crypto/secure-storage.ts</path>
+        <kind>module (to create)</kind>
+        <symbol>storePrivateKey, getPrivateKey, hasPrivateKey</symbol>
+        <lines>N/A - new file</lines>
+        <reason>Secure IndexedDB storage module (Task 3). Implements dexie-encrypted wrapper for private key storage with device fingerprint encryption.</reason>
+      </artifact>
+      <artifact>
+        <path>src/components/auth/LostKeyModal.tsx</path>
+        <kind>component (to create)</kind>
+        <symbol>LostKeyModal</symbol>
+        <lines>N/A - new file</lines>
+        <reason>UI component for lost key detection (Task 7). Shown when user authenticated but private key missing from IndexedDB.</reason>
+      </artifact>
+    </code>
+    <dependencies>
+      <ecosystem name="node">
+        <package name="tweetnacl" version="^1.0.3" />
+        <package name="@types/tweetnacl" version="latest" devDependency="true" />
+        <package name="dexie" version="^3.2.4" />
+        <package name="dexie-encrypted" version="^4.0.0" />
+        <package name="2key-ratchet" version="^1.0.17" />
+      </ecosystem>
+      <ecosystem name="existing">
+        <package name="@nestjs/graphql" note="GraphQL resolver framework" />
+        <package name="@prisma/client" note="Database ORM" />
+        <package name="next" note="React framework" />
+        <package name="react" note="UI library" />
+      </ecosystem>
+    </dependencies>
+  </artifacts>
+
+  <constraints>
+- **Client-Side Only**: Private keys MUST NEVER be sent to server. All private key operations client-side only.
+- **Zero-Knowledge Server**: Server cannot decrypt any user content. Only encrypted envelopes stored.
+- **Browser Compatibility**: Requires IndexedDB and WebCrypto API (Chrome 50+, Firefox 45+, Safari 11+, Edge 79+).
+- **No Breaking Changes**: Registration flow enhanced, not replaced. Existing UI/UX preserved except loading state.
+- **Bundle Size**: Total crypto libraries ~42KB acceptable. Verify with bundle analyzer.
+- **Performance**: Keypair generation must complete in <500ms to maintain acceptable UX during registration.
+- **Security**: Follow architecture docs exactly - tweetnacl for keypairs, dexie-encrypted for storage, device fingerprint for encryption key.
+- **Testing**: Must include unit, integration, and E2E tests per Testing Strategy section in story.
+- **Database Migration**: Safe to wipe test database (pre-production, no production data per bmad/bmm/config.yaml).
+  </constraints>
+  <interfaces>
+    <interface>
+      <name>generateKeypair</name>
+      <kind>function</kind>
+      <signature>function generateKeypair(): { publicKey: string; secretKey: Uint8Array }</signature>
+      <path>src/lib/crypto/keypair.ts</path>
+      <description>Generates X25519/Ed25519 keypair using tweetnacl. Returns public key as base64 string, secret key as Uint8Array.</description>
+    </interface>
+    <interface>
+      <name>storePrivateKey</name>
+      <kind>function</kind>
+      <signature>async function storePrivateKey(userId: string, secretKey: Uint8Array): Promise&lt;void&gt;</signature>
+      <path>src/lib/crypto/secure-storage.ts</path>
+      <description>Encrypts and stores private key in IndexedDB using dexie-encrypted with device fingerprint.</description>
+    </interface>
+    <interface>
+      <name>getPrivateKey</name>
+      <kind>function</kind>
+      <signature>async function getPrivateKey(userId: string): Promise&lt;Uint8Array | null&gt;</signature>
+      <path>src/lib/crypto/secure-storage.ts</path>
+      <description>Retrieves and decrypts private key from IndexedDB. Returns null if not found.</description>
+    </interface>
+    <interface>
+      <name>hasPrivateKey</name>
+      <kind>function</kind>
+      <signature>async function hasPrivateKey(userId: string): Promise&lt;boolean&gt;</signature>
+      <path>src/lib/crypto/secure-storage.ts</path>
+      <description>Checks if private key exists for user without loading it. Used for lost key detection.</description>
+    </interface>
+    <interface>
+      <name>register (GraphQL mutation)</name>
+      <kind>GraphQL mutation</kind>
+      <signature>register(email: String!, password: String!, name: String!, familyName: String, publicKey: String!): AuthResponse!</signature>
+      <path>apps/backend/src/auth/auth.resolver.ts</path>
+      <description>Updated to accept publicKey parameter. Validates format (base64, 44 chars) and stores in database.</description>
+    </interface>
+    <interface>
+      <name>getUserPublicKey (GraphQL query)</name>
+      <kind>GraphQL query</kind>
+      <signature>getUserPublicKey(email: String!): String</signature>
+      <path>apps/backend/src/auth/auth.resolver.ts</path>
+      <description>New query to retrieve user's public key by email. Returns null if user not found. Requires authentication.</description>
+    </interface>
+    <interface>
+      <name>User (Prisma model)</name>
+      <kind>database model</kind>
+      <signature>model User { id, email, name, publicKey, encryptedFamilyKey, emailVerified, ... }</signature>
+      <path>apps/backend/prisma/schema.prisma</path>
+      <description>Updated with publicKey (String @db.Text), emailVerified (Boolean @default(false)), index on publicKey.</description>
+    </interface>
+  </interfaces>
+  <tests>
+    <standards>
+Playwright for E2E tests (tests/e2e/). Jest for unit and integration tests. Test files follow naming conventions: *.spec.ts (E2E), *.test.ts (unit/integration). Backend tests use NestJS testing utilities (@nestjs/testing). Frontend tests use React Testing Library. Test coverage includes unit (functions/modules), integration (GraphQL mutations/queries), and E2E (full user flows).
+    </standards>
+    <locations>
+- E2E tests: tests/e2e/ (Playwright)
+- Unit tests: Colocated with source files (*.test.ts)
+- Integration tests: tests/integration/ or apps/backend/test/
+- Test patterns: See tests/e2e/story-*.spec.ts for story-based E2E structure
+    </locations>
+    <ideas>
+**AC1 - Client-Side Keypair Generation:**
+- Unit: generateKeypair() produces valid 32-byte keys
+- Unit: Public key is valid base64 (44 chars)
+- E2E: Registration shows "Generating encryption keys..." loading state
+
+**AC2 - Secure Private Key Storage:**
+- Unit: storePrivateKey() encrypts before IndexedDB write
+- Unit: Storage round-trip preserves key data
+- Unit: Multiple users no key collision
+- Integration: Device fingerprint derivation is deterministic
+
+**AC3 - Public Key Server Storage:**
+- Integration: register mutation with publicKey creates user
+- Integration: Invalid public key format rejected (not 44 chars, not base64)
+- Integration: publicKey indexed in database for fast lookup
+
+**AC4 - Public Key Retrieval API:**
+- Integration: getUserPublicKey(email) returns correct key
+- Integration: getUserPublicKey for non-existent user returns null
+- Integration: Unauthenticated query throws auth error
+
+**AC5 - Lost Key Detection:**
+- E2E: Clear IndexedDB → login → LostKeyModal shown
+- E2E: Modal dismissal allows app access (limited functionality)
+
+**AC6 - Registration Flow Integration:**
+- E2E: Full registration flow generates keypair
+- E2E: Private key persists across page refresh
+- E2E: Public key sent to server matches client-generated
+- E2E: Registration failure doesn't leave orphaned keys
+    </ideas>
+  </tests>
+</story-context>

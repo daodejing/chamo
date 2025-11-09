@@ -1,0 +1,40 @@
+<story-context id="story-1-8" v="1.0">
+  <metadata>
+    <epicId>1</epicId>
+    <storyId>8</storyId>
+    <title>Decouple Account Registration from Family Creation</title>
+    <status>Drafted</status>
+    <generatedAt>2025-11-08</generatedAt>
+    <generator>Manual Draft</generator>
+    <sourceStoryPath>docs/stories/1-8-decouple-registration-and-families.md</sourceStoryPath>
+  </metadata>
+
+  <story>
+    <asA>prospective Chamo user</asA>
+    <iWant>to register and verify independently of family creation</iWant>
+    <soThat>I only manage families after my identity and keys are secure</soThat>
+  </story>
+
+  <acceptanceCriteria>
+    <ac id="AC1">Account-only registration (no family side-effects, per-user keypair generated)</ac>
+    <ac id="AC2">Email verification gate ensures zero JWTs for unverified accounts</ac>
+    <ac id="AC3">Authenticated family creation generates family key post-login</ac>
+    <ac id="AC4">Invite flow (registered users) decrypts family key with private key and never shows "encryption key missing"</ac>
+    <ac id="AC5">Invite flow (unregistered users) persists payload through registration/verification on any device</ac>
+    <ac id="AC6">Telemetry: 0% unverified logins reach chat; 100% invite decrypt success</ac>
+  </acceptanceCriteria>
+
+  <tasks>
+    <task id="T1">Registration flow updates (keypair generation, register mutation changes)</task>
+    <task id="T2">Verification/login gate (requiresEmailVerification enforcement + tests)</task>
+    <task id="T3">Authenticated family creation mutation & UI</task>
+    <task id="T4">Invite encryption/decryption redesign</task>
+    <task id="T5">Testing & instrumentation (unit/integration/E2E + metrics)</task>
+  </tasks>
+
+  <references>
+    <doc path="docs/tech-spec-epic-1.md"/>
+    <doc path="docs/solution-architecture.md"/>
+    <doc path="docs/stories/1-8-decouple-registration-and-families.md"/>
+  </references>
+</story-context>
