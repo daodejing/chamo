@@ -287,6 +287,7 @@ export class AuthService {
     return {
       message: 'Registration successful. Please check your email to verify your account.',
       requiresEmailVerification: true,
+      userId: user.id,
     };
   }
 
@@ -365,6 +366,7 @@ export class AuthService {
     return {
       message: 'Registration successful. Please check your email to verify your account.',
       requiresEmailVerification: true,
+      userId: user.id,
     };
   }
 
@@ -418,6 +420,20 @@ export class AuthService {
 
     const familyWithMeta = await this.requireFamilyWithMeta(family.id);
     return this.toFamilyType(familyWithMeta);
+  }
+
+  async getUserPublicKey(email: string): Promise<string | null> {
+    const normalizedEmail = email.trim().toLowerCase();
+    if (!normalizedEmail) {
+      throw new BadRequestException('Email is required.');
+    }
+
+    const user = await this.prisma.user.findUnique({
+      where: { email: normalizedEmail },
+      select: { publicKey: true },
+    });
+
+    return user?.publicKey ?? null;
   }
 
   async switchActiveFamily(

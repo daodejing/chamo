@@ -15,6 +15,7 @@ export const REGISTER_MUTATION = gql`
     register(input: $input) {
       message
       requiresEmailVerification
+      userId
     }
   }
 `;
@@ -70,6 +71,7 @@ export const JOIN_FAMILY_MUTATION = gql`
     joinFamily(input: $input) {
       message
       requiresEmailVerification
+      userId
     }
   }
 `;

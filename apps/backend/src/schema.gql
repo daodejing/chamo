@@ -52,6 +52,7 @@ input EditMessageInput {
 type EmailVerificationResponse {
   message: String!
   requiresEmailVerification: Boolean!
+  userId: ID!
 }
 
 type FamilyMembershipType {
@@ -91,6 +92,7 @@ input JoinFamilyInput {
   inviteCode: String!
   name: String!
   password: String!
+  publicKey: String!
 }
 
 input LoginInput {
@@ -153,6 +155,7 @@ type Query {
   getChannel(id: String!): Channel
   getChannels: [Channel!]!
   getMessages(input: GetMessagesInput!): [MessageWithUserType!]!
+  getUserPublicKey(email: String!): String
   me: UserType!
   messageTranslation(messageId: String!, targetLanguage: String!): MessageTranslationType
 }
@@ -163,6 +166,7 @@ input RegisterInput {
   inviteCode: String!
   name: String!
   password: String!
+  publicKey: String!
 }
 
 input SendMessageInput {
@@ -199,5 +203,6 @@ type UserType {
   memberships: [FamilyMembershipType!]!
   name: String!
   preferences: UserPreferencesType
+  publicKey: String!
   role: String!
 }

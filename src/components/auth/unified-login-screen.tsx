@@ -40,6 +40,7 @@ export function UnifiedLoginScreen({
   const [inviteCode, setInviteCode] = useState(initialInviteCode ?? '');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isAuthenticating, setIsAuthenticating] = useState(false);
+  const [isGeneratingKeys, setIsGeneratingKeys] = useState(false);
 
   useEffect(() => {
     if (initialMode) {
@@ -79,7 +80,12 @@ export function UnifiedLoginScreen({
       return;
     }
 
+    const needsKeyGeneration = authMode === 'create' || authMode === 'join';
+
     setIsSubmitting(true);
+    if (needsKeyGeneration) {
+      setIsGeneratingKeys(true);
+    }
     try {
       if (authMode === 'login') {
         const loginResult = await login({ email, password });
@@ -123,6 +129,9 @@ export function UnifiedLoginScreen({
       toast.error(err.message || t('toast.authFailed', language));
     } finally {
       setIsSubmitting(false);
+      if (needsKeyGeneration) {
+        setIsGeneratingKeys(false);
+      }
     }
   };
 
@@ -159,6 +168,10 @@ export function UnifiedLoginScreen({
   };
 
   const getButtonText = () => {
+    if (isGeneratingKeys) {
+      return t('login.generatingKeys', language);
+    }
+
     if (isSubmitting) {
       switch (authMode) {
         case 'create':
@@ -208,9 +221,9 @@ export function UnifiedLoginScreen({
                   value={userName}
                   onChange={(e) => setUserName(e.target.value)}
                   required
-                  disabled={isSubmitting}
-                  className="rounded-xl"
-                />
+              disabled={isSubmitting || isGeneratingKeys}
+              className="rounded-xl"
+            />
               </div>
             )}
 
@@ -258,7 +271,7 @@ export function UnifiedLoginScreen({
                   value={familyName}
                   onChange={(e) => setFamilyName(e.target.value)}
                   required
-                  disabled={isSubmitting}
+                  disabled={isSubmitting || isGeneratingKeys}
                   className="rounded-xl"
                 />
               </div>
@@ -289,7 +302,7 @@ export function UnifiedLoginScreen({
             <Button
               type="submit"
               className="w-full bg-gradient-to-r from-[#B5179E] to-[#8B38BA] hover:from-[#9c1487] hover:to-[#7a2fa5] text-white rounded-[20px] h-12 shadow-lg"
-              disabled={isSubmitting}
+              disabled={isSubmitting || isGeneratingKeys}
             >
               {getButtonText()}
             </Button>

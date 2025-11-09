@@ -128,4 +128,28 @@ describe('AuthService email verification workflows', () => {
       );
     });
   });
+
+  describe('getUserPublicKey', () => {
+    it('returns public key when email exists', async () => {
+      prismaMock.user.findUnique = jest.fn().mockResolvedValue({ publicKey: 'abc' });
+      const key = await authService.getUserPublicKey('USER@example.com');
+      expect(prismaMock.user.findUnique).toHaveBeenCalledWith({
+        where: { email: 'user@example.com' },
+        select: { publicKey: true },
+      });
+      expect(key).toBe('abc');
+    });
+
+    it('returns null when email not found', async () => {
+      prismaMock.user.findUnique = jest.fn().mockResolvedValue(null);
+      const key = await authService.getUserPublicKey('missing@example.com');
+      expect(key).toBeNull();
+    });
+
+    it('throws when email empty', async () => {
+      await expect(authService.getUserPublicKey('  ')).rejects.toThrow(
+        BadRequestException,
+      );
+    });
+  });
 });

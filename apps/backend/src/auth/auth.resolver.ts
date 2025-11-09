@@ -113,6 +113,14 @@ export class AuthResolver {
     return user.memberships ?? [];
   }
 
+  @Query(() => String, { nullable: true })
+  @UseGuards(GqlAuthGuard)
+  async getUserPublicKey(
+    @Args('email') email: string,
+  ): Promise<string | null> {
+    return this.authService.getUserPublicKey(email);
+  }
+
   @ResolveField(() => UserPreferencesType, { nullable: true })
   preferences(@Parent() user: UserType): UserPreferencesType | null {
     const rawPreferences = (user as any).preferences;

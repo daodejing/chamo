@@ -62,6 +62,9 @@ export class EmailVerificationResponse {
 
   @Field()
   requiresEmailVerification: boolean;
+
+  @Field(() => ID)
+  userId: string;
 }
 
 @ObjectType()

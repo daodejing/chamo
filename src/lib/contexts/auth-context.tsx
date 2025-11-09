@@ -25,15 +25,13 @@ import type {
   SwitchActiveFamilyMutation,
   SwitchActiveFamilyMutationVariables,
 } from '../graphql/generated/graphql';
-import {
-  generateFamilyKey,
-  generateInviteCode,
-  parseInviteCode,
-  initializeFamilyKey,
-} from '../e2ee/key-management';
+import { generateFamilyKey, generateInviteCode, parseInviteCode, initializeFamilyKey } from '../e2ee/key-management';
+import { generateKeypair } from '@/lib/crypto/keypair';
+import { storePrivateKey } from '@/lib/crypto/secure-storage';
 
 const PENDING_FAMILY_KEY_STORAGE_KEY = 'pending_family_key';
 const PENDING_FAMILY_INVITE_STORAGE_KEY = 'pending_family_invite';
+const ENCRYPTION_KEY_ERROR = 'Failed to secure encryption keys. Please try again.';
 interface User {
   id: string;
   email: string;
@@ -220,6 +218,7 @@ function AuthProviderInner({ children }: { children: React.ReactNode}) {
     name: string;
     familyName: string;
   }): Promise<{ email: string; requiresVerification: boolean } | null> => {
+    const { publicKey, secretKey } = createKeypairOrThrow();
     // Generate family encryption key client-side (E2EE)
     const { base64Key } = await generateFamilyKey();
 
@@ -232,12 +231,14 @@ function AuthProviderInner({ children }: { children: React.ReactNode}) {
         input: {
           ...input,
           inviteCode, // Send only invite code, not the key
+          publicKey,
         },
       },
     });
 
     const payload = data?.register;
     if (payload) {
+      await storePrivateKeyOrThrow(payload.userId, secretKey);
       // New flow: registration returns EmailVerificationResponse
       // User must verify email before logging in
       // Store the family key temporarily in localStorage for after verification
@@ -261,9 +262,9 @@ function AuthProviderInner({ children }: { children: React.ReactNode}) {
       });
 
       const payload = result.data?.login;
-    if (payload) {
-      setAuthToken(payload.accessToken);
-      const activeFamilyPayload = payload.family ?? payload.user?.activeFamily ?? null;
+      if (payload) {
+        setAuthToken(payload.accessToken);
+        const activeFamilyPayload = payload.family ?? payload.user?.activeFamily ?? null;
       const activeFamily = activeFamilyPayload ? toFamily(activeFamilyPayload) : null;
       const normalizedUser = normalizeUserPayload({
         ...payload.user,
@@ -305,6 +306,7 @@ function AuthProviderInner({ children }: { children: React.ReactNode}) {
     name: string;
     inviteCode: string; // Format: FAMILY-XXXXXXXX:BASE64KEY
   }): Promise<{ email: string; requiresVerification: boolean } | null> => {
+    const { publicKey, secretKey } = createKeypairOrThrow();
     // Parse invite code to extract code and family encryption key (E2EE)
     const { code, base64Key } = parseInviteCode(input.inviteCode);
 
@@ -316,12 +318,14 @@ function AuthProviderInner({ children }: { children: React.ReactNode}) {
           password: input.password,
           name: input.name,
           inviteCode: code, // Send only code portion, not the key
+          publicKey,
         },
       },
     });
 
     const payload = data?.joinFamily;
     if (payload) {
+      await storePrivateKeyOrThrow(payload.userId, secretKey);
       // New flow: join family returns EmailVerificationResponse
       // User must verify email before logging in
       // Store the family key temporarily in localStorage for after verification
@@ -438,6 +442,24 @@ export function useAuth() {
     throw new Error('useAuth must be used within AuthProvider');
   }
   return context;
+}
+
+function createKeypairOrThrow() {
+  try {
+    return generateKeypair();
+  } catch (error) {
+    console.error('Failed to generate encryption keys', error);
+    throw new Error(ENCRYPTION_KEY_ERROR);
+  }
+}
+
+async function storePrivateKeyOrThrow(userId: string, secretKey: Uint8Array) {
+  try {
+    await storePrivateKey(userId, secretKey);
+  } catch (error) {
+    console.error('Failed to store encryption keys', error);
+    throw new Error(ENCRYPTION_KEY_ERROR);
+  }
 }
 
 function persistPendingFamilySecrets(base64Key: string, inviteCode: string) {
