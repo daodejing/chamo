@@ -51,11 +51,16 @@ To fix this, we will adopt per-user keypairs at registration time, move all fami
 - [x] Add redirect logic from chat page to family-setup when user doesn't have a family.
 
 ### Task 4: Invite Encryption Flow (Registered Users Only)
+- [x] Create cryptographic utilities for invite encryption/decryption using nacl.box
+- [x] Add GET_USER_PUBLIC_KEY_QUERY to check if invitee is registered
+- [ ] Add Prisma Invite model to store encrypted invites
+- [ ] Create backend mutations: createEncryptedInvite, acceptInvite
+- [ ] Build InviteMemberDialog UI component with email input
 - [ ] Check if invitee email has registered account with public key
 - [ ] If NO public key: Show "User not registered" UI, offer "Send Registration Link" option
-- [ ] If public key exists: Encrypt family key with invitee's public key using 2key-ratchet
-- [ ] Generate invite code containing encrypted envelope
-- [ ] Store invite with inviteeEmail, encryptedFamilyKey, and inviterId
+- [ ] If public key exists: Encrypt family key with invitee's public key
+- [ ] Store encrypted invite with inviteeEmail, encryptedFamilyKey, nonce, and inviterId
+- [ ] Implement invite acceptance flow with key decryption
 
 ### Task 5: Testing & Instrumentation
 - [ ] Unit/integration tests for keypair generation, invite encryption/decryption, and login gating.

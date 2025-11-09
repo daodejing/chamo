@@ -147,6 +147,12 @@ export const ME_QUERY = gql`
   }
 `;
 
+export const GET_USER_PUBLIC_KEY_QUERY = gql`
+  query GetUserPublicKey($email: String!) {
+    getUserPublicKey(email: $email)
+  }
+`;
+
 export const JOIN_FAMILY_EXISTING_MUTATION = gql`
   mutation JoinFamilyExisting($input: JoinFamilyExistingInput!) {
     joinFamilyAsMember(input: $input) {
