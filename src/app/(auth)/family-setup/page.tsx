@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { useAuth } from '@/lib/contexts/auth-context';
@@ -96,8 +96,13 @@ export default function FamilySetupPage() {
     toast.success(t('toast.inviteCodeCopied', language));
   };
 
+  useEffect(() => {
+    if (!user) {
+      router.push('/login');
+    }
+  }, [user, router]);
+
   if (!user) {
-    router.push('/login');
     return null;
   }
 

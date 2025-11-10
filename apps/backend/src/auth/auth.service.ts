@@ -17,7 +17,7 @@ import type { InviteResponse } from './types/invite.type';
 import { EmailService } from '../email/email.service';
 import { generateVerificationToken, hashToken } from '../common/utils/token.util';
 import { generateInviteCode, hashInviteCode } from '../common/utils/invite-code.util';
-import { encryptEmail } from '../common/utils/crypto.util';
+import { encryptEmail, decryptEmail } from '../common/utils/crypto.util';
 import { TelemetryService } from '../telemetry/telemetry.service';
 
 type FamilySummary = {
@@ -390,7 +390,6 @@ export class AuthService {
       }
 
       // AC4: Decrypt and compare email (case-insensitive)
-      const { decryptEmail } = await import('../common/utils/crypto.util');
       const decryptedEmail = decryptEmail(emailBoundInvite.inviteeEmailEncrypted);
 
       if (decryptedEmail.toLowerCase() !== normalizedEmail) {

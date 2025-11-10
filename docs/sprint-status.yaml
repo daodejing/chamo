@@ -45,7 +45,8 @@ development_status:
   1-6-brevo-integration: done
   1-9-per-user-keypairs: done  # Foundation for E2EE (Story 1.9) - All ACs complete, tests passing
   1-8-decouple-registration-and-families: done  # Senior Developer Review APPROVED - All 6 ACs satisfied, 23 tests passing, production-ready
-  1-5-email-bound-invites: in-progress  # Depends on 1.8, 1.9 - APPROVED for development
+  1-5-email-bound-invites: review  # All ACs complete, 9 integration tests passing, ready for code review
+  1-10-update-registration-ui: ready-for-dev  # Fix UI to match decoupled backend (Story 1.8 follow-up) - Remove ignored family fields
   epic-1-retrospective: optional
 
   # Epic 2: Multi-Channel Messaging

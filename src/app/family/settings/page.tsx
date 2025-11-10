@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, UserPlus, Users, Mail } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -24,8 +24,13 @@ export default function FamilySettingsPage() {
   const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
   const [emailInviteDialogOpen, setEmailInviteDialogOpen] = useState(false);
 
+  useEffect(() => {
+    if (!user?.activeFamily) {
+      router.push('/family-setup');
+    }
+  }, [user, router]);
+
   if (!user?.activeFamily) {
-    router.push('/family-setup');
     return null;
   }
 
