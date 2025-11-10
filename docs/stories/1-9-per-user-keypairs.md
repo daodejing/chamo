@@ -1,6 +1,6 @@
 # Story 1.9: Per-User Keypair Generation and Secure Storage
 
-Status: review
+Status: done
 
 ## Story
 
@@ -570,6 +570,7 @@ pnpm prisma generate
 - **2025-11-10:** Marked story complete - all 8 tasks finished, all 6 acceptance criteria verified by tests. Status updated to `review`.
 - **2025-11-10:** Authored `docs/troubleshooting/lost-encryption-keys.md` so Task 7’s help-document requirement is satisfied and modal links have a destination.
 - **2025-11-10:** Senior Developer Review (AI) appended with approval outcome and evidence tables.
+- **2025-11-10:** Status updated from "review" to "done" - story approved and complete.
 
 ## Senior Developer Review (AI)
 
