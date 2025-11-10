@@ -205,6 +205,16 @@ export const CREATE_PENDING_INVITE_MUTATION = gql`
   }
 `;
 
+export const CREATE_INVITE_MUTATION = gql`
+  mutation CreateInvite($input: CreateInviteInput!) {
+    createInvite(input: $input) {
+      inviteCode
+      inviteeEmail
+      expiresAt
+    }
+  }
+`;
+
 export const REPORT_INVITE_DECRYPT_FAILURE_MUTATION = gql`
   mutation ReportInviteDecryptFailure($input: ReportInviteDecryptFailureInput!) {
     reportInviteDecryptFailure(input: $input) {

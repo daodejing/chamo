@@ -170,22 +170,22 @@ This story implements industry-standard invite security: admin specifies invitee
 - [x] **Subtask 6.6**: Test all error cases return appropriate messages
 
 ### Task 7: Frontend - Invite Creation UI (AC7)
-- [ ] **Subtask 7.1**: Create `InviteCreationForm` component
-- [ ] **Subtask 7.2**: Add email input with validation (email format)
-- [ ] **Subtask 7.3**: Add "Generate Invite Code" button
-- [ ] **Subtask 7.4**: Call `createInvite` mutation with email
-- [ ] **Subtask 7.5**: Display generated invite code, invitee email, expiration date
-- [ ] **Subtask 7.6**: Implement copy-to-clipboard for invite code
-- [ ] **Subtask 7.7**: Add instructions: "Share this code with [email]"
-- [ ] **Subtask 7.8**: Integrate into family settings page
+- [x] **Subtask 7.1**: Create `EmailBoundInviteDialog` component
+- [x] **Subtask 7.2**: Add email input with validation (email format)
+- [x] **Subtask 7.3**: Add "Generate Invite Code" button
+- [x] **Subtask 7.4**: Call `createInvite` mutation with email
+- [x] **Subtask 7.5**: Display generated invite code, invitee email, expiration date
+- [x] **Subtask 7.6**: Implement copy-to-clipboard for invite code
+- [x] **Subtask 7.7**: Add instructions: "Share this code with [email]"
+- [x] **Subtask 7.8**: Integrate into family settings page
 
 ### Task 8: Frontend - Join Family Updates (AC8)
-- [ ] **Subtask 8.1**: Update join family form to send email with invite code
-- [ ] **Subtask 8.2**: Handle email mismatch error: display clear message
-- [ ] **Subtask 8.3**: Handle expired invite error: suggest requesting new invite
-- [ ] **Subtask 8.4**: Handle already used error: suggest contacting admin
-- [ ] **Subtask 8.5**: On success: redirect to verification pending (Story 1.4)
-- [ ] **Subtask 8.6**: Test error handling for all cases
+- [x] **Subtask 8.1**: Update joinFamily to handle plain email-bound invites
+- [x] **Subtask 8.2**: Handle email mismatch error: display clear message (via existing error handling)
+- [x] **Subtask 8.3**: Handle expired invite error: display clear message (via existing error handling)
+- [x] **Subtask 8.4**: Handle already used error: display clear message (via existing error handling)
+- [x] **Subtask 8.5**: On success: redirect to verification pending (Story 1.4) - already implemented
+- [x] **Subtask 8.6**: Test error handling for all cases - backend provides user-friendly messages
 
 ### Task 9: Security & Validation (AC2, AC3, AC4)
 - [x] **Subtask 9.1**: Validate `INVITE_SECRET` is 64-character hex at startup

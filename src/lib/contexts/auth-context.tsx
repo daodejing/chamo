@@ -416,11 +416,24 @@ function AuthProviderInner({ children }: { children: React.ReactNode}) {
     email: string;
     password: string;
     name: string;
-    inviteCode: string; // Format: FAMILY-XXXXXXXX:BASE64KEY
+    inviteCode: string; // Format: FAMILY-XXXXXXXX:BASE64KEY or plain code for email-bound invites
   }): Promise<{ email: string; requiresVerification: boolean } | null> => {
     const { publicKey, secretKey } = createKeypairOrThrow();
-    // Parse invite code to extract code and family encryption key (E2EE)
-    const { code, base64Key } = parseInviteCode(input.inviteCode);
+
+    // Check if this is an email-bound invite (Story 1.5) or encrypted invite (Story 1.8)
+    // Email-bound invites are plain codes, encrypted invites have CODE:KEY format
+    let code: string;
+    let base64Key: string | null = null;
+
+    if (input.inviteCode.includes(':')) {
+      // Encrypted invite (Story 1.8): Parse code and key
+      const parsed = parseInviteCode(input.inviteCode);
+      code = parsed.code;
+      base64Key = parsed.base64Key;
+    } else {
+      // Email-bound invite (Story 1.5): Plain code, no key
+      code = input.inviteCode;
+    }
 
     // Call backend with code only (key never sent to backend)
     const { data } = await joinFamilyMutation({
@@ -429,7 +442,7 @@ function AuthProviderInner({ children }: { children: React.ReactNode}) {
           email: input.email,
           password: input.password,
           name: input.name,
-          inviteCode: code, // Send only code portion, not the key
+          inviteCode: code,
           publicKey,
         },
       },
@@ -440,8 +453,10 @@ function AuthProviderInner({ children }: { children: React.ReactNode}) {
       await storePrivateKeyOrThrow(payload.userId, secretKey);
       // New flow: join family returns EmailVerificationResponse
       // User must verify email before logging in
-      // Store the family key temporarily in localStorage for after verification
-      persistPendingFamilySecrets(base64Key, code);
+      // Store the family key temporarily in localStorage for after verification (only for encrypted invites)
+      if (base64Key) {
+        persistPendingFamilySecrets(base64Key, code);
+      }
 
       return {
         email: input.email,
