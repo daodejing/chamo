@@ -13,8 +13,11 @@ import { Prisma, Role } from '@prisma/client';
 import type { AuthResponse, UserType, EmailVerificationResponse, GenericResponse, CreateFamilyResponse } from './types/auth-response.type';
 import type { FamilyType } from './types/family.type';
 import type { FamilyMembershipType } from './types/family-membership.type';
+import type { InviteResponse } from './types/invite.type';
 import { EmailService } from '../email/email.service';
 import { generateVerificationToken, hashToken } from '../common/utils/token.util';
+import { generateInviteCode, hashInviteCode } from '../common/utils/invite-code.util';
+import { encryptEmail } from '../common/utils/crypto.util';
 import { TelemetryService } from '../telemetry/telemetry.service';
 
 type FamilySummary = {
@@ -349,21 +352,64 @@ export class AuthService {
     publicKey: string,
   ): Promise<EmailVerificationResponse> {
     const normalizedPublicKey = this.validatePublicKey(publicKey);
+    const normalizedEmail = email.trim().toLowerCase();
+
     const existingUser = await this.prisma.user.findUnique({
-      where: { email },
+      where: { email: normalizedEmail },
     });
 
     if (existingUser) {
       throw new ConflictException('Email already registered');
     }
 
-    const family = await this.prisma.family.findUnique({
-      where: { inviteCode },
-      include: { memberships: true },
+    // Story 1.5: Check for email-bound invite first
+    const codeHash = hashInviteCode(inviteCode);
+    const emailBoundInvite = await this.prisma.familyInvite.findUnique({
+      where: { codeHash },
+      include: {
+        family: {
+          include: { memberships: true },
+        },
+      },
     });
 
-    if (!family) {
-      throw new UnauthorizedException('Invalid invite code');
+    let family;
+    let shouldMarkInviteRedeemed = false;
+
+    if (emailBoundInvite) {
+      // Email-bound invite found - validate it (Story 1.5)
+
+      // AC6: Check expiration
+      if (emailBoundInvite.expiresAt < new Date()) {
+        throw new BadRequestException('This invite code has expired');
+      }
+
+      // AC5: Check if already redeemed
+      if (emailBoundInvite.redeemedAt) {
+        throw new BadRequestException('This invite code has already been used');
+      }
+
+      // AC4: Decrypt and compare email (case-insensitive)
+      const { decryptEmail } = await import('../common/utils/crypto.util');
+      const decryptedEmail = decryptEmail(emailBoundInvite.inviteeEmailEncrypted);
+
+      if (decryptedEmail.toLowerCase() !== normalizedEmail) {
+        throw new BadRequestException('This invite code was not sent to your email address');
+      }
+
+      // Valid email-bound invite
+      family = emailBoundInvite.family;
+      shouldMarkInviteRedeemed = true;
+    } else {
+      // Fall back to Family.inviteCode (Story 1.1/1.2)
+      family = await this.prisma.family.findUnique({
+        where: { inviteCode },
+        include: { memberships: true },
+      });
+
+      if (!family) {
+        throw new UnauthorizedException('Invalid invite code');
+      }
     }
 
     if (family.memberships.length >= family.maxMembers) {
@@ -380,7 +426,7 @@ export class AuthService {
     const { user } = await this.prisma.$transaction(async (tx) => {
       const createdUser = await tx.user.create({
         data: {
-          email,
+          email: normalizedEmail,
           name,
           passwordHash,
           role: Role.MEMBER,
@@ -407,11 +453,22 @@ export class AuthService {
         },
       });
 
+      // Story 1.5 AC4, AC5: Mark email-bound invite as redeemed
+      if (shouldMarkInviteRedeemed && emailBoundInvite) {
+        await tx.familyInvite.update({
+          where: { id: emailBoundInvite.id },
+          data: {
+            redeemedAt: new Date(),
+            redeemedByUserId: createdUser.id,
+          },
+        });
+      }
+
       return { user: createdUser };
     });
 
     // Send verification email (fire and forget)
-    await this.emailService.sendVerificationEmail(email, token);
+    await this.emailService.sendVerificationEmail(normalizedEmail, token);
 
     return {
       message: 'Registration successful. Please check your email to verify your account.',
@@ -1036,6 +1093,88 @@ export class AuthService {
       nonce: invite.nonce ?? null,
       acceptedAt: invite.acceptedAt ?? undefined,
     }));
+  }
+
+  /**
+   * Story 1.5: Create email-bound invite
+   * Admin specifies invitee email, system generates secure invite code
+   * Email is encrypted server-side, invite code is hashed for lookup
+   */
+  async createInvite(
+    userId: string,
+    inviteeEmail: string,
+  ): Promise<InviteResponse> {
+    // Get user's active family
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { activeFamilyId: true },
+    });
+
+    if (!user?.activeFamilyId) {
+      throw new BadRequestException('You must have an active family to create invites');
+    }
+
+    // Verify user is a member of their active family
+    const membership = await this.prisma.familyMembership.findUnique({
+      where: {
+        userId_familyId: {
+          userId,
+          familyId: user.activeFamilyId,
+        },
+      },
+    });
+
+    if (!membership) {
+      throw new ForbiddenException('You must be a family member to create invites');
+    }
+
+    // Normalize and validate email
+    const normalizedEmail = inviteeEmail.trim().toLowerCase();
+
+    // Verify invitee is not already a member
+    const inviteeUser = await this.prisma.user.findUnique({
+      where: { email: normalizedEmail },
+      include: {
+        memberships: {
+          where: { familyId: user.activeFamilyId },
+        },
+      },
+    });
+
+    if (inviteeUser && inviteeUser.memberships.length > 0) {
+      throw new ConflictException('User is already a member of this family');
+    }
+
+    // Generate cryptographically secure 22-character invite code
+    const inviteCode = generateInviteCode();
+
+    // Hash invite code for database lookup (SHA-256)
+    const codeHash = hashInviteCode(inviteCode);
+
+    // Encrypt invitee email using AES-256-GCM
+    const inviteeEmailEncrypted = encryptEmail(normalizedEmail);
+
+    // Set expiration to 14 days from now
+    const expiresAt = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000);
+
+    // Store in family_invites table
+    const familyInvite = await this.prisma.familyInvite.create({
+      data: {
+        code: inviteCode,
+        codeHash,
+        familyId: user.activeFamilyId,
+        inviteeEmailEncrypted,
+        inviterId: userId,
+        expiresAt,
+      },
+    });
+
+    // Return response with invite code, email, and expiration
+    return {
+      inviteCode: familyInvite.code,
+      inviteeEmail: normalizedEmail,
+      expiresAt: familyInvite.expiresAt,
+    };
   }
 
   private generateInviteCode(): string {

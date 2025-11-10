@@ -56,6 +56,8 @@ model User {
   createdFolders         PhotoFolder[]
   emailVerificationTokens EmailVerificationToken[]
   sentInvites            Invite[]              @relation("InviterInvites")
+  sentFamilyInvites      FamilyInvite[]        @relation("FamilyInviterInvites")
+  redeemedFamilyInvites  FamilyInvite[]        @relation("FamilyInviteRedeemer")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -80,6 +82,7 @@ model Family {
   photoFolders   PhotoFolder[]
   calendarEvents CalendarEvent[]
   invites        Invite[]
+  familyInvites  FamilyInvite[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -263,6 +266,27 @@ model EmailVerificationToken {
   @@index([tokenHash])
   @@index([userId])
   @@map("email_verification_tokens")
+}
+
+model FamilyInvite {
+  id                     String    @id @default(uuid())
+  code                   String    @unique @db.VarChar(22) // Plain 22-character token (given to admin)
+  codeHash               String    @unique @db.VarChar(64) // SHA-256 hash for database lookup
+  familyId               String
+  family                 Family    @relation(fields: [familyId], references: [id], onDelete: Cascade)
+  inviteeEmailEncrypted  String    @db.Text // AES-256-GCM encrypted email
+  inviterId              String
+  inviter                User      @relation("FamilyInviterInvites", fields: [inviterId], references: [id], onDelete: Cascade)
+  createdAt              DateTime  @default(now())
+  expiresAt              DateTime  // createdAt + 14 days
+  redeemedAt             DateTime?
+  redeemedByUserId       String?
+  redeemedByUser         User?     @relation("FamilyInviteRedeemer", fields: [redeemedByUserId], references: [id], onDelete: SetNull)
+
+  @@index([codeHash])
+  @@index([familyId])
+  @@index([inviteeEmailEncrypted])
+  @@map("family_invites")
 }
 
 model Invite {

@@ -1,0 +1,318 @@
+<story-context id="bmad/bmm/workflows/4-implementation/story-context/template" v="1.0">
+  <metadata>
+    <epicId>1</epicId>
+    <storyId>1.5</storyId>
+    <title>Email-Bound Invite System</title>
+    <status>ready-for-dev</status>
+    <generatedAt>2025-11-10</generatedAt>
+    <generator>BMAD Story Context Workflow</generator>
+    <sourceStoryPath>docs/stories/1-5-email-bound-invites.md</sourceStoryPath>
+  </metadata>
+
+  <story>
+    <asA>family admin creating an invite</asA>
+    <iWant>to specify the invitee's email address when generating the invite code</iWant>
+    <soThat>only the intended recipient can accept the invitation and join the family, preventing invite interception and unauthorized access</soThat>
+    <tasks>
+      <!-- Task 1: Database Schema & Migrations (AC1) -->
+      <task id="1.1">Create FamilyInvite Prisma model with all required fields</task>
+      <task id="1.2">Add indexes on codeHash, familyId, inviteeEmailEncrypted</task>
+      <task id="1.3">Generate Prisma migration: pnpm prisma migrate dev --name add_email_bound_invites</task>
+      <task id="1.4">Apply migration to local database and verify schema</task>
+      <task id="1.5">Create GraphQL FamilyInvite type (if needed for queries)</task>
+
+      <!-- Task 2: Email Encryption Utilities (AC2) -->
+      <task id="2.1">Create apps/backend/src/common/utils/crypto.util.ts</task>
+      <task id="2.2">Implement encryptEmail(email: string): string</task>
+      <task id="2.3">Implement decryptEmail(encrypted: string): string</task>
+      <task id="2.4">Add unit tests for encryption/decryption round-trip</task>
+      <task id="2.5">Test tampering detection (modify ciphertext, expect error)</task>
+      <task id="2.6">Validate INVITE_SECRET is 64-character hex at app startup</task>
+
+      <!-- Task 3: Invite Code Generation (AC3) -->
+      <task id="3.1">Create generateInviteCode() util using crypto.randomBytes(16)</task>
+      <task id="3.2">Encode token as 22-character base64url string</task>
+      <task id="3.3">Create hashInviteCode() util using SHA-256</task>
+      <task id="3.4">Test code generation produces unique codes</task>
+
+      <!-- Task 4: Backend - Create Invite Endpoint (AC3) -->
+      <task id="4.1">Update GraphQL mutation signature: createInvite(inviteeEmail: String!): InviteResponse!</task>
+      <task id="4.2">Update FamilyService.createInvite() to accept inviteeEmail parameter</task>
+      <task id="4.3">Validate email format using email validation library</task>
+      <task id="4.4">Generate 22-char random invite code</task>
+      <task id="4.5">Encrypt invitee email using encryptEmail()</task>
+      <task id="4.6">Hash invite code using SHA-256</task>
+      <task id="4.7">Store in family_invites table with expiresAt = NOW() + 14 days</task>
+      <task id="4.8">Return InviteResponse with code, email, expiration</task>
+
+      <!-- Task 5: Backend - Join Family Validation (AC4, AC5, AC6) -->
+      <task id="5.1">Update AuthService.joinFamily() to accept email parameter</task>
+      <task id="5.2">Hash provided invite code and lookup in family_invites.codeHash</task>
+      <task id="5.3">Validate invite exists, return error if not found</task>
+      <task id="5.4">Check expiration: expiresAt > NOW(), return error if expired</task>
+      <task id="5.5">Check redeemed status: redeemedAt IS NULL, return error if used</task>
+      <task id="5.6">Decrypt inviteeEmailEncrypted using decryptEmail()</task>
+      <task id="5.7">Compare decrypted email with provided email (case-insensitive)</task>
+      <task id="5.8">Return error if email mismatch: "This invite code was not sent to your email address"</task>
+      <task id="5.9">If valid: Create user account (Story 1.2 logic)</task>
+      <task id="5.10">Mark invite redeemed: UPDATE SET redeemedAt = NOW(), redeemedByUserId = user.id</task>
+      <task id="5.11">Send verification email (Story 1.4 integration)</task>
+      <task id="5.12">Return EmailVerificationResponse (not immediate JWT)</task>
+
+      <!-- Task 6: Error Handling & User Messages (AC4, AC5, AC6, AC8) -->
+      <task id="6.1">Create custom exception: InviteNotFoundException</task>
+      <task id="6.2">Create custom exception: InviteExpiredException</task>
+      <task id="6.3">Create custom exception: InviteAlreadyUsedException</task>
+      <task id="6.4">Create custom exception: InviteEmailMismatchException</task>
+      <task id="6.5">Map exceptions to user-friendly GraphQL error messages</task>
+      <task id="6.6">Test all error cases return appropriate messages</task>
+
+      <!-- Task 7: Frontend - Invite Creation UI (AC7) -->
+      <task id="7.1">Create InviteCreationForm component</task>
+      <task id="7.2">Add email input with validation (email format)</task>
+      <task id="7.3">Add "Generate Invite Code" button</task>
+      <task id="7.4">Call createInvite mutation with email</task>
+      <task id="7.5">Display generated invite code, invitee email, expiration date</task>
+      <task id="7.6">Implement copy-to-clipboard for invite code</task>
+      <task id="7.7">Add instructions: "Share this code with [email]"</task>
+      <task id="7.8">Integrate into family settings page</task>
+
+      <!-- Task 8: Frontend - Join Family Updates (AC8) -->
+      <task id="8.1">Update join family form to send email with invite code</task>
+      <task id="8.2">Handle email mismatch error: display clear message</task>
+      <task id="8.3">Handle expired invite error: suggest requesting new invite</task>
+      <task id="8.4">Handle already used error: suggest contacting admin</task>
+      <task id="8.5">On success: redirect to verification pending (Story 1.4)</task>
+      <task id="8.6">Test error handling for all cases</task>
+
+      <!-- Task 9: Security & Validation (AC2, AC3, AC4) -->
+      <task id="9.1">Validate INVITE_SECRET is 64-character hex at startup</task>
+      <task id="9.2">Test encryption produces different output for same input (random IV)</task>
+      <task id="9.3">Test decryption fails if ciphertext tampered</task>
+      <task id="9.4">Test email comparison is case-insensitive</task>
+      <task id="9.5">Test invite code generation produces unique codes</task>
+      <task id="9.6">Test concurrent redemption attempts (race condition)</task>
+
+      <!-- Task 10: Testing (All ACs) -->
+      <task id="10.1">Unit tests: Email encryption/decryption round-trip</task>
+      <task id="10.2">Unit tests: Invite code generation uniqueness</task>
+      <task id="10.3">Unit tests: Invite validation logic (expired, used, mismatch)</task>
+      <task id="10.4">Integration tests: Full invite creation → redemption flow</task>
+      <task id="10.5">Integration tests: Email mismatch rejection</task>
+      <task id="10.6">Integration tests: Expired invite rejection</task>
+      <task id="10.7">Integration tests: Already used invite rejection</task>
+      <task id="10.8">Integration tests: Race condition handling (concurrent redemptions)</task>
+      <task id="10.9">E2E tests: Admin creates invite → member joins with correct email</task>
+      <task id="10.10">E2E tests: Member tries wrong email → sees error</task>
+    </tasks>
+  </story>
+
+  <acceptanceCriteria>
+    <criterion id="AC1">
+      <summary>Database Schema for Email-Bound Invites</summary>
+      <details>
+        - family_invites table created with columns: id (UUID), code (VARCHAR(22)), codeHash (VARCHAR(64), unique, indexed), familyId (UUID FK), inviteeEmailEncrypted (TEXT), inviterId (UUID FK), createdAt (TIMESTAMP), expiresAt (TIMESTAMP), redeemedAt (TIMESTAMP NULL), redeemedByUserId (UUID FK NULL)
+        - Indexes on codeHash, familyId, inviteeEmailEncrypted
+        - Prisma migration generated and applied
+      </details>
+    </criterion>
+    <criterion id="AC2">
+      <summary>Server-Side Email Encryption</summary>
+      <details>
+        - INVITE_SECRET environment variable configured (32-byte hex, 64 characters)
+        - Encryption utility created: encryptEmail(email: string): string using AES-256-GCM
+        - Decryption utility created: decryptEmail(encrypted: string): string with auth tag verification
+        - INVITE_SECRET validated at app startup (must be 64-character hex)
+      </details>
+    </criterion>
+    <criterion id="AC3">
+      <summary>Invite Creation with Email Binding</summary>
+      <details>
+        - GraphQL mutation updated: createInvite(inviteeEmail: String!): InviteResponse!
+        - Admin specifies invitee email address (required parameter)
+        - Backend generates 22-character cryptographic random invite code (128-bit entropy)
+        - Backend encrypts invitee email using encryptEmail()
+        - Backend stores in family_invites table
+        - Returns InviteResponse with inviteCode, inviteeEmail, expiresAt
+      </details>
+    </criterion>
+    <criterion id="AC4">
+      <summary>Invite Acceptance with Email Validation</summary>
+      <details>
+        - GraphQL mutation updated: joinFamily(email: String!, inviteCode: String!, password: String!, name: String!): EmailVerificationResponse!
+        - Backend looks up invite by SHA-256(inviteCode) in codeHash column
+        - Backend validates: invite exists, not expired, not redeemed
+        - Backend decrypts inviteeEmailEncrypted using decryptEmail()
+        - Backend compares decrypted email with provided email (case-insensitive)
+        - If email mismatch: Return error "This invite code was not sent to your email address"
+        - If valid: Create account, mark invite redeemed, send verification email
+      </details>
+    </criterion>
+    <criterion id="AC5">
+      <summary>Single-Use Enforcement</summary>
+      <details>
+        - Invite code can only be redeemed once
+        - After redemption, redeemedAt timestamp set
+        - Attempting to use redeemed invite returns error: "This invite code has already been used"
+        - Database constraint prevents race conditions
+      </details>
+    </criterion>
+    <criterion id="AC6">
+      <summary>Invite Expiration</summary>
+      <details>
+        - Invite codes expire after 14 days from creation (createdAt + 14 days)
+        - Expired invites return error: "This invite code has expired"
+        - Expired invites not deleted (kept for audit trail)
+        - Admin can create new invite for same email if previous expired
+      </details>
+    </criterion>
+    <criterion id="AC7">
+      <summary>Frontend - Invite Creation UI</summary>
+      <details>
+        - Admin sees "Invite New Member" button in family settings
+        - Invite creation form includes: email address input (required, validated), "Generate Invite Code" button
+        - After creation, displays invite code and invitee email
+        - Copy-to-clipboard button for invite code
+        - Expiration date displayed (14 days from now)
+        - Instructions: "Share this code with [email] to join your family"
+      </details>
+    </criterion>
+    <criterion id="AC8">
+      <summary>Frontend - Invite Acceptance Updates</summary>
+      <details>
+        - Join family form validates email matches invite (backend validation)
+        - Email mismatch error displayed clearly
+        - Success flow creates account and sends verification email (Story 1.4 integration)
+        - Error messages user-friendly: expired, already used, wrong email
+      </details>
+    </criterion>
+  </acceptanceCriteria>
+
+  <artifacts>
+    <docs>
+      <doc path="docs/sprint-change-proposal-2025-11-08.md" title="Sprint Change Proposal" section="Issue Summary">
+        Vulnerability: Family invite codes can be accepted by anyone who has the code. Impact: HIGH - Intercepted invite codes grant unauthorized family access. Solution: Server-side email encryption binds invite to specific recipient.
+      </doc>
+      <doc path="docs/sprint-change-proposal-2025-11-08.md" title="Sprint Change Proposal" section="Appendix A">
+        Email Encryption Design: AES-256-GCM symmetric encryption (authenticated encryption), key derived from INVITE_SECRET environment variable (32-byte hex), random IV generated per encryption, authentication tag prevents tampering.
+      </doc>
+      <doc path="docs/sprint-change-proposal-2025-11-08.md" title="Sprint Change Proposal" section="Database Schema Additions">
+        New table: family_invites with code VARCHAR(22), code_hash VARCHAR(64), invitee_email_encrypted TEXT, expires_at TIMESTAMP. Indexes on code_hash, family_id, invitee_email.
+      </doc>
+      <doc path="docs/solution-architecture.md" title="Solution Architecture" section="Technology Stack">
+        Backend: NestJS 10.3.0, Apollo Server 4.10.0, Prisma 5.9.0, PostgreSQL 16+, bcrypt 5.1.x, jsonwebtoken 9.0.x. Frontend: React 19, Next.js 15.0.3, Apollo Client 3.9.0.
+      </doc>
+      <doc path="docs/tech-spec-epic-1.md" title="Tech Spec Epic 1" section="Backend API Routes">
+        API routes follow NestJS GraphQL pattern. Auth mutations include register, join, login. Family mutations include createInvite.
+      </doc>
+      <doc path="docs/stories/1-8-decouple-registration-and-families.md" title="Story 1.8" section="Context">
+        Story 1.8 (done) decoupled account registration from family creation. Adopted per-user keypairs at registration time. All family creation now happens in authenticated sessions.
+      </doc>
+      <doc path="docs/stories/1-9-per-user-keypairs.md" title="Story 1.9" section="Context">
+        Story 1.9 (done) implemented per-user keypair generation using tweetnacl. Public keys stored in database, private keys stored client-side in IndexedDB with dexie-encrypted.
+      </doc>
+      <doc path="docs/stories/1-4-email-verification.md" title="Story 1.4" section="Context">
+        Story 1.4 implements email verification flow with time-limited tokens. Brevo integration for sending verification emails. EmailVerificationToken table tracks verification state.
+      </doc>
+      <doc path="docs/stories/1-6-brevo-integration.md" title="Story 1.6" section="Context">
+        Story 1.6 (done) integrated Brevo transactional email service. EmailService available at apps/backend/src/email/email.service.ts with sendVerificationEmail method.
+      </doc>
+    </docs>
+    <code>
+      <artifact path="apps/backend/prisma/schema.prisma" kind="schema" symbol="Invite" lines="268-289" reason="Existing Invite model for Story 1.8's encrypted invite flow. Story 1.5 creates a NEW family_invites table with different structure focused on email encryption binding (not E2EE family key encryption)." />
+      <artifact path="apps/backend/prisma/schema.prisma" kind="schema" symbol="EmailVerificationToken" lines="253-266" reason="Reference for token-based verification pattern. Similar pattern used for invite codes with hashing." />
+      <artifact path="apps/backend/src/common/utils/token.util.ts" kind="utility" symbol="generateVerificationToken" lines="7-17" reason="Existing utility for generating cryptographically secure 22-character tokens using crypto.randomBytes(16). Can be reused or referenced for invite code generation." />
+      <artifact path="apps/backend/src/common/utils/token.util.ts" kind="utility" symbol="hashToken" lines="24-29" reason="Existing utility for SHA-256 hashing tokens. Can be used for hashing invite codes before database lookup." />
+      <artifact path="apps/backend/src/auth/auth.service.ts" kind="service" symbol="AuthService" lines="1-150" reason="Main authentication service. Contains register, login, joinFamily methods that need updating for email-bound invite validation." />
+      <artifact path="apps/backend/src/email/email.service.ts" kind="service" symbol="EmailService" lines="1-50" reason="Brevo email service integration. Already has sendVerificationEmail method. May need extension for invite-related emails." />
+      <artifact path="apps/backend/src/auth/auth.resolver.ts" kind="resolver" symbol="AuthResolver" reason="GraphQL resolver for auth mutations. Contains register, login, joinFamily mutations that need updating." />
+      <artifact path="apps/backend/src/schema.gql" kind="schema" symbol="InviteType" lines="139-152" reason="Existing GraphQL InviteType from Story 1.8. Story 1.5 may need to define InviteResponse type for createInvite mutation." />
+      <artifact path="apps/backend/src/schema.gql" kind="schema" symbol="EmailVerificationResponse" lines="97-101" reason="Response type used after registration. Same type should be returned by joinFamily since it requires email verification." />
+      <artifact path="apps/backend/package.json" kind="config" symbol="dependencies" lines="22-44" reason="Backend dependencies include @getbrevo/brevo (email), @prisma/client, bcrypt (password hashing), class-validator (validation), jsonwebtoken (JWT)." />
+      <artifact path="apps/backend/src/auth/invite.service.spec.ts" kind="test" symbol="AuthService - Encrypted Invite Flow" lines="8-50" reason="Existing test patterns for invite flow. Shows how to mock PrismaService, EmailService, JwtService for unit tests." />
+    </code>
+    <dependencies>
+      <nodejs>
+        <package name="@nestjs/common" version="^11.1.7" />
+        <package name="@nestjs/graphql" version="^13.2.0" />
+        <package name="@apollo/server" version="^5.0.0" />
+        <package name="@prisma/client" version="^6.17.1" />
+        <package name="bcrypt" version="^6.0.0" />
+        <package name="@nestjs/jwt" version="^11.0.1" />
+        <package name="class-validator" version="^0.14.2" />
+        <package name="class-transformer" version="^0.5.1" />
+        <package name="@getbrevo/brevo" version="^3.0.1" />
+        <package name="graphql" version="^16.11.0" />
+        <devDependency name="jest" version="^30.0.0" />
+        <devDependency name="@nestjs/testing" version="^11.1.7" />
+        <devDependency name="supertest" version="^7.0.0" />
+        <devDependency name="ts-jest" version="^29.2.5" />
+      </nodejs>
+    </dependencies>
+  </artifacts>
+
+  <constraints>
+    <constraint type="security">Email encryption MUST use AES-256-GCM with authenticated encryption. Server-side INVITE_SECRET key must be 32-byte hex (64 characters). Never store plain invite codes in database - always hash with SHA-256.</constraint>
+    <constraint type="security">Invite codes MUST have 128-bit cryptographic randomness (crypto.randomBytes(16)). Encode as 22-character base64url. Never use predictable patterns or sequential IDs.</constraint>
+    <constraint type="data-integrity">Single-use enforcement via redeemedAt timestamp. Use database transactions for redemption to prevent race conditions.</constraint>
+    <constraint type="data-retention">Expired invites NOT deleted - kept for audit trail. Query validation: WHERE expiresAt > NOW() AND redeemedAt IS NULL</constraint>
+    <constraint type="validation">Email comparison MUST be case-insensitive: email.toLowerCase() === decryptedEmail.toLowerCase()</constraint>
+    <constraint type="architecture">Story 1.5 creates NEW family_invites table separate from existing Invite model (Story 1.8). Different use cases: Story 1.8 = E2EE family key encryption, Story 1.5 = email-bound invite security.</constraint>
+    <constraint type="testing">Unit tests MUST verify: encryption round-trip, tampering detection (auth tag), case-insensitive email matching, token uniqueness, expiration logic, concurrent redemption handling.</constraint>
+    <constraint type="ui">NEVER hardcode human language strings in UI components. All user-facing text must use translation system in src/lib/translations.ts</constraint>
+  </constraints>
+
+  <interfaces>
+    <interface name="createInvite" kind="GraphQL Mutation">
+      <signature>createInvite(inviteeEmail: String!): InviteResponse!</signature>
+      <path>apps/backend/src/schema.gql</path>
+      <notes>New mutation for Story 1.5. Admin specifies invitee email, backend generates code and encrypts email.</notes>
+    </interface>
+    <interface name="joinFamily" kind="GraphQL Mutation">
+      <signature>joinFamily(email: String!, inviteCode: String!, password: String!, name: String!, publicKey: String!): EmailVerificationResponse!</signature>
+      <path>apps/backend/src/schema.gql</path>
+      <notes>UPDATE existing mutation to add email parameter. Backend validates email matches decrypted inviteeEmail from family_invites.</notes>
+    </interface>
+    <interface name="InviteResponse" kind="GraphQL Type">
+      <signature>type InviteResponse { inviteCode: String!, inviteeEmail: String!, expiresAt: DateTime! }</signature>
+      <path>apps/backend/src/schema.gql</path>
+      <notes>New response type for createInvite mutation. Returns generated code, target email, expiration timestamp.</notes>
+    </interface>
+    <interface name="FamilyInvite" kind="Prisma Model">
+      <signature>model FamilyInvite { id String, code String, codeHash String, familyId String, inviteeEmailEncrypted String, inviterId String, createdAt DateTime, expiresAt DateTime, redeemedAt DateTime?, redeemedByUserId String? }</signature>
+      <path>apps/backend/prisma/schema.prisma</path>
+      <notes>New Prisma model for Story 1.5. Separate from existing Invite model (Story 1.8).</notes>
+    </interface>
+    <interface name="encryptEmail" kind="Function">
+      <signature>encryptEmail(email: string): string</signature>
+      <path>apps/backend/src/common/utils/crypto.util.ts</path>
+      <notes>New utility for AES-256-GCM email encryption. Returns base64-encoded: IV + ciphertext + auth tag.</notes>
+    </interface>
+    <interface name="decryptEmail" kind="Function">
+      <signature>decryptEmail(encrypted: string): string</signature>
+      <path>apps/backend/src/common/utils/crypto.util.ts</path>
+      <notes>New utility for AES-256-GCM email decryption. Verifies auth tag, returns plain email or throws on tampering.</notes>
+    </interface>
+  </interfaces>
+
+  <tests>
+    <standards>
+      Testing follows NestJS patterns using Jest for unit/integration tests and Playwright for E2E. Unit tests use mocked PrismaService, EmailService, JwtService. Integration tests use real database with test transactions. E2E tests use Playwright with browser automation. All tests in apps/backend/src/**/*.spec.ts (unit) and tests/e2e/**/*.spec.ts (E2E). Coverage target >90% for critical auth flows.
+    </standards>
+    <locations>
+      - apps/backend/src/common/utils/crypto.util.spec.ts (new - crypto utils)
+      - apps/backend/src/auth/auth.service.spec.ts (update - invite validation)
+      - apps/backend/test/email-bound-invites.e2e-spec.ts (new - integration)
+      - tests/e2e/invite-flow.spec.ts (new - Playwright E2E)
+    </locations>
+    <ideas>
+      <idea ac="AC2">Unit test: Verify encryptEmail produces different output for same input (random IV). Test decryptEmail fails if ciphertext modified (auth tag verification).</idea>
+      <idea ac="AC3">Unit test: Verify generateInviteCode produces unique 22-character codes. Test hashInviteCode returns 64-character hex SHA-256 hash.</idea>
+      <idea ac="AC4">Integration test: Create invite for user@example.com, attempt join with different-user@example.com, expect "This invite code was not sent to your email address" error.</idea>
+      <idea ac="AC5">Integration test: Redeem invite code, attempt reuse, expect "This invite code has already been used" error. Test concurrent redemption attempts with database transactions.</idea>
+      <idea ac="AC6">Integration test: Create invite with expiresAt in past, attempt join, expect "This invite code has expired" error.</idea>
+      <idea ac="AC7">E2E test: Admin creates invite for user@example.com → sees invite code and expiration → copies code to clipboard.</idea>
+      <idea ac="AC8">E2E test: Member registers with user@example.com + correct code → account created → verification email sent. Member tries wrong email → sees clear error message.</idea>
+    </ideas>
+  </tests>
+</story-context>

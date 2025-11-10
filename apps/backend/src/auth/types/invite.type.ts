@@ -81,3 +81,19 @@ export class AcceptInviteResponse {
   @Field()
   inviterPublicKey: string;
 }
+
+/**
+ * Response type for Story 1.5 email-bound invite creation
+ * Simpler than CreateInviteResponse - only returns essential fields
+ */
+@ObjectType()
+export class InviteResponse {
+  @Field()
+  inviteCode: string;
+
+  @Field()
+  inviteeEmail: string;
+
+  @Field()
+  expiresAt: Date;
+}

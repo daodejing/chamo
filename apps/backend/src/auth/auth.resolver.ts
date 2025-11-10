@@ -18,9 +18,10 @@ import { UpdateUserPreferencesInput } from './dto/update-user-preferences.input'
 import { CreateEncryptedInviteInput } from './dto/create-encrypted-invite.input';
 import { AcceptInviteInput } from './dto/accept-invite.input';
 import { CreatePendingInviteInput } from './dto/create-pending-invite.input';
+import { CreateInviteInput } from './dto/create-invite.input';
 import { ReportInviteDecryptFailureInput } from './dto/report-invite-decrypt-failure.input';
 import { AuthResponse, UserType, EmailVerificationResponse, GenericResponse, CreateFamilyResponse } from './types/auth-response.type';
-import { CreateInviteResponse, AcceptInviteResponse, InviteType } from './types/invite.type';
+import { CreateInviteResponse, AcceptInviteResponse, InviteType, InviteResponse } from './types/invite.type';
 import { FamilyType } from './types/family.type';
 import { FamilyMembershipType } from './types/family-membership.type';
 import { UserPreferencesType } from './types/user-preferences.type';
@@ -220,6 +221,19 @@ export class AuthResolver {
       input.familyId,
       input.inviteeEmail,
     );
+  }
+
+  /**
+   * Story 1.5: Create email-bound invite
+   * Generates secure invite code bound to specific email address
+   */
+  @Mutation(() => InviteResponse)
+  @UseGuards(GqlAuthGuard)
+  async createInvite(
+    @CurrentUser() user: User,
+    @Args('input') input: CreateInviteInput,
+  ): Promise<InviteResponse> {
+    return this.authService.createInvite(user.id, input.inviteeEmail);
   }
 
   @Query(() => [InviteType])

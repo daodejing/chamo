@@ -4,6 +4,7 @@ import { AuthService } from './auth.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { JwtService } from '@nestjs/jwt';
 import { EmailService } from '../email/email.service';
+import { TelemetryService } from '../telemetry/telemetry.service';
 
 describe('AuthService - Encrypted Invite Flow', () => {
   let authService: AuthService;
@@ -35,6 +36,11 @@ describe('AuthService - Encrypted Invite Flow', () => {
     sign: jest.fn().mockReturnValue('test-token'),
   };
 
+  const telemetryServiceMock: any = {
+    trackEvent: jest.fn(),
+    trackError: jest.fn(),
+  };
+
   beforeEach(async () => {
     jest.resetAllMocks();
 
@@ -44,6 +50,7 @@ describe('AuthService - Encrypted Invite Flow', () => {
         { provide: PrismaService, useValue: prismaMock as PrismaService },
         { provide: EmailService, useValue: emailServiceMock as EmailService },
         { provide: JwtService, useValue: jwtServiceMock as JwtService },
+        { provide: TelemetryService, useValue: telemetryServiceMock },
       ],
     }).compile();
 

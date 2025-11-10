@@ -2,6 +2,7 @@ import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { AppModule } from './app.module';
 import { buildCorsOptions } from './config/cors.config';
+import { validateInviteSecret } from './common/utils/crypto.util';
 
 /**
  * Validates required environment variables at startup.
@@ -13,6 +14,7 @@ function validateEnvironment() {
     'JWT_SECRET',
     'REFRESH_TOKEN_SECRET',
     'CORS_ALLOWED_ORIGINS',
+    'INVITE_SECRET',
   ];
 
   const missing = required.filter((key) => !process.env[key]);
@@ -21,7 +23,17 @@ function validateEnvironment() {
     console.error('❌ FATAL: Missing required environment variables:');
     missing.forEach((key) => console.error(`   - ${key}`));
     console.error('\nPlease set these variables in apps/backend/.env');
+    console.error('\nFor INVITE_SECRET, run: openssl rand -hex 32');
     process.exit(1); // Fail fast
+  }
+
+  // Validate INVITE_SECRET format (must be 64-character hex)
+  try {
+    validateInviteSecret();
+  } catch (error) {
+    console.error('❌ FATAL: Invalid INVITE_SECRET configuration');
+    console.error(`   ${error.message}`);
+    process.exit(1);
   }
 
   // Warn about insecure default values
