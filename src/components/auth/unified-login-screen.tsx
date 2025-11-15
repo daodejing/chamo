@@ -165,7 +165,7 @@ export function UnifiedLoginScreen({
   const getTitle = () => {
     switch (authMode) {
       case 'create':
-        return t('login.createFamily', language);
+        return t('login.createAccount', language);
       case 'join':
         return t('login.joinFamily', language);
       default:
@@ -191,7 +191,7 @@ export function UnifiedLoginScreen({
 
     switch (authMode) {
       case 'create':
-        return t('login.createFamilyButton', language);
+        return t('login.createAccountButton', language);
       case 'join':
         return t('login.joinFamilyButton', language);
       default:

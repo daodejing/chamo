@@ -1,5 +1,5 @@
 import { InputType, Field } from '@nestjs/graphql';
-import { IsEmail, IsString, Length, Matches, MinLength } from 'class-validator';
+import { IsEmail, IsString, Length, Matches, MinLength, IsOptional } from 'class-validator';
 
 @InputType()
 export class RegisterInput {
@@ -25,7 +25,8 @@ export class RegisterInput {
   })
   publicKey: string;
 
-  @Field({ nullable: true })
+  @Field(() => String, { nullable: true })
+  @IsOptional()
   @IsString()
   pendingInviteCode?: string | null;
 }

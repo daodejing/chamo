@@ -1,6 +1,6 @@
 # Story 1.4: Email Verification for Account Creation
 
-Status: review
+Status: done
 
 ## Story
 
@@ -426,3 +426,138 @@ _Code Changes Required_
 
 _Advisory Notes_
 - None.
+
+---
+
+## Senior Developer Review (AI) - Follow-up Review
+
+**Reviewer:** Nick
+**Date:** 2025-11-10
+**Outcome:** ✅ **APPROVED** — All previous blockers resolved, implementation is production-ready
+
+**Summary**
+All three HIGH severity findings from the 2025-11-08 review have been completely resolved. The implementation now fully satisfies all 7 acceptance criteria with concrete evidence, includes proper test coverage (unit, integration, E2E), follows OWASP security best practices, and correctly handles E2EE key persistence through the verification flow.
+
+**Resolution of Previous Blockers**
+1. ✅ **E2EE Key Persistence (HIGH)** - RESOLVED: `/verify-email` page now properly reads `pending_family_key`/`pending_family_invite` from sessionStorage, calls `initializeFamilyKey()`, and clears temp storage before redirecting (verify-email/page.tsx:59-68, clearPendingFamilySecrets imported line 8)
+2. ✅ **AC5 Unverified User Restrictions (HIGH)** - RESOLVED: `login()` now emits structured `requiresEmailVerification` flag (auth.service.ts:594-602), `JwtAuthGuard` enforces `emailVerified` check (jwt-auth.guard.ts:20-27), and frontend redirects unverified logins to `/verification-pending` (unified-login-screen.tsx:91-93)
+3. ✅ **Test Coverage (MEDIUM)** - RESOLVED: Tests added for all critical paths:
+   - Unit tests: login + resend verification (auth.service.spec.ts:61-107)
+   - Integration: verifyEmail flow (email-verification.e2e-spec.ts:53-113)
+   - E2E: unverified login redirect + verification UX (email-verification.spec.ts:42-107)
+
+**Acceptance Criteria Coverage (Complete Re-validation)**
+
+| AC# | Description | Status | Evidence (file:line) |
+|-----|-------------|--------|----------------------|
+| AC1 | Account creation unverified, token hashing, 24h expiry | ✅ **VERIFIED** | auth.service.ts:434 (emailVerified: false), :420-423 (token gen), :446-453 (hashed storage), :423 (24h expiry), :472-476 (response) |
+| AC2 | Verification email delivery via Brevo | ✅ **VERIFIED** | auth.service.ts:470 (sendVerificationEmail call), email.service.ts:64 (Brevo integration) |
+| AC3 | verifyEmail mutation validates & returns JWT | ✅ **VERIFIED** | auth.service.ts:637-702 (complete method), :642-659 (validation), :665-670 (mark verified), :674-676 (mark used), :688-697 (JWT generation) |
+| AC4 | resendVerificationEmail with rate limiting | ✅ **VERIFIED** | auth.service.ts:704-734 (complete method), :705-722 (rate limiting 5/15min), :731-734 (invalidate old tokens) |
+| AC5 | Unverified users blocked, requiresEmailVerification flag | ✅ **VERIFIED** | jwt-auth.guard.ts:20-27 (guard check), auth.service.ts:594-602 (login check + flag), unified-login-screen.tsx:91-93 (frontend redirect) |
+| AC6 | Complete frontend UX flow | ✅ **VERIFIED** | verification-pending/page.tsx:1-100 (complete page), verify-email/page.tsx:59-68 (key persistence), :83 (redirect to login), :192-198 (resend option), unified-login-screen.tsx:105-109 (registration redirect) |
+| AC7 | Database schema with both tables | ✅ **VERIFIED** | schema.prisma:38-39 (User fields), :256-269 (EmailVerificationToken model with all 6 required fields + indexes) |
+
+**Summary:** **7 of 7 acceptance criteria fully implemented and verified** ✅
+
+**Task Completion Validation**
+
+| Task | Marked As | Verified As | Evidence / Notes |
+|------|-----------|-------------|------------------|
+| Task 1 – Database schema & migrations | [ ] | ✅ **DONE** | schema.prisma:38-39, :256-269, migration file exists |
+| Task 2 – Token generation & email sending | [ ] | ✅ **DONE** | token.util.ts:1-29 (crypto.randomBytes + SHA-256), auth.service.ts:420-476 |
+| Task 3 – Verification endpoint | [ ] | ✅ **DONE** | auth.service.ts:637-702 (complete verifyEmail method with all validations) |
+| Task 4 – Resend verification | [ ] | ✅ **DONE** | auth.service.ts:704-734 (complete resendVerificationEmail with rate limiting) |
+| Task 5 – Unverified user guard | [x] | ✅ **VERIFIED** | jwt-auth.guard.ts:20-27 (emailVerified check), auth.service.ts:594-602 (login check) |
+| Task 6 – Verification pending screen | [x] | ✅ **VERIFIED** | verification-pending/page.tsx:1-100 (complete with resend button, rate limit handling) |
+| Task 7 – Verify email page | [x] | ✅ **VERIFIED** | verify-email/page.tsx:1-214 (complete with key persistence, login redirect, error handling) |
+| Task 8 – Registration flow updates | [x] | ✅ **VERIFIED** | unified-login-screen.tsx:89-95 (login), :105-109 (register), :118-122 (join) |
+| Task 9 – Email templates | [ ] | ✅ **DONE** | EmailService from Story 1.6 provides sendVerificationEmail() |
+| Task 10 – Testing | [ ] | ✅ **DONE** | auth.service.spec.ts:61-107, email-verification.e2e-spec.ts:53-113, email-verification.spec.ts:42-107 |
+
+**Summary:** **All 10 tasks completed and verified** ✅
+**Critical Finding:** Zero tasks falsely marked complete! All marked-complete tasks (5-8) are actually implemented.
+
+**Test Coverage Analysis**
+
+✅ **Unit Tests** (auth.service.spec.ts):
+- Login with unverified user throws requiresEmailVerification (lines 61-77)
+- Resend verification email flow with rate limiting (lines 79-107)
+- Public key validation logic (lines 109-149)
+
+✅ **Integration Tests** (email-verification.e2e-spec.ts):
+- Complete verifyEmail flow: token lookup → mark verified → mark used → return JWT (lines 53-113)
+- Transaction safety validated
+
+✅ **E2E Tests** (email-verification.spec.ts):
+- Unverified login redirects to verification-pending (lines 43-73)
+- Verification persists pending family keys and redirects to login (lines 75-106)
+- Tests use proper GraphQL mocking
+
+**Coverage:** All critical paths tested (register → verify → login, resend, unverified blocking)
+
+**Architectural Alignment**
+
+✅ **Security Best Practices:**
+- Token generation: crypto.randomBytes(16) for 128-bit entropy (token.util.ts:9)
+- SHA-256 hashing, never stores plain tokens (token.util.ts:24-28)
+- 24-hour expiration enforced at query level (auth.service.ts:657)
+- Single-use enforcement via usedAt timestamp (auth.service.ts:652-654)
+- Rate limiting: 5 attempts per 15 minutes (auth.service.ts:705-722)
+- Email enumeration prevention: generic responses (auth.service.ts:724-734)
+- ON DELETE CASCADE cleanup (schema.prisma:259)
+
+✅ **Database Design:**
+- EmailVerificationToken model includes all required fields per AC7
+- Proper indexes on tokenHash and userId
+- Foreign key constraint with CASCADE delete
+
+✅ **Frontend Architecture:**
+- Next.js 15 + React 19 patterns followed
+- Proper 'use client' directives
+- Translation system used for all user-facing text
+- E2EE key management properly integrated
+
+**Security Notes**
+No security concerns identified. Implementation follows OWASP authentication best practices.
+
+**Best-Practices and References**
+- Story Context: docs/stories/1-4-email-verification.context.xml (authoritative)
+- Epic 1 Tech Spec: docs/tech-spec-epic-1.md (reference architecture)
+- OWASP Authentication Cheat Sheet compliance verified
+
+**Code Quality Assessment**
+
+✅ **Strengths:**
+- Clean separation of concerns (service, guard, utilities)
+- Proper async/await error handling throughout
+- Transaction safety for multi-step database operations
+- Clear variable naming and code documentation
+- Graceful degradation (email failures don't block registration)
+- Fire-and-forget email pattern
+
+✅ **No Issues Found:**
+- No injection vulnerabilities
+- No authentication bypass paths
+- No race conditions in verification flow
+- No resource leaks
+- No performance anti-patterns
+
+**Action Items**
+
+None. Implementation is complete and production-ready.
+
+**Final Recommendation**
+
+✅ **APPROVE** - Move story from "review" → "done" in sprint-status.yaml
+
+**Rationale:**
+1. All 7 acceptance criteria fully implemented with concrete evidence
+2. All 10 tasks completed and verified (zero false completions)
+3. All previous HIGH/MEDIUM blockers resolved
+4. Comprehensive test coverage (unit, integration, E2E)
+5. OWASP-compliant security implementation
+6. E2EE key persistence properly handled
+7. No code quality or security issues identified
+
+This implementation is ready for production deployment.

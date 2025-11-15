@@ -205,9 +205,9 @@ See [.env.staging.template](.env.staging.template) for deployment setup instruct
 ```
 chamo/
 ├── src/
-│   ├── app/                 # Next.js 15 App Router
-│   │   ├── (auth)/          # Auth pages (login)
-│   │   ├── (dashboard)/     # Main app (chat, settings)
+│   ├── app/                 # Next.js 16 App Router
+│   │   ├── (auth)/          # Auth pages (login, family-setup)
+│   │   ├── chat/            # Main chat interface
 │   │   ├── api/             # API routes
 │   │   ├── globals.css      # Global styles
 │   │   ├── layout.tsx       # Root layout
@@ -215,20 +215,24 @@ chamo/
 │   ├── components/          # React components
 │   │   ├── ui/              # shadcn/ui components
 │   │   ├── chat/            # Chat-related components
-│   │   ├── photos/          # Photo-related components
+│   │   ├── family/          # Family management components
 │   │   ├── calendar/        # Calendar components
 │   │   └── settings/        # Settings components
 │   ├── lib/                 # Business logic & utilities
-│   │   ├── supabase/        # Supabase clients
+│   │   ├── contexts/        # React contexts (auth, language)
 │   │   ├── e2ee/            # Encryption functions
-│   │   ├── groq/            # Translation client
-│   │   ├── google/          # Google Calendar OAuth
+│   │   ├── graphql/         # GraphQL operations
+│   │   ├── crypto/          # Cryptography utilities
 │   │   ├── utils/           # Utilities
-│   │   └── hooks/           # Custom hooks
+│   │   └── translations.ts  # i18n translations
 │   └── types/               # TypeScript types
-├── supabase/
-│   ├── migrations/          # SQL migrations
-│   └── config.toml          # Supabase config
+├── apps/
+│   └── backend/             # NestJS backend application
+│       ├── src/             # Source code
+│       ├── prisma/          # Prisma schema & migrations
+│       └── test/            # Integration tests
+├── tests/
+│   └── e2e/                 # Playwright E2E tests
 ├── public/                  # Static assets
 ├── docs/                    # Project documentation
 └── frontend-proto/          # UI prototype (reference)

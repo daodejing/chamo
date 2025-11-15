@@ -17,9 +17,9 @@ type AcceptInviteResponse {
 }
 
 type AuthResponse {
-  pendingInviteCode: String
   accessToken: String!
   family: FamilyType
+  pendingInviteCode: String
   refreshToken: String!
   user: UserType!
 }
@@ -58,6 +58,10 @@ input CreateFamilyInput {
 type CreateFamilyResponse {
   family: FamilyType!
   inviteCode: String!
+}
+
+input CreateInviteInput {
+  inviteeEmail: String!
 }
 
 type CreateInviteResponse {
@@ -125,6 +129,12 @@ input GetMessagesInput {
   channelId: ID!
   cursor: ID
   limit: Int = 50
+}
+
+type InviteResponse {
+  expiresAt: DateTime!
+  inviteCode: String!
+  inviteeEmail: String!
 }
 
 """The status of a family invite"""
@@ -200,6 +210,7 @@ type Mutation {
   cacheMessageTranslation(input: CacheMessageTranslationInput!): MessageTranslationType!
   createEncryptedInvite(input: CreateEncryptedInviteInput!): CreateInviteResponse!
   createFamily(input: CreateFamilyInput!): CreateFamilyResponse!
+  createInvite(input: CreateInviteInput!): InviteResponse!
   createPendingInvite(input: CreatePendingInviteInput!): CreateInviteResponse!
   deleteMessage(input: DeleteMessageInput!): DeleteMessageResponse!
   editMessage(input: EditMessageInput!): MessageWithUserType!
@@ -208,8 +219,8 @@ type Mutation {
   login(input: LoginInput!): AuthResponse!
   logout: Boolean!
   register(input: RegisterInput!): EmailVerificationResponse!
-  resendVerificationEmail(email: String!): GenericResponse!
   reportInviteDecryptFailure(input: ReportInviteDecryptFailureInput!): GenericResponse!
+  resendVerificationEmail(email: String!): GenericResponse!
   sendMessage(input: SendMessageInput!): MessageWithUserType!
 
   """Send a test invite notification email (for development/testing only)"""
@@ -239,8 +250,8 @@ input RegisterInput {
   email: String!
   name: String!
   password: String!
-  publicKey: String!
   pendingInviteCode: String
+  publicKey: String!
 }
 
 input ReportInviteDecryptFailureInput {

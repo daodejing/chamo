@@ -720,10 +720,6 @@ type GraphQlErrorLike = {
 };
 
 function getGraphQlErrors(error: unknown): GraphQlErrorLike[] {
-  if (error instanceof ApolloError) {
-    return error.graphQLErrors;
-  }
-
   const maybeErrors = (error as { graphQLErrors?: unknown })?.graphQLErrors;
   if (Array.isArray(maybeErrors)) {
     return maybeErrors as GraphQlErrorLike[];

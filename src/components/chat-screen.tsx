@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { Send, Image as ImageIcon, Smile, Languages, Settings, Trash2, Clock, X, Hash, ChevronDown, Edit2, Check, Calendar, LogOut, UserPlus, Users } from "lucide-react";
 import { CalendarView } from "./calendar-view";
 import { PhotoGallery } from "./photo-gallery";
@@ -13,7 +14,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { InviteMemberButton } from "@/components/family/invite-member-button";
 import { InviteQrCode } from "@/components/family/invite-qr-code";
 import { Language, t } from "@/lib/translations";
@@ -160,6 +161,7 @@ interface ChatScreenProps {
 }
 
 export function ChatScreen({ chatName, chatAvatar, chatMembers, messages, channels, currentChannelId, scheduledMessages, calendarEvents, photos, photoFolders, familyMembers, memberships = [], activeFamilyId, currentUserId, currentUserName, language, onSettingsClick, onLogoutClick, onSwitchFamily, onChannelChange, onSendMessage, onScheduleMessage, onDeleteMessage, onEditMessage, onCancelScheduledMessage, onAddEvent, onEditEvent, onDeleteEvent, onAddPhoto, onDeletePhoto, onLikePhoto, onAddPhotoComment, onCreateFolder, onDeleteFolder, onRenameFolder, onMovePhotoToFolder, translationFamilyKey = null, preferredTranslationLanguage }: ChatScreenProps) {
+  const router = useRouter();
   const [newMessage, setNewMessage] = useState("");
   const [showTranslation, setShowTranslation] = useState(true);
   const [autoTranslate, setAutoTranslate] = useState(true);
@@ -379,6 +381,11 @@ export function ChatScreen({ chatName, chatAvatar, chatMembers, messages, channe
                 </DropdownMenuItem>
               );
             })}
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={() => router.push('/family-setup')}>
+              <Settings className="w-4 h-4 mr-2" />
+              {t('multiFamily.familySettings', language)}
+            </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
         <Dialog open={isInviteDialogOpen} onOpenChange={setIsInviteDialogOpen}>

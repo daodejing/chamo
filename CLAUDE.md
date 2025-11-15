@@ -1,2 +1,3 @@
 - The backend is in @apps/backend/ and uses docker-compose to restart
 - NEVER hardcode human language strings in UI components. All user-facing text must use the translation system in src/lib/translations.ts
+- The frontend uses Next.js static export (output: 'export'). Never call router.push() or other browser-dependent code during render. Use useEffect for client-side navigation and redirects.

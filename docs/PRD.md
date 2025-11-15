@@ -304,6 +304,16 @@ Build a purpose-built family platform that:
 - Auto-login on app revisit (if session valid)
 - Logout clears session
 
+**US-1.10** As a new user, I want the registration UI to accurately reflect the account-only registration flow so that I'm not confused by ignored family name fields
+**Acceptance Criteria:**
+- Registration screen shows "Create Account" (not "Create Family")
+- Registration form only requests email, password, and user name
+- Family name input fields removed from registration UI
+- Translation keys updated to reflect account-centric language
+- Post-registration flow unchanged (user redirected to family-setup after verification)
+
+**Context:** Story 1.8 decoupled backend registration from family creation, but the UnifiedLoginScreen UI still shows legacy "Create Family" fields that are silently ignored. This story fixes the UI to match the backend behavior.
+
 ---
 
 ### Epic 2: Multi-Channel Messaging
@@ -553,33 +563,36 @@ Build a purpose-built family platform that:
 
 ### Hosting & Infrastructure
 
-**Free Tier Constraints:**
-- Supabase Free: 500MB DB + 1GB storage + Auth + Realtime
-- Vercel Free: Serverless functions + static hosting
-- Neon Free: PostgreSQL (3 projects, 0.5GB each)
-- Cloudflare R2: 10GB free storage (photos)
+**Current Deployment:**
+- Frontend: Cloudflare Pages (static export)
+- Backend: Render (NestJS container)
+- Database: Neon PostgreSQL (free tier: 3 projects, 0.5GB each)
+- Email: Brevo (transactional emails, 9,000/month free)
 
 **Scalability Path:**
 - Start on free tiers for single family
 - Migrate to paid tiers ($10-50/month) for multi-family
-- Use serverless to minimize fixed costs
+- Use serverless/containerized deployments to minimize fixed costs
 
 ### Technology Stack
 
 **Frontend:**
-- React 18 (already prototyped)
-- Vite (build tool)
+- Next.js 16 (App Router, static export)
+- React 19
 - shadcn/ui + Radix UI (component library)
-- TailwindCSS (styling)
+- TailwindCSS 3.4 (styling)
+- Apollo Client 4 (GraphQL)
 
 **Backend:**
-- To be determined in architecture phase
-- Requirements: WebSocket support, serverless-friendly, TypeScript
-- Candidates: Vercel Functions, Supabase Edge Functions, Next.js API routes
+- NestJS 11 (TypeScript backend framework)
+- Apollo Server (GraphQL)
+- Prisma (ORM & migrations)
+- WebSocket support for real-time features
 
 **Database:**
-- PostgreSQL (Supabase or Neon)
-- Requirements: JSON support, full-text search, real-time subscriptions
+- PostgreSQL (managed by Prisma)
+- Local development: Docker PostgreSQL
+- Production: Neon PostgreSQL
 
 **Object Storage:**
 - Cloudflare R2 or S3-compatible

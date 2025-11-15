@@ -40,22 +40,19 @@ test.describe('Story 1.1: Create Family Account', () => {
       await page.waitForTimeout(300);
     }
 
-    // Verify all form fields are present
+    // Verify all form fields are present (account registration only - no familyName after Story 1.10)
     const emailInput = page.locator('input[name="email"]');
     const passwordInput = page.locator('input[name="password"]');
-    const familyNameInput = page.locator('input[name="familyName"]');
     const userNameInput = page.locator('input[name="userName"]');
 
     await expect(emailInput).toBeVisible();
     await expect(passwordInput).toBeVisible();
-    await expect(familyNameInput).toBeVisible();
     await expect(userNameInput).toBeVisible();
 
     // Fill form with valid data
     const timestamp = Date.now();
     await emailInput.fill(`test-${timestamp}@example.com`);
     await passwordInput.fill('TestPassword123!');
-    await familyNameInput.fill('Test Family');
     await userNameInput.fill('Test User');
 
     // Verify submit button is enabled
@@ -95,12 +92,6 @@ test.describe('Story 1.1: Create Family Account', () => {
     await passwordInput.blur();
     await page.waitForTimeout(300);
 
-    // Test short family name
-    const familyNameInput = page.locator('input[name="familyName"]');
-    await familyNameInput.fill('A');
-    await familyNameInput.blur();
-    await page.waitForTimeout(300);
-
     // At least one error should still be visible
     await expect(errorMessages.first()).toBeVisible();
   });
@@ -121,7 +112,6 @@ test.describe('Story 1.1: Create Family Account', () => {
 
     await page.locator('input[name="email"]').fill(email);
     await page.locator('input[name="password"]').fill('TestPassword123!');
-    await page.locator('input[name="familyName"]').fill(`E2E Test Family ${timestamp}`);
     await page.locator('input[name="userName"]').fill('E2E Test User');
 
     // Submit form
@@ -162,7 +152,6 @@ test.describe('Story 1.1: Create Family Account', () => {
 
     await page.locator('input[name="email"]').fill(email);
     await page.locator('input[name="password"]').fill('TestPassword123!');
-    await page.locator('input[name="familyName"]').fill(`Toast Test Family ${timestamp}`);
     await page.locator('input[name="userName"]').fill('Toast Test User');
 
     // Submit form
@@ -228,7 +217,6 @@ test.describe('Story 1.1: Create Family Account', () => {
     const timestamp = Date.now();
     await page.locator('input[name="email"]').fill(`perf-${timestamp}@example.com`);
     await page.locator('input[name="password"]').fill('TestPassword123!');
-    await page.locator('input[name="familyName"]').fill('Perf Test Family');
     await page.locator('input[name="userName"]').fill('Perf User');
 
     const startTime = Date.now();
@@ -346,7 +334,7 @@ test.describe('Story 1.2: Join Family via Invite Code', () => {
     const createLink = page.getByText(t('login.switchToCreate'));
     await createLink.click();
     await page.waitForTimeout(300);
-    await expect(page.locator('[data-slot="card-description"]', { hasText: 'Create Family Account' })).toBeVisible();
+    await expect(page.locator('[data-slot="card-description"]', { hasText: 'Create Account' })).toBeVisible();
 
     // Switch to join mode
     await page.getByText('Have an invite code? Join Family').click();
@@ -356,7 +344,7 @@ test.describe('Story 1.2: Join Family via Invite Code', () => {
     // Switch back to create mode
     await page.getByText(t('login.switchToCreate')).click();
     await page.waitForTimeout(300);
-    await expect(page.locator('[data-slot="card-description"]', { hasText: 'Create Family Account' })).toBeVisible();
+    await expect(page.locator('[data-slot="card-description"]', { hasText: 'Create Account' })).toBeVisible();
 
     // Switch to login mode
     await page.getByText('Already have an account? Login').click();

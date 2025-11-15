@@ -4,7 +4,7 @@
 **Version:** 2.0
 **Date:** 2025-10-18
 **Architect:** Winston (BMAD)
-**Status:** Active - NestJS Architecture
+**Status:** Active
 
 ---
 

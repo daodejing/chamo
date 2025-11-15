@@ -18,21 +18,95 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Plus, X, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react';
+import { useMutation } from '@apollo/client/react';
+import {
+  CREATE_PENDING_INVITE_MUTATION,
+} from '@/lib/graphql/operations';
 
 export default function FamilySetupPage() {
   const router = useRouter();
   const { createFamily, joinFamilyExisting, user } = useAuth();
   const { language } = useLanguage();
 
+  const [createPendingInvite] = useMutation(CREATE_PENDING_INVITE_MUTATION);
+
   const [isCreating, setIsCreating] = useState(false);
   const [isJoining, setIsJoining] = useState(false);
 
   // Create family state
   const [familyName, setFamilyName] = useState('');
+  const [memberEmails, setMemberEmails] = useState<string[]>(['']);
+  const [inviteStatuses, setInviteStatuses] = useState<Record<string, { status: 'pending' | 'sending' | 'sent' | 'error', message?: string }>>({});
 
   // Join family state
   const [inviteCode, setInviteCode] = useState('');
-  const [createdInviteCode, setCreatedInviteCode] = useState<string | null>(null);
+
+  // Helper functions for member email management
+  const addMemberEmailField = () => {
+    setMemberEmails([...memberEmails, '']);
+  };
+
+  const removeMemberEmailField = (index: number) => {
+    const newEmails = memberEmails.filter((_, i) => i !== index);
+    setMemberEmails(newEmails.length > 0 ? newEmails : ['']);
+  };
+
+  const updateMemberEmail = (index: number, value: string) => {
+    const newEmails = [...memberEmails];
+    newEmails[index] = value;
+    setMemberEmails(newEmails);
+  };
+
+  const sendInvitesToMembers = async (familyId: string) => {
+    const validEmails = memberEmails.filter(email => email.trim() && email.includes('@'));
+    if (validEmails.length === 0) return;
+
+    // Filter out the current user's email
+    const currentUserEmail = user?.email?.toLowerCase();
+    const filteredEmails = validEmails.filter(email =>
+      email.trim().toLowerCase() !== currentUserEmail
+    );
+
+    if (filteredEmails.length === 0) {
+      toast.info(t('familySetup.cannotInviteSelf', language));
+      return;
+    }
+
+    for (const email of filteredEmails) {
+      const trimmedEmail = email.trim();
+      setInviteStatuses(prev => ({ ...prev, [trimmedEmail]: { status: 'sending' } }));
+
+      try {
+        // Always use createPendingInvite during family creation since we have the explicit familyId
+        // The backend will send the appropriate email based on whether the user is registered
+        await createPendingInvite({
+          variables: {
+            input: {
+              familyId,
+              inviteeEmail: trimmedEmail
+            }
+          }
+        });
+        setInviteStatuses(prev => ({
+          ...prev,
+          [trimmedEmail]: {
+            status: 'sent',
+            message: t('familySetup.inviteSent', language)
+          }
+        }));
+      } catch (error) {
+        console.error(`Failed to send invite to ${trimmedEmail}:`, error);
+        setInviteStatuses(prev => ({
+          ...prev,
+          [trimmedEmail]: {
+            status: 'error',
+            message: t('familySetup.inviteFailed', language)
+          }
+        }));
+      }
+    }
+  };
 
   const handleCreateFamily = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -45,17 +119,25 @@ export default function FamilySetupPage() {
     setIsCreating(true);
 
     try {
-      const { inviteCodeWithKey } = await createFamily(familyName.trim());
+      const result = await createFamily(familyName.trim());
 
       toast.success(t('toast.familyCreated', language));
 
-      // Show invite code to user
-      setCreatedInviteCode(inviteCodeWithKey);
+      // Send invites to all specified members
+      if (result?.family?.id) {
+        await sendInvitesToMembers(result.family.id);
+      }
 
-      // Redirect to chat after a moment
+      // Show summary of sent invites if any
+      const validEmails = memberEmails.filter(email => email.trim() && email.includes('@'));
+      if (validEmails.length > 0) {
+        toast.success(t('familySetup.invitesSummary', language).replace('{count}', validEmails.length.toString()));
+      }
+
+      // Redirect to chat after a brief delay to show invite statuses
       setTimeout(() => {
         router.push('/chat');
-      }, 3000);
+      }, 2000);
     } catch (error) {
       console.error('Create family error:', error);
       toast.error(t('toast.familyCreationFailed', language));
@@ -89,13 +171,6 @@ export default function FamilySetupPage() {
     }
   };
 
-  const copyInviteCode = () => {
-    if (!createdInviteCode) return;
-
-    navigator.clipboard.writeText(createdInviteCode);
-    toast.success(t('toast.inviteCodeCopied', language));
-  };
-
   useEffect(() => {
     if (!user) {
       router.push('/login');
@@ -107,11 +182,20 @@ export default function FamilySetupPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-50 to-pink-50 p-4">
-      <Card className="w-full max-w-md">
-        <CardHeader>
-          <CardTitle>{t('familySetup.title', language)}</CardTitle>
-          <CardDescription>{t('familySetup.description', language)}</CardDescription>
+    <div className="min-h-screen flex items-center justify-center bg-background p-4">
+      <Card className="w-full max-w-md shadow-xl rounded-[20px]">
+        <CardHeader className="text-center space-y-4">
+          <div className="flex justify-center">
+            <div className="w-16 h-16 bg-gradient-to-br from-[#B5179E] to-[#5518C1] rounded-[20px] flex items-center justify-center shadow-lg">
+              <svg className="w-8 h-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+              </svg>
+            </div>
+          </div>
+          <div>
+            <CardTitle>{t('familySetup.title', language)}</CardTitle>
+            <CardDescription>{t('familySetup.description', language)}</CardDescription>
+          </div>
         </CardHeader>
         <CardContent>
           <Tabs defaultValue="create" className="w-full">
@@ -121,33 +205,7 @@ export default function FamilySetupPage() {
             </TabsList>
 
             <TabsContent value="create">
-              {createdInviteCode ? (
-                <div className="space-y-4">
-                  <div className="p-4 bg-green-50 rounded-md">
-                    <p className="text-sm text-green-800 font-medium mb-2">
-                      {t('familySetup.familyCreatedSuccess', language)}
-                    </p>
-                    <p className="text-xs text-green-700 mb-3">
-                      {t('familySetup.shareInviteCode', language)}
-                    </p>
-                    <div className="bg-white p-3 rounded border border-green-200">
-                      <code className="text-xs break-all">{createdInviteCode}</code>
-                    </div>
-                    <Button
-                      onClick={copyInviteCode}
-                      variant="outline"
-                      size="sm"
-                      className="w-full mt-2"
-                    >
-                      {t('familySetup.copyInviteCode', language)}
-                    </Button>
-                  </div>
-                  <p className="text-xs text-muted-foreground text-center">
-                    {t('familySetup.redirectingToChat', language)}
-                  </p>
-                </div>
-              ) : (
-                <form onSubmit={handleCreateFamily} className="space-y-4">
+              <form onSubmit={handleCreateFamily} className="space-y-4">
                   <div className="space-y-2">
                     <Label htmlFor="familyName">
                       {t('familySetup.familyNameLabel', language)}
@@ -160,15 +218,90 @@ export default function FamilySetupPage() {
                       onChange={(e) => setFamilyName(e.target.value)}
                       disabled={isCreating}
                       required
+                      className="rounded-xl"
                     />
                   </div>
-                  <Button type="submit" className="w-full" disabled={isCreating}>
+
+                  {/* Member Email Inputs */}
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <Label>{t('familySetup.inviteMembersLabel', language)}</Label>
+                      <span className="text-xs text-muted-foreground">
+                        {t('familySetup.optional', language)}
+                      </span>
+                    </div>
+                    <div className="space-y-2">
+                      {memberEmails.map((email, index) => (
+                        <div key={index} className="flex gap-2">
+                          <div className="flex-1 relative">
+                            <Input
+                              type="email"
+                              placeholder={t('familySetup.memberEmailPlaceholder', language)}
+                              value={email}
+                              onChange={(e) => updateMemberEmail(index, e.target.value)}
+                              disabled={isCreating}
+                              className="rounded-xl pr-8"
+                            />
+                            {inviteStatuses[email.trim()] && (
+                              <div className="absolute right-2 top-1/2 -translate-y-1/2">
+                                {inviteStatuses[email.trim()].status === 'sending' && (
+                                  <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
+                                )}
+                                {inviteStatuses[email.trim()].status === 'sent' && (
+                                  <CheckCircle2 className="w-4 h-4 text-green-500" />
+                                )}
+                                {inviteStatuses[email.trim()].status === 'error' && (
+                                  <AlertCircle className="w-4 h-4 text-red-500" />
+                                )}
+                              </div>
+                            )}
+                          </div>
+                          {memberEmails.length > 1 && (
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => removeMemberEmailField(index)}
+                              disabled={isCreating}
+                              className="rounded-xl"
+                            >
+                              <X className="w-4 h-4" />
+                            </Button>
+                          )}
+                        </div>
+                      ))}
+                      {inviteStatuses[memberEmails[memberEmails.length - 1]?.trim()] && (
+                        <p className="text-xs text-muted-foreground">
+                          {inviteStatuses[memberEmails[memberEmails.length - 1]?.trim()].message}
+                        </p>
+                      )}
+                    </div>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={addMemberEmailField}
+                      disabled={isCreating}
+                      className="w-full rounded-xl"
+                    >
+                      <Plus className="w-4 h-4 mr-2" />
+                      {t('familySetup.addAnotherMember', language)}
+                    </Button>
+                    <p className="text-xs text-muted-foreground">
+                      {t('familySetup.inviteMembersHelp', language)}
+                    </p>
+                  </div>
+
+                  <Button
+                    type="submit"
+                    className="w-full bg-gradient-to-r from-[#B5179E] to-[#8B38BA] hover:from-[#9c1487] hover:to-[#7a2fa5] text-white rounded-[20px] h-12 shadow-lg"
+                    disabled={isCreating}
+                  >
                     {isCreating
                       ? t('familySetup.creating', language)
                       : t('familySetup.createFamily', language)}
                   </Button>
                 </form>
-              )}
             </TabsContent>
 
             <TabsContent value="join">
@@ -185,12 +318,17 @@ export default function FamilySetupPage() {
                     onChange={(e) => setInviteCode(e.target.value)}
                     disabled={isJoining}
                     required
+                    className="rounded-xl"
                   />
                   <p className="text-xs text-muted-foreground">
                     {t('familySetup.inviteCodeHelp', language)}
                   </p>
                 </div>
-                <Button type="submit" className="w-full" disabled={isJoining}>
+                <Button
+                  type="submit"
+                  className="w-full bg-gradient-to-r from-[#B5179E] to-[#8B38BA] hover:from-[#9c1487] hover:to-[#7a2fa5] text-white rounded-[20px] h-12 shadow-lg"
+                  disabled={isJoining}
+                >
                   {isJoining
                     ? t('familySetup.joining', language)
                     : t('familySetup.joinFamily', language)}
@@ -200,9 +338,13 @@ export default function FamilySetupPage() {
           </Tabs>
         </CardContent>
         <CardFooter className="flex justify-center">
-          <Button variant="ghost" size="sm" onClick={() => router.push('/login')}>
+          <button
+            type="button"
+            onClick={() => router.push('/login')}
+            className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+          >
             {t('familySetup.backToLogin', language)}
-          </Button>
+          </button>
         </CardFooter>
       </Card>
     </div>
