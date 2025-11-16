@@ -8,6 +8,7 @@ export class EmailService implements OnModuleInit {
   private readonly emailFrom: string;
   private readonly emailFromName: string;
   private readonly emailVerificationUrl: string;
+  private readonly appBaseUrl: string;
 
   constructor() {
     // Validate required environment variables
@@ -35,6 +36,10 @@ export class EmailService implements OnModuleInit {
       );
     }
     this.emailVerificationUrl = emailVerificationUrl;
+    this.appBaseUrl =
+      process.env.APP_BASE_URL ||
+      emailVerificationUrl.replace(/\/verify-email.*$/, '') ||
+      'http://localhost:3002';
 
     // Initialize Brevo API client
     this.apiInstance = new Brevo.TransactionalEmailsApi();
@@ -163,14 +168,19 @@ export class EmailService implements OnModuleInit {
         name: this.emailFromName,
       };
       sendSmtpEmail.to = [{ email }];
+      const acceptUrl = `${this.getAppBaseUrl()}/accept-invite?code=${encodeURIComponent(
+        inviteCode,
+      )}`;
       sendSmtpEmail.subject = `You've been invited to join ${familyName} on Chamo`;
       sendSmtpEmail.htmlContent = this.getInviteEmailHtml(
         familyName,
         inviteCode,
+        acceptUrl,
       );
       sendSmtpEmail.textContent = this.getInviteEmailText(
         familyName,
         inviteCode,
+        acceptUrl,
       );
 
       await this.sendEmailWithRetry(sendSmtpEmail);
@@ -180,6 +190,105 @@ export class EmailService implements OnModuleInit {
     } catch (error) {
       this.logger.error(
         `Failed to send invite notification to ${email}: ${error.message}`,
+        error.stack,
+      );
+    }
+  }
+
+  /**
+   * Send registration invitation to unregistered users when an admin adds them
+   */
+  async sendRegistrationInviteEmail(
+    inviteeEmail: string,
+    familyName: string,
+    inviterName: string,
+  ): Promise<void> {
+    if (!this.isValidEmail(inviteeEmail)) {
+      this.logger.error(
+        `Invalid email format: ${inviteeEmail}. Skipping registration invite.`,
+      );
+      return;
+    }
+
+    const registerUrl = `${this.getAppBaseUrl()}/login?mode=create&lockMode=invitee&email=${encodeURIComponent(
+      inviteeEmail,
+    )}`;
+
+    try {
+      const sendSmtpEmail = new Brevo.SendSmtpEmail();
+      sendSmtpEmail.sender = {
+        email: this.emailFrom,
+        name: this.emailFromName,
+      };
+      sendSmtpEmail.to = [{ email: inviteeEmail }];
+      sendSmtpEmail.subject = `Complete registration to join ${familyName} on Chamo`;
+      sendSmtpEmail.htmlContent = this.getRegistrationInviteHtml(
+        familyName,
+        inviterName,
+        registerUrl,
+      );
+      sendSmtpEmail.textContent = this.getRegistrationInviteText(
+        familyName,
+        inviterName,
+        registerUrl,
+      );
+
+      await this.sendEmailWithRetry(sendSmtpEmail);
+      this.logger.debug(
+        `Registration invite email sent to ${inviteeEmail} for family ${familyName}`,
+      );
+    } catch (error) {
+      this.logger.error(
+        `Failed to send registration invite to ${inviteeEmail}: ${error.message}`,
+        error.stack,
+      );
+    }
+  }
+
+  /**
+   * Notify inviter that the pending invitee has completed registration
+   */
+  async sendInviteeRegistrationNotification(
+    inviterEmail: string,
+    inviteeEmail: string,
+    familyName: string,
+  ): Promise<void> {
+    if (!this.isValidEmail(inviterEmail)) {
+      this.logger.error(
+        `Invalid inviter email format: ${inviterEmail}. Skipping notification.`,
+      );
+      return;
+    }
+
+    try {
+      const sendSmtpEmail = new Brevo.SendSmtpEmail();
+      sendSmtpEmail.sender = {
+        email: this.emailFrom,
+        name: this.emailFromName,
+      };
+      sendSmtpEmail.to = [{ email: inviterEmail }];
+      const reviewUrl = `${this.getAppBaseUrl()}/login?returnUrl=${encodeURIComponent(
+        `/family/settings?completeInvite=${encodeURIComponent(inviteeEmail)}`,
+      )}`;
+      sendSmtpEmail.subject = `${inviteeEmail} is ready to join ${familyName}`;
+      sendSmtpEmail.htmlContent = this.getInviteeRegisteredHtml(
+        inviteeEmail,
+        familyName,
+        reviewUrl,
+      );
+      sendSmtpEmail.textContent = this.getInviteeRegisteredText(
+        inviteeEmail,
+        familyName,
+        reviewUrl,
+      );
+
+      await this.sendEmailWithRetry(sendSmtpEmail);
+      this.logger.debug(
+        `Registration notification sent to inviter ${inviterEmail} about ${inviteeEmail}`,
+      );
+    } catch (error) {
+      this.logger.error(
+        `Failed to send registration notification to ${inviterEmail}: ${error.message}`,
         error.stack,
       );
     }
@@ -220,7 +329,11 @@ export class EmailService implements OnModuleInit {
         return this.sendEmailWithRetry(sendSmtpEmail, retryCount + 1);
       }
 
-      throw error;
+      this.logger.error(
+        `Failed to send transactional email: ${error.message}`,
+        error.stack,
+      );
+      return;
     }
   }
 
@@ -391,6 +504,7 @@ Need help? Just reply to this email and we'll get back to you.
   private getInviteEmailHtml(
     familyName: string,
     inviteCode: string,
+    acceptUrl: string,
   ): string {
     return `
 <!DOCTYPE html>
@@ -418,7 +532,7 @@ Need help? Just reply to this email and we'll get back to you.
     </div>
 
     <div style="text-align: center; margin: 30px 0;">
-      <a href="http://localhost:3002/join?code=${inviteCode}"
+      <a href="${acceptUrl}"
          style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 14px 28px; text-decoration: none; border-radius: 6px; font-weight: 600; display: inline-block;">
         Accept Invitation
       </a>
@@ -437,7 +551,11 @@ Need help? Just reply to this email and we'll get back to you.
     `.trim();
   }
 
-  private getInviteEmailText(familyName: string, inviteCode: string): string {
+  private getInviteEmailText(
+    familyName: string,
+    inviteCode: string,
+    acceptUrl: string,
+  ): string {
     return `
 You're Invited! - Join ${familyName} on Chamo
 
@@ -445,12 +563,115 @@ You've been invited to join ${familyName} on Chamo - a secure family communicati
 
 Your invite code: ${inviteCode}
 
-Visit http://localhost:3002/join?code=${inviteCode} to accept the invitation.
+Visit ${acceptUrl} to accept the invitation.
 
 Don't have an account? You'll be able to create one when you accept the invitation.
 
 ---
 © ${new Date().getFullYear()} Chamo. Family communication made simple.
     `.trim();
+  }
+
+  private getRegistrationInviteHtml(
+    familyName: string,
+    inviterName: string,
+    registerUrl: string,
+  ): string {
+    return `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Register to join ${familyName}</title>
+</head>
+<body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+  <div style="background: linear-gradient(135deg, #B5179E 0%, #5518C1 100%); padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
+    <h1 style="color: white; margin: 0; font-size: 26px;">You're almost there!</h1>
+  </div>
+  <div style="background: #fff; padding: 32px; border: 1px solid #eee; border-top: none; border-radius: 0 0 10px 10px;">
+    <h2 style="margin-top: 0;">${inviterName} invited you to ${familyName}</h2>
+    <p>To join, please create your secure Chamo account. Once you're verified, ${inviterName} can finish your encrypted invite.</p>
+    <div style="text-align: center; margin: 30px 0;">
+      <a href="${registerUrl}" style="background: linear-gradient(135deg, #B5179E 0%, #5518C1 100%); color: white; padding: 14px 28px; text-decoration: none; border-radius: 6px; font-weight: 600; display: inline-block;">
+        Create your account
+      </a>
+    </div>
+    <p style="font-size: 14px; color: #666;">
+      You'll need this same email when accepting the invite so we can keep your encrypted keys in sync.
+    </p>
+  </div>
+  <div style="text-align: center; margin-top: 20px; color: #999; font-size: 12px;">
+    <p>© ${new Date().getFullYear()} Chamo. Family communication made simple.</p>
+  </div>
+</body>
+</html>
+    `.trim();
+  }
+
+  private getRegistrationInviteText(
+    familyName: string,
+    inviterName: string,
+    registerUrl: string,
+  ): string {
+    return `
+${inviterName} invited you to join ${familyName} on Chamo.
+
+Create your account to finish the invitation:
+${registerUrl}
+
+Once you're verified, ${inviterName} can complete your secure invite.
+
+© ${new Date().getFullYear()} Chamo
+    `.trim();
+  }
+
+  private getInviteeRegisteredHtml(
+    inviteeEmail: string,
+    familyName: string,
+    reviewUrl: string,
+  ): string {
+    return `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>${inviteeEmail} is ready to join ${familyName}</title>
+</head>
+<body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+  <div style="background: #fff; border: 1px solid #eee; border-radius: 12px; padding: 30px;">
+    <h2 style="margin-top: 0;">${inviteeEmail} just completed registration</h2>
+    <p>They're now ready for you to finish their encrypted invite to <strong>${familyName}</strong>.</p>
+    <p style="margin-bottom: 24px;">Open Chamo → Family Settings to complete the invite in one click.</p>
+    <a href="${reviewUrl}" style="background: linear-gradient(135deg, #12c2e9 0%, #c471ed 50%, #f64f59 100%); color: white; padding: 12px 24px; border-radius: 6px; text-decoration: none; font-weight: 600;">
+      Complete invite now
+    </a>
+  </div>
+  <div style="text-align: center; margin-top: 20px; color: #999; font-size: 12px;">
+    <p>© ${new Date().getFullYear()} Chamo</p>
+  </div>
+</body>
+</html>
+    `.trim();
+  }
+
+  private getInviteeRegisteredText(
+    inviteeEmail: string,
+    familyName: string,
+    reviewUrl: string,
+  ): string {
+    return `
+${inviteeEmail} just completed registration and is ready to join ${familyName}.
+
+Finish their encrypted invite from the Pending Invitations section:
+${reviewUrl}
+
+© ${new Date().getFullYear()} Chamo
+    `.trim();
+  }
+
+  private getAppBaseUrl(): string {
+    return this.appBaseUrl.replace(/\/$/, '');
   }
 }

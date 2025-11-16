@@ -7,6 +7,7 @@ import { useAuth } from '@/lib/contexts/auth-context';
 import { useLanguage } from '@/lib/contexts/language-context';
 import { t } from '@/lib/translations';
 import { UnifiedLoginScreen } from '@/components/auth/unified-login-screen';
+import { markInviteeFlowActive } from '@/lib/invite/invitee-flow';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -16,7 +17,12 @@ export default function LoginPage() {
   const verifiedStatus = searchParams.get('verified');
   const emailParam = searchParams.get('email');
   const searchParamsString = searchParams.toString();
+  const modeParam = searchParams.get('mode');
+  const lockModeParam = searchParams.get('lockMode');
+  const returnUrlParam = searchParams.get('returnUrl');
   const [initialEmail, setInitialEmail] = useState<string | null>(null);
+  const [initialMode, setInitialMode] = useState<'login' | 'create' | 'join' | undefined>();
+  const [modeLocked, setModeLocked] = useState(false);
 
   useEffect(() => {
     if (emailParam) {
@@ -25,22 +31,46 @@ export default function LoginPage() {
   }, [emailParam]);
 
   useEffect(() => {
+    if (modeParam === 'create' || modeParam === 'join' || modeParam === 'login') {
+      setInitialMode(modeParam);
+    } else {
+      setInitialMode(undefined);
+    }
+  }, [modeParam]);
+
+  useEffect(() => {
+    if (lockModeParam === 'invitee') {
+      setModeLocked(true);
+      markInviteeFlowActive();
+    } else {
+      setModeLocked(false);
+    }
+  }, [lockModeParam]);
+
+  useEffect(() => {
     if (verifiedStatus === 'success') {
       toast.success(t('toast.emailVerified', language));
       const params = new URLSearchParams(searchParamsString);
       params.delete('verified');
+      const returnUrl = params.get('returnUrl');
       const newSearch = params.toString();
       router.replace(newSearch ? `/login?${newSearch}` : '/login');
+      if (returnUrl) {
+        router.push(returnUrl);
+      }
     }
   }, [verifiedStatus, language, router, searchParamsString]);
 
   // Auto-redirect: if already authenticated, redirect to /chat
   useEffect(() => {
     if (!authLoading && user) {
-      console.log('[LoginPage] User authenticated, redirecting to /chat');
-      router.push('/chat');
+      if (returnUrlParam) {
+        router.push(returnUrlParam);
+      } else {
+        router.push('/chat');
+      }
     }
-  }, [user, authLoading, router]);
+  }, [user, authLoading, router, returnUrlParam]);
 
   // Show nothing while checking auth status
   if (authLoading) {
@@ -53,6 +83,9 @@ export default function LoginPage() {
       <UnifiedLoginScreen
         onSuccess={() => router.push('/chat')}
         initialEmail={initialEmail}
+        initialMode={initialMode}
+        modeLocked={modeLocked}
+        returnUrl={returnUrlParam}
       />
     );
   }

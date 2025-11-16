@@ -24,10 +24,16 @@ describe('AuthService email verification workflows', () => {
       update: jest.fn(),
       findUnique: jest.fn(),
     },
+    invite: {
+      findMany: jest.fn(),
+    },
   };
 
   const emailServiceMock: any = {
     sendVerificationEmail: jest.fn(),
+    sendInviteNotification: jest.fn(),
+    sendRegistrationInviteEmail: jest.fn(),
+    sendInviteeRegistrationNotification: jest.fn(),
   };
 
   const jwtServiceMock: any = {
@@ -156,6 +162,66 @@ describe('AuthService email verification workflows', () => {
       await expect(authService.getUserPublicKey('  ')).rejects.toThrow(
         BadRequestException,
       );
+    });
+  });
+
+  describe('notifyInvitersInviteeRegistered', () => {
+    it('sends notifications for pending invites', async () => {
+      prismaMock.invite.findMany.mockResolvedValueOnce([
+        {
+          inviteeEmail: 'member@example.com',
+          status: 'PENDING_REGISTRATION',
+          family: {
+            name: 'Solar Family',
+          },
+          inviter: {
+            email: 'admin@example.com',
+          },
+        },
+      ]);
+
+      await (authService as any).notifyInvitersInviteeRegistered(
+        'Member@example.com',
+      );
+
+      expect(prismaMock.invite.findMany).toHaveBeenCalledWith({
+        where: {
+          inviteeEmail: 'member@example.com',
+          status: 'PENDING_REGISTRATION',
+        },
+        include: {
+          family: {
+            select: {
+              name: true,
+            },
+          },
+          inviter: {
+            select: {
+              email: true,
+            },
+          },
+        },
+      });
+
+      expect(
+        emailServiceMock.sendInviteeRegistrationNotification,
+      ).toHaveBeenCalledWith(
+        'admin@example.com',
+        'Member@example.com',
+        'Solar Family',
+      );
+    });
+
+    it('skips when no pending invites found', async () => {
+      prismaMock.invite.findMany.mockResolvedValueOnce([]);
+
+      await (authService as any).notifyInvitersInviteeRegistered(
+        'none@example.com',
+      );
+
+      expect(
+        emailServiceMock.sendInviteeRegistrationNotification,
+      ).not.toHaveBeenCalled();
     });
   });
 });

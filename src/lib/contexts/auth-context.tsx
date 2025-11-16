@@ -552,6 +552,7 @@ function AuthProviderInner({ children }: { children: React.ReactNode}) {
 
     // Refresh user to get updated family membership
     await refreshUser();
+    await apolloClient.reFetchObservableQueries(true);
 
     return {
       familyId: response.familyId,

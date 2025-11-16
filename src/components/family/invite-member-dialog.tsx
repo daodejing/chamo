@@ -68,16 +68,11 @@ export function InviteMemberDialog({
     }
 
     try {
-      // Calculate expiration (30 days for pending registration invites)
-      const expiresAt = new Date();
-      expiresAt.setDate(expiresAt.getDate() + 30);
-
       const { data } = await createPendingInvite({
         variables: {
           input: {
             familyId,
             inviteeEmail: email.trim().toLowerCase(),
-            expiresAt: expiresAt.toISOString(),
           },
         },
       });

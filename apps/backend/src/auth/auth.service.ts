@@ -698,6 +698,8 @@ export class AuthService {
 
     response.pendingInviteCode = pendingInviteCode;
 
+    await this.notifyInvitersInviteeRegistered(user.email, user.name);
+
     return response;
   }
 
@@ -772,6 +774,47 @@ export class AuthService {
     };
   }
 
+  private async notifyInvitersInviteeRegistered(
+    inviteeEmail: string,
+    inviteeName?: string | null,
+  ) {
+    const normalizedEmail = this.normalizeEmail(inviteeEmail);
+    const pendingInvites = await this.prisma.invite.findMany({
+      where: {
+        inviteeEmail: normalizedEmail,
+        status: 'PENDING_REGISTRATION',
+      },
+      include: {
+        family: {
+          select: {
+            name: true,
+          },
+        },
+        inviter: {
+          select: {
+            email: true,
+          },
+        },
+      },
+    });
+
+    if (!pendingInvites.length) {
+      return;
+    }
+
+    await Promise.all(
+      pendingInvites
+        .filter((invite) => invite.inviter?.email)
+        .map((invite) =>
+          this.emailService.sendInviteeRegistrationNotification(
+            invite.inviter!.email!,
+            inviteeEmail,
+            invite.family.name,
+          ),
+        ),
+    );
+  }
+
   private generateAccessToken(userId: string, activeFamilyId?: string | null) {
     const payload: Record<string, string> = { sub: userId };
     if (activeFamilyId) {
@@ -815,6 +858,20 @@ export class AuthService {
           familyId,
         },
       },
+      include: {
+        family: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+        user: {
+          select: {
+            name: true,
+            email: true,
+          },
+        },
+      },
     });
 
     if (!membership) {
@@ -822,7 +879,7 @@ export class AuthService {
     }
 
     // Verify invitee is not already a member
-    const normalizedEmail = inviteeEmail.trim().toLowerCase();
+    const normalizedEmail = this.normalizeEmail(inviteeEmail);
     const inviteeUser = await this.prisma.user.findUnique({
       where: { email: normalizedEmail },
       include: {
@@ -863,7 +920,7 @@ export class AuthService {
       },
     });
 
-    return {
+    const result = {
       invite: {
         ...invite,
         encryptedFamilyKey: invite.encryptedFamilyKey!, // Non-null assertion: always provided for encrypted invites
@@ -873,6 +930,16 @@ export class AuthService {
       inviteCode: invite.inviteCode,
       message: `Invite created successfully for ${inviteeEmail}`,
     };
+
+    if (membership?.family?.name) {
+      await this.emailService.sendInviteNotification(
+        normalizedEmail,
+        membership.family.name,
+        invite.inviteCode,
+      );
+    }
+
+    return result;
   }
 
   async acceptInvite(userId: string, inviteCode: string) {
@@ -979,6 +1046,20 @@ export class AuthService {
           familyId,
         },
       },
+      include: {
+        family: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+        user: {
+          select: {
+            name: true,
+            email: true,
+          },
+        },
+      },
     });
 
     if (!membership) {
@@ -986,7 +1067,7 @@ export class AuthService {
     }
 
     // Verify invitee is not already a member
-    const normalizedEmail = inviteeEmail.trim().toLowerCase();
+    const normalizedEmail = this.normalizeEmail(inviteeEmail);
     const inviteeUser = await this.prisma.user.findUnique({
       where: { email: normalizedEmail },
       include: {
@@ -1037,7 +1118,7 @@ export class AuthService {
       },
     });
 
-    return {
+    const result = {
       invite: {
         ...invite,
         encryptedFamilyKey: null,
@@ -1047,6 +1128,16 @@ export class AuthService {
       inviteCode: invite.inviteCode,
       message: `Registration invitation created for ${inviteeEmail}. They must register before you can complete the invite.`,
     };
+
+    if (membership?.family?.name && membership?.user?.name) {
+      await this.emailService.sendRegistrationInviteEmail(
+        normalizedEmail,
+        membership.family.name,
+        membership.user.name,
+      );
+    }
+
+    return result;
   }
 
   async getPendingInvites(userId: string, familyId: string) {
@@ -1070,6 +1161,49 @@ export class AuthService {
         familyId,
         status: {
           in: ['PENDING_REGISTRATION', 'PENDING'],
+        },
+      },
+      include: {
+        inviter: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+    });
+
+    return invites.map((invite) => ({
+      ...invite,
+      encryptedFamilyKey: invite.encryptedFamilyKey ?? null,
+      nonce: invite.nonce ?? null,
+      acceptedAt: invite.acceptedAt ?? undefined,
+    }));
+  }
+
+  async getFamilyInvites(userId: string, familyId: string) {
+    const membership = await this.prisma.familyMembership.findUnique({
+      where: {
+        userId_familyId: {
+          userId,
+          familyId,
+        },
+      },
+    });
+
+    if (!membership) {
+      throw new ForbiddenException('You must be a family member to view invites');
+    }
+
+    const invites = await this.prisma.invite.findMany({
+      where: {
+        familyId,
+        status: {
+          in: ['PENDING_REGISTRATION', 'PENDING', 'ACCEPTED'],
         },
       },
       include: {
@@ -1185,5 +1319,9 @@ export class AuthService {
       )
       .join('-');
     return `INV-${code}`;
+  }
+
+  private normalizeEmail(email: string): string {
+    return email.trim().toLowerCase();
   }
 }

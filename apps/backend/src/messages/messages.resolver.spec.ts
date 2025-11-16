@@ -4,6 +4,8 @@ import { MessagesResolver } from './messages.resolver';
 import { MessagesService } from './messages.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { PUB_SUB } from './messages.constants';
+import { GUARDS_METADATA } from '@nestjs/common/constants';
+import { GqlAuthGuard } from '../auth/guards/gql-auth.guard';
 
 /**
  * Integration Tests for GraphQL Message Subscriptions
@@ -196,6 +198,35 @@ describe('MessagesResolver - Subscription Integration', () => {
         'messageEdited',
       );
       expect(iterator).toBeDefined();
+    });
+  });
+
+  describe('subscription guards', () => {
+    it('should protect messageAdded with GqlAuthGuard', () => {
+      const guards: any[] =
+        Reflect.getMetadata(
+          GUARDS_METADATA,
+          MessagesResolver.prototype.messageAdded,
+        ) ?? [];
+      expect(guards).toContain(GqlAuthGuard);
+    });
+
+    it('should protect messageEdited with GqlAuthGuard', () => {
+      const guards: any[] =
+        Reflect.getMetadata(
+          GUARDS_METADATA,
+          MessagesResolver.prototype.messageEdited,
+        ) ?? [];
+      expect(guards).toContain(GqlAuthGuard);
+    });
+
+    it('should protect messageDeleted with GqlAuthGuard', () => {
+      const guards: any[] =
+        Reflect.getMetadata(
+          GUARDS_METADATA,
+          MessagesResolver.prototype.messageDeleted,
+        ) ?? [];
+      expect(guards).toContain(GqlAuthGuard);
     });
   });
 

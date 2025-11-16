@@ -239,6 +239,7 @@ type Mutation {
 type Query {
   getChannel(id: String!): Channel
   getChannels: [Channel!]!
+  getFamilyInvites(familyId: String!): [InviteType!]!
   getMessages(input: GetMessagesInput!): [MessageWithUserType!]!
   getPendingInvites(familyId: String!): [InviteType!]!
   getUserPublicKey(email: String!): String

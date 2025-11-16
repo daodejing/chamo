@@ -34,6 +34,7 @@ export const translations = {
     "login.loggingIn": "ログイン中...",
     "login.createAccountButton": "アカウント作成",
     "login.joinFamilyButton": "家族に参加",
+    "login.inviteeBanner": "招待メールから到達しました。まずはこのフォームで本人情報を登録してください。招待者が準備を完了すると参加できるようになります。",
 
     // Toast Messages
     "toast.loginSuccess": "ログインしました！",
@@ -142,6 +143,25 @@ export const translations = {
     "familySetup.inviteFailed": "招待の送信に失敗しました",
     "familySetup.invitesSummary": "{count}件の招待を送信しました",
     "familySetup.cannotInviteSelf": "自分自身を招待することはできません",
+    "familySetup.inviteeNoticeTitle": "登録が完了しました！",
+    "familySetup.inviteeNoticeBody": "管理者が暗号化された招待を作成するまで少しお待ちください。自分で家族グループを作成することもできます。",
+    "familySetup.inviteeNoticeWait": "招待を待つ",
+    "familySetup.inviteeNoticeCreate": "自分の家族を作成する",
+
+    // Invitation List
+    "invitesList.title": "招待状一覧",
+    "invitesList.description": "保留中・登録待ち・参加済みのステータスを確認できます",
+    "invitesList.refresh": "最新の状態に更新",
+    "invitesList.refreshing": "更新中...",
+    "invitesList.empty": "招待はまだありません。",
+    "invitesList.noFamily": "家族グループがありません。まずは家族を作成してください。",
+    "invitesList.created": "{date} に作成",
+    "invitesList.awaitingRegistration": "登録待ち",
+    "invitesList.awaitingAcceptance": "承認待ち",
+    "invitesList.acceptedOn": "{date} に承認済み",
+    "invitesList.status.notRegistered": "未登録",
+    "invitesList.status.pending": "保留中",
+    "invitesList.status.accepted": "承認済み",
 
     // Chat Screen
     "chat.members": "メンバー",
@@ -404,6 +424,7 @@ export const translations = {
     "login.loggingIn": "Logging in...",
     "login.createAccountButton": "Create Account",
     "login.joinFamilyButton": "Join Family",
+    "login.inviteeBanner": "You arrived from an invitation email—complete this form so your admin can finish encrypting your invite.",
 
     // Toast Messages
     "toast.loginSuccess": "Logged in!",
@@ -500,6 +521,25 @@ export const translations = {
     "familySetup.inviteFailed": "Failed to send invite",
     "familySetup.invitesSummary": "Sent {count} invitations",
     "familySetup.cannotInviteSelf": "You cannot invite yourself",
+    "familySetup.inviteeNoticeTitle": "Registration complete!",
+    "familySetup.inviteeNoticeBody": "Let your family admin finish encrypting your invite, or create your own family below if you want to start one.",
+    "familySetup.inviteeNoticeWait": "I'll wait for the invite",
+    "familySetup.inviteeNoticeCreate": "Create my own family",
+
+    // Invitation List
+    "invitesList.title": "Invitations",
+    "invitesList.description": "Track unregistered, pending, and accepted statuses for your family invites.",
+    "invitesList.refresh": "Refresh status",
+    "invitesList.refreshing": "Refreshing...",
+    "invitesList.empty": "No invites yet.",
+    "invitesList.noFamily": "You don't belong to a family yet. Create or join one first.",
+    "invitesList.created": "Created {date}",
+    "invitesList.awaitingRegistration": "Waiting for registration",
+    "invitesList.awaitingAcceptance": "Waiting for acceptance",
+    "invitesList.acceptedOn": "Accepted on {date}",
+    "invitesList.status.notRegistered": "Not registered",
+    "invitesList.status.pending": "Pending",
+    "invitesList.status.accepted": "Accepted",
 
     // Chat Screen
     "chat.members": "members",

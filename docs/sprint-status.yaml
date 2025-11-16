@@ -44,7 +44,7 @@ development_status:
   1-4-email-verification: done  # All 7 ACs verified, tests passing, previous blockers resolved (2025-11-10 review)
   1-6-brevo-integration: done
   1-9-per-user-keypairs: done  # Foundation for E2EE (Story 1.9) - All ACs complete, tests passing
-  1-8-decouple-registration-and-families: done  # Senior Developer Review APPROVED - All 6 ACs satisfied, 23 tests passing, production-ready
+  1-8-decouple-registration-and-families: review  # Reopened due to invite email regression during family creation (2025-11-10)
   1-5-email-bound-invites: done  # Senior Developer Review APPROVED - All 8 ACs verified, 35 tests passing, production-ready (2025-11-10 review)
   1-10-update-registration-ui: done  # Senior Developer Review APPROVED - All 5 ACs verified, UI aligned with Story 1.8 backend, unused keys cleaned (2025-11-10 review)
   epic-1-retrospective: optional

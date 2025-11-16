@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { ArrowLeft, UserPlus, Users, Mail } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -19,10 +19,12 @@ import { useLanguage } from '@/lib/contexts/language-context';
 
 export default function FamilySettingsPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { user } = useAuth();
   const { language } = useLanguage();
   const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
   const [emailInviteDialogOpen, setEmailInviteDialogOpen] = useState(false);
+  const autoCompleteEmail = searchParams.get('completeInvite');
 
   useEffect(() => {
     if (!user?.activeFamily) {
@@ -105,7 +107,10 @@ export default function FamilySettingsPage() {
         </Card>
 
         {/* Pending Invitations */}
-        <PendingInvitationsSection familyId={activeFamily.id} />
+        <PendingInvitationsSection
+          familyId={activeFamily.id}
+          autoCompleteEmail={autoCompleteEmail}
+        />
       </div>
 
       {/* Encrypted Invite Dialog (Story 1.8) */}

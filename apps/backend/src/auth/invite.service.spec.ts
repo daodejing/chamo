@@ -25,11 +25,15 @@ describe('AuthService - Encrypted Invite Flow', () => {
       findFirst: jest.fn(),
       create: jest.fn(),
       update: jest.fn(),
+      findMany: jest.fn(),
     },
   };
 
   const emailServiceMock: any = {
     sendVerificationEmail: jest.fn(),
+    sendInviteNotification: jest.fn(),
+    sendRegistrationInviteEmail: jest.fn(),
+    sendInviteeRegistrationNotification: jest.fn(),
   };
 
   const jwtServiceMock: any = {
@@ -72,6 +76,10 @@ describe('AuthService - Encrypted Invite Flow', () => {
         userId: inviterUserId,
         familyId,
         role: 'ADMIN',
+        family: {
+          id: familyId,
+          name: 'Test Family',
+        },
       });
 
       // Mock no existing pending invite
@@ -115,6 +123,20 @@ describe('AuthService - Encrypted Invite Flow', () => {
 
       expect(prismaMock.familyMembership.findUnique).toHaveBeenCalledWith({
         where: { userId_familyId: { userId: inviterUserId, familyId } },
+        include: {
+          family: {
+            select: {
+              id: true,
+              name: true,
+            },
+          },
+          user: {
+            select: {
+              name: true,
+              email: true,
+            },
+          },
+        },
       });
 
       expect(prismaMock.invite.create).toHaveBeenCalledWith({
@@ -129,6 +151,12 @@ describe('AuthService - Encrypted Invite Flow', () => {
           expiresAt,
         },
       });
+
+      expect(emailServiceMock.sendInviteNotification).toHaveBeenCalledWith(
+        inviteeEmail,
+        'Test Family',
+        inviteCode,
+      );
     });
 
     it('should throw ForbiddenException if inviter is not a family member', async () => {
@@ -152,6 +180,10 @@ describe('AuthService - Encrypted Invite Flow', () => {
         userId: inviterUserId,
         familyId,
         role: 'ADMIN',
+        family: {
+          id: familyId,
+          name: 'Test Family',
+        },
       });
 
       prismaMock.invite.findFirst.mockResolvedValueOnce({
@@ -170,6 +202,59 @@ describe('AuthService - Encrypted Invite Flow', () => {
           expiresAt
         )
       ).rejects.toThrow(ConflictException);
+    });
+  });
+
+  describe('createPendingInvite', () => {
+    const inviterUserId = 'inviter-789';
+    const familyId = 'family-456';
+    const inviteeEmail = 'new-member@example.com';
+
+    it('should create pending registration invite and send email', async () => {
+      prismaMock.familyMembership.findUnique.mockResolvedValueOnce({
+        userId: inviterUserId,
+        familyId,
+        role: 'ADMIN',
+        family: {
+          id: familyId,
+          name: 'Aurora Family',
+        },
+        user: {
+          name: 'Admin Jane',
+          email: 'admin@example.com',
+        },
+      });
+
+      prismaMock.user.findUnique.mockResolvedValueOnce(null);
+      prismaMock.invite.findFirst.mockResolvedValueOnce(null);
+
+      const createdInvite = {
+        id: 'pending-1',
+        familyId,
+        inviterId: inviterUserId,
+        inviteeEmail,
+        inviteCode: 'FAMILY-ABC123',
+        status: 'PENDING_REGISTRATION',
+        expiresAt: new Date(),
+        acceptedAt: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+      prismaMock.invite.create.mockResolvedValueOnce(createdInvite);
+
+      const result = await authService.createPendingInvite(
+        inviterUserId,
+        familyId,
+        inviteeEmail,
+      );
+
+      expect(result.invite.inviteCode).toBe(createdInvite.inviteCode);
+      expect(prismaMock.invite.create).toHaveBeenCalled();
+      expect(emailServiceMock.sendRegistrationInviteEmail).toHaveBeenCalledWith(
+        inviteeEmail,
+        'Aurora Family',
+        'Admin Jane',
+      );
     });
   });
 
@@ -325,6 +410,85 @@ describe('AuthService - Encrypted Invite Flow', () => {
       await expect(
         authService.acceptInvite(userId, inviteCode)
       ).rejects.toThrow(ConflictException);
+    });
+  });
+
+  describe('getFamilyInvites', () => {
+    const userId = 'admin-1';
+    const familyId = 'family-xyz';
+
+    it('should throw if user is not a member', async () => {
+      prismaMock.familyMembership.findUnique.mockResolvedValueOnce(null);
+
+      await expect(authService.getFamilyInvites(userId, familyId)).rejects.toThrow(
+        ForbiddenException,
+      );
+    });
+
+    it('should return invites with mixed statuses', async () => {
+      prismaMock.familyMembership.findUnique.mockResolvedValueOnce({
+        userId,
+        familyId,
+      });
+      const invites = [
+        {
+          id: '1',
+          familyId,
+          inviterId: userId,
+          inviteeEmail: 'pending@example.com',
+          status: 'PENDING',
+          encryptedFamilyKey: null,
+          nonce: null,
+          inviteCode: 'INV-1111',
+          expiresAt: new Date(),
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          acceptedAt: null,
+          inviter: { id: userId, name: 'Admin', email: 'admin@example.com' },
+        },
+        {
+          id: '2',
+          familyId,
+          inviterId: userId,
+          inviteeEmail: 'accepted@example.com',
+          status: 'ACCEPTED',
+          encryptedFamilyKey: null,
+          nonce: null,
+          inviteCode: 'INV-2222',
+          expiresAt: new Date(),
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          acceptedAt: new Date(),
+          inviter: { id: userId, name: 'Admin', email: 'admin@example.com' },
+        },
+      ];
+      prismaMock.invite.findMany.mockResolvedValueOnce(invites);
+
+      const result = await authService.getFamilyInvites(userId, familyId);
+
+      expect(prismaMock.invite.findMany).toHaveBeenCalledWith({
+        where: {
+          familyId,
+          status: {
+            in: ['PENDING_REGISTRATION', 'PENDING', 'ACCEPTED'],
+          },
+        },
+        include: {
+          inviter: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+            },
+          },
+        },
+        orderBy: {
+          createdAt: 'desc',
+        },
+      });
+      expect(result).toHaveLength(2);
+      expect(result[0].status).toBe('PENDING');
+      expect(result[1].status).toBe('ACCEPTED');
     });
   });
 });

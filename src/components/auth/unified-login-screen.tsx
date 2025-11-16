@@ -11,6 +11,7 @@ import { toast } from 'sonner';
 import { t, translations } from '@/lib/translations';
 import { useLanguage } from '@/lib/contexts/language-context';
 import { useAuth } from '@/lib/contexts/auth-context';
+import { isInviteeFlowActive } from '@/lib/invite/invitee-flow';
 
 type AuthMode = 'login' | 'create' | 'join';
 
@@ -19,6 +20,8 @@ interface UnifiedLoginScreenProps {
   initialMode?: AuthMode;
   initialInviteCode?: string | null;
   initialEmail?: string | null;
+  modeLocked?: boolean;
+  returnUrl?: string | null;
 }
 
 export function UnifiedLoginScreen({
@@ -26,6 +29,8 @@ export function UnifiedLoginScreen({
   initialMode,
   initialInviteCode,
   initialEmail,
+  modeLocked = false,
+  returnUrl,
 }: UnifiedLoginScreenProps) {
   const { language } = useLanguage();
   const { login, register: registerUser, joinFamily } = useAuth();
@@ -48,11 +53,11 @@ export function UnifiedLoginScreen({
   }, [initialMode]);
 
   useEffect(() => {
-    if (initialInviteCode) {
+    if (initialInviteCode && !modeLocked) {
       setInviteCode(initialInviteCode);
       setAuthMode('join');
     }
-  }, [initialInviteCode]);
+  }, [initialInviteCode, modeLocked]);
 
   useEffect(() => {
     if (initialEmail) {
@@ -94,7 +99,13 @@ export function UnifiedLoginScreen({
           return;
         }
         toast.success(t('toast.loginSuccess', language));
-        onSuccess();
+        if (returnUrl) {
+          router.push(returnUrl);
+        } else if (isInviteeFlowActive()) {
+          router.push('/family-setup');
+        } else {
+          onSuccess();
+        }
       } else if (authMode === 'create') {
         const result = await registerUser({
           email,
@@ -286,6 +297,13 @@ export function UnifiedLoginScreen({
               </div>
             )}
 
+            {/* Invitee banner */}
+            {modeLocked && authMode === 'create' && (
+              <div className="rounded-md bg-indigo-50 p-4 text-sm text-indigo-900">
+                {t('login.inviteeBanner', language)}
+              </div>
+            )}
+
             {/* Submit button */}
             <Button
               type="submit"
@@ -317,63 +335,64 @@ export function UnifiedLoginScreen({
               {isAuthenticating ? t('login.authenticating', language) : t('login.faceId', language)}
             </Button>
 
-            {/* Mode toggle buttons */}
-            <div className="text-center space-y-2">
-              {authMode === 'login' && (
-                <>
-                  <button
-                    type="button"
-                    onClick={() => setAuthMode('create')}
-                    className="text-sm text-muted-foreground hover:text-foreground transition-colors block w-full"
-                  >
-                    {t('login.switchToCreate', language)}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setAuthMode('join')}
-                    className="text-sm text-muted-foreground hover:text-foreground transition-colors block w-full"
-                  >
-                    {t('login.switchToJoin', language)}
-                  </button>
-                </>
-              )}
-              {authMode === 'create' && (
-                <>
-                  <button
-                    type="button"
-                    onClick={() => setAuthMode('login')}
-                    className="text-sm text-muted-foreground hover:text-foreground transition-colors block w-full"
-                  >
-                    {t('login.switchToLogin', language)}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setAuthMode('join')}
-                    className="text-sm text-muted-foreground hover:text-foreground transition-colors block w-full"
-                  >
-                    {t('login.switchToJoin', language)}
-                  </button>
-                </>
-              )}
-              {authMode === 'join' && (
-                <>
-                  <button
-                    type="button"
-                    onClick={() => setAuthMode('login')}
-                    className="text-sm text-muted-foreground hover:text-foreground transition-colors block w-full"
-                  >
-                    {t('login.switchToLogin', language)}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setAuthMode('create')}
-                    className="text-sm text-muted-foreground hover:text-foreground transition-colors block w-full"
-                  >
-                    {t('login.switchToCreate', language)}
-                  </button>
-                </>
-              )}
-            </div>
+            {!modeLocked && (
+              <div className="text-center space-y-2">
+                {authMode === 'login' && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => setAuthMode('create')}
+                      className="text-sm text-muted-foreground hover:text-foreground transition-colors block w-full"
+                    >
+                      {t('login.switchToCreate', language)}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setAuthMode('join')}
+                      className="text-sm text-muted-foreground hover:text-foreground transition-colors block w-full"
+                    >
+                      {t('login.switchToJoin', language)}
+                    </button>
+                  </>
+                )}
+                {authMode === 'create' && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => setAuthMode('login')}
+                      className="text-sm text-muted-foreground hover:text-foreground transition-colors block w-full"
+                    >
+                      {t('login.switchToLogin', language)}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setAuthMode('join')}
+                      className="text-sm text-muted-foreground hover:text-foreground transition-colors block w-full"
+                    >
+                      {t('login.switchToJoin', language)}
+                    </button>
+                  </>
+                )}
+                {authMode === 'join' && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => setAuthMode('login')}
+                      className="text-sm text-muted-foreground hover:text-foreground transition-colors block w-full"
+                    >
+                      {t('login.switchToLogin', language)}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setAuthMode('create')}
+                      className="text-sm text-muted-foreground hover:text-foreground transition-colors block w-full"
+                    >
+                      {t('login.switchToCreate', language)}
+                    </button>
+                  </>
+                )}
+              </div>
+            )}
           </form>
         </CardContent>
       </Card>

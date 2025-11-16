@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery, useLazyQuery, useMutation } from '@apollo/client/react';
 import { toast } from 'sonner';
 import { Loader2, Mail, CheckCircle2, Clock, AlertCircle } from 'lucide-react';
@@ -20,12 +20,14 @@ import { getFamilyKeyBase64, generateInviteCode } from '@/lib/e2ee/key-managemen
 
 interface PendingInvitationsSectionProps {
   familyId: string;
+  autoCompleteEmail?: string | null;
 }
 
-export function PendingInvitationsSection({ familyId }: PendingInvitationsSectionProps) {
+export function PendingInvitationsSection({ familyId, autoCompleteEmail }: PendingInvitationsSectionProps) {
   const { user } = useAuth();
   const { language } = useLanguage();
   const [completingInviteId, setCompletingInviteId] = useState<string | null>(null);
+  const [autoCompleteHandled, setAutoCompleteHandled] = useState(false);
 
   const { data, loading, refetch } = useQuery(GET_PENDING_INVITES_QUERY, {
     variables: { familyId },
@@ -36,6 +38,7 @@ export function PendingInvitationsSection({ familyId }: PendingInvitationsSectio
   const [createEncryptedInvite] = useMutation(CREATE_ENCRYPTED_INVITE_MUTATION);
 
   const pendingInvites = data?.getPendingInvites || [];
+  const normalizedAutoEmail = autoCompleteEmail?.toLowerCase() ?? null;
 
   const handleCompleteInvite = async (inviteeEmail: string, inviteId: string) => {
     if (!user) {
@@ -115,6 +118,22 @@ export function PendingInvitationsSection({ familyId }: PendingInvitationsSectio
       setCompletingInviteId(null);
     }
   };
+
+  useEffect(() => {
+    if (!normalizedAutoEmail || autoCompleteHandled || loading || !pendingInvites.length) {
+      return;
+    }
+    const match = pendingInvites.find(
+      (invite: any) => invite.inviteeEmail?.toLowerCase() === normalizedAutoEmail,
+    );
+    if (!match) {
+      return;
+    }
+    setAutoCompleteHandled(true);
+    handleCompleteInvite(match.inviteeEmail, match.id).catch(() => {
+      // errors handled in handleCompleteInvite; no-op here
+    });
+  }, [normalizedAutoEmail, autoCompleteHandled, loading, pendingInvites]);
 
   const checkIfRegistered = async (email: string) => {
     try {

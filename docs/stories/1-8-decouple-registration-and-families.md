@@ -1,6 +1,6 @@
 # Story 1.8: Decouple Account Registration from Family Creation
 
-Status: done
+Status: review
 
 ## Story
 
@@ -71,7 +71,7 @@ To fix this, we will adopt per-user keypairs at registration time, move all fami
 - [x] Create notification mechanism when pending invitee registers
 - [x] Update UI to show "Pending Invitations" section in family settings
 - [x] Display status: "Waiting for registration" vs "Ready to complete invite"
-- [ ] Email notification to admin when invitee registers (optional) *(Deferred - not required for MVP)*
+- [x] Email notification to admin when invitee registers (optional) *(Implemented with Brevo transactional emails)*
 - [x] "Complete Invite" button appears when invitee registered
 
 ## Review Findings – 2025-11-10
@@ -212,6 +212,12 @@ IF NOT registered (no publicKey):
 
 ### Debug Log
 
+**2025-11-15: Task 6 - Restore invite notifications**
+- Added registration-offer + encrypted-invite emails via `apps/backend/src/email/email.service.ts` so admins automatically notify invitees and hear back once they register.
+- Updated `apps/backend/src/auth/auth.service.ts` to normalize invite emails, trigger Brevo sends for both registered/unregistered flows, and alert inviters once verification completes. Added Vitest coverage (`auth.service.spec.ts`, `auth/invite.service.spec.ts`) for these paths.
+- Family setup UI (`src/app/(auth)/family-setup/page.tsx`) now checks each email's registration status, encrypts invites client-side when possible, and falls back to pending registration invites—every toast/tip routes through `t()` for JA/EN. Removed invalid GraphQL fields from `src/components/family/invite-member-dialog.tsx`.
+- Invitee onboarding links now open `/login?mode=create&lockMode=invitee`, forcing the registration tab, locking mode switching, and showing follow-up guidance on `family-setup` so invitees know to wait for the admin or create their own family.
+
 **2025-11-09: Task 4 - Add Prisma Invite Model**
 - Created Invite model in schema.prisma with fields: familyId, inviterId, inviteeEmail, encryptedFamilyKey, nonce, inviteCode, status, expiresAt, acceptedAt
 - Added InviteStatus enum (PENDING, ACCEPTED, EXPIRED, REVOKED)
@@ -328,7 +334,6 @@ IF NOT registered (no publicKey):
 **Deferred Items (Not Blocking):**
 - Task 1.3: Persist pending invites in client storage (handled by server-side pending invite system)
 - Task 5.3: Metrics/Dashboards (will be implemented with monitoring infrastructure)
-- Task 6.4: Email notification to admin (optional, not required for MVP)
 
 **Acceptance Criteria Status:**
 - AC1: ✅ Account-only registration with per-user keypair generation
@@ -352,16 +357,25 @@ IF NOT registered (no publicKey):
 ## File List
 
 ### Modified Files
+- `apps/backend/src/email/email.service.ts` - Added registration invitation + inviter notification emails referencing APP_BASE_URL
+- `apps/backend/src/email/email.service.spec.ts` - Tests for new registration + notification templates
+- `apps/backend/src/auth/auth.service.ts` - Normalizes invite emails, dispatches Brevo notifications, and alerts inviters post-verification
+- `apps/backend/src/auth/auth.service.spec.ts` - Coverage for inviter notification helper
+- `apps/backend/src/auth/invite.service.spec.ts` - Ensures invite flows trigger expected email sends
 - `apps/backend/prisma/schema.prisma` - Added Invite model, InviteStatus enum (including PENDING_REGISTRATION), nullable encryption fields
 - `apps/backend/src/auth/auth.resolver.ts` - Added createEncryptedInvite, acceptInvite, createPendingInvite mutations, and getPendingInvites query
 - `apps/backend/src/auth/auth.service.ts` - Implemented invite creation/acceptance logic, createPendingInvite, getPendingInvites, generateInviteCode
 - `apps/backend/src/auth/types/invite.type.ts` - Updated AcceptInviteResponse with inviterPublicKey, made encryptedFamilyKey and nonce nullable
 - `src/lib/contexts/auth-context.tsx` - Added acceptInvite function with client-side key decryption
 - `src/lib/graphql/generated/graphql.ts` - Auto-generated with new Invite types and mutations
-- `src/lib/graphql/operations.ts` - Added CREATE_ENCRYPTED_INVITE_MUTATION, ACCEPT_INVITE_MUTATION, CREATE_PENDING_INVITE_MUTATION, GET_PENDING_INVITES_QUERY
+- `src/lib/graphql/operations.ts` - Added CREATE_ENCRYPTED_INVITE_MUTATION, ACCEPT_INVITE_MUTATION, CREATE_PENDING_INVITE_MUTATION, GET_PENDING_INVITES_QUERY, and GET_FAMILY_INVITES_QUERY
 - `src/lib/translations.ts` - Added invite dialog, accept invite, pending invites, and toast translations (Japanese + English)
-- `src/components/family/invite-member-dialog.tsx` - Added "Send Registration Link" button for unregistered users, CREATE_PENDING_INVITE_MUTATION integration
+- `src/components/family/invite-member-dialog.tsx` - Added "Send Registration Link" button and aligned mutation inputs with backend
+- `src/app/(auth)/family-setup/page.tsx` - Automates encrypted invites vs. registration links after creating a family and now surfaces invitee guidance
+- `src/app/(auth)/login/page.tsx` - Handles invitee registration mode locking and returnUrl handling
+- `src/components/auth/unified-login-screen.tsx` - Locks registration tab for invitees and respects returnUrl routing
 - `src/app/family/settings/page.tsx` - Integrated PendingInvitationsSection component
+- `src/app/family/invitations/page.tsx` - Dedicated list of invites with status badges
 
 ### New Files
 - `apps/backend/prisma/migrations/20251109122850_add_invites_table/migration.sql` - Database migration for invites table
@@ -377,9 +391,13 @@ IF NOT registered (no publicKey):
 - `src/lib/e2ee/__tests__/invite-encryption.test.ts` - Unit tests for encryption utilities (11 tests)
 - `tests/e2e/story-1.8-encrypted-invites.spec.ts` - E2E tests for cross-browser invite scenarios (3 tests)
 - `src/components/family/pending-invitations-section.tsx` - Component displaying pending invites with status checking and completion flow
+- `src/lib/invite/invitee-flow.ts` - Invitee flow flag helpers
+- `src/app/family/invitations/page.tsx` - Family invitations overview screen
 
 ## Change Log
 
+- **2025-11-15**: Restored invite email flows — backend now delivers registration + encrypted invites, notifies inviters post-verification, and family setup auto-sends localized toasts (Task 6)
+- **2025-11-15**: Added invitee-specific onboarding and a dedicated invitations screen listing registration/pending/accepted statuses
 - **2025-11-09**: Added Prisma Invite model with encryption support (Task 4)
 - **2025-11-09**: Implemented createEncryptedInvite and acceptInvite GraphQL mutations (Task 4)
 - **2025-11-09**: Built InviteMemberDialog component and family settings page with full E2EE invite flow (Task 4)
@@ -451,10 +469,10 @@ Story 1.8 successfully decouples account registration from family creation with 
 | Task 6.1: Notification mechanism | ✅ Complete | ✅ VERIFIED | `apps/backend/src/auth/auth.service.ts:913-994` |
 | Task 6.2: Pending Invitations UI | ✅ Complete | ✅ VERIFIED | `src/components/family/pending-invitations-section.tsx:152-177` |
 | Task 6.3: Status display | ✅ Complete | ✅ VERIFIED | `src/components/family/pending-invitations-section.tsx:214-233` |
-| Task 6.4: Email notification | ⏸️ Deferred | ⏸️ DEFERRED | Marked "optional" - not MVP requirement (line 74) |
+| Task 6.4: Email notification | ✅ Complete | ✅ VERIFIED | `apps/backend/src/email/email.service.ts:120-260` + `apps/backend/src/auth/auth.service.ts:800-1050` |
 | Task 6.5: Complete Invite button | ✅ Complete | ✅ VERIFIED | `src/components/family/pending-invitations-section.tsx:254-273` |
 
-**Summary:** 25 of 26 completed tasks verified (96%), 0 questionable, 0 false completions. 1 task intentionally deferred per requirements.
+**Summary:** 26 of 26 completed tasks verified (100%), 0 questionable, 0 false completions.
 
 ### Test Coverage and Gaps
 

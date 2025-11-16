@@ -245,6 +245,15 @@ export class AuthResolver {
     return this.authService.getPendingInvites(user.id, familyId);
   }
 
+  @Query(() => [InviteType])
+  @UseGuards(GqlAuthGuard)
+  async getFamilyInvites(
+    @CurrentUser() user: User,
+    @Args('familyId') familyId: string,
+  ): Promise<InviteType[]> {
+    return this.authService.getFamilyInvites(user.id, familyId);
+  }
+
   @Mutation(() => GenericResponse)
   @UseGuards(GqlAuthGuard)
   async reportInviteDecryptFailure(

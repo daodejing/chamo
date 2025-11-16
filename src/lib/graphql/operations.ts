@@ -241,6 +241,21 @@ export const GET_PENDING_INVITES_QUERY = gql`
   }
 `;
 
+export const GET_FAMILY_INVITES_QUERY = gql`
+  query GetFamilyInvites($familyId: String!) {
+    getFamilyInvites(familyId: $familyId) {
+      id
+      familyId
+      inviterId
+      inviteeEmail
+      status
+      expiresAt
+      createdAt
+      acceptedAt
+    }
+  }
+`;
+
 export const JOIN_FAMILY_EXISTING_MUTATION = gql`
   mutation JoinFamilyExisting($input: JoinFamilyExistingInput!) {
     joinFamilyAsMember(input: $input) {

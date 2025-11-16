@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { toast } from 'sonner';
 import { Loader2, UserPlus, CheckCircle2 } from 'lucide-react';
@@ -27,6 +27,7 @@ export default function AcceptInvitePage() {
     name: string;
   } | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const autoAcceptAttempted = useRef(false);
 
   const inviteCode = searchParams.get('code');
 
@@ -41,10 +42,16 @@ export default function AcceptInvitePage() {
     }
 
     // Auto-accept if we have an invite code and haven't started accepting yet
-    if (inviteCode && !isAccepting && !acceptedFamily && !error) {
+    if (
+      inviteCode &&
+      !autoAcceptAttempted.current &&
+      !acceptedFamily &&
+      !error
+    ) {
+      autoAcceptAttempted.current = true;
       handleAcceptInvite(inviteCode);
     }
-  }, [user, inviteCode, isAccepting, acceptedFamily, error]);
+  }, [user, inviteCode, acceptedFamily, error]);
 
   const handleAcceptInvite = async (code: string) => {
     setIsAccepting(true);
@@ -61,7 +68,13 @@ export default function AcceptInvitePage() {
       }, 2000);
     } catch (err) {
       console.error('Accept invite error:', err);
-      const errorMessage = err instanceof Error ? err.message : t('toast.inviteAcceptFailed', language);
+      const rawMessage = err instanceof Error ? err.message : '';
+      if (rawMessage.toLowerCase().includes('already a member')) {
+        toast.success(t('toast.familyJoined', language));
+        router.push('/chat');
+        return;
+      }
+      const errorMessage = rawMessage || t('toast.inviteAcceptFailed', language);
       setError(errorMessage);
       toast.error(errorMessage);
     } finally {

@@ -9,6 +9,9 @@ export class ChannelsService {
    * Get all channels for a family
    */
   async getChannelsByFamilyId(familyId: string) {
+    if (!familyId) {
+      return [];
+    }
     return this.prisma.channel.findMany({
       where: { familyId },
       orderBy: [

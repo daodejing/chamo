@@ -19,6 +19,7 @@ describe('EmailService', () => {
       EMAIL_FROM: 'test@example.com',
       EMAIL_FROM_NAME: 'OurChat Test',
       EMAIL_VERIFICATION_URL: 'http://localhost:3002/verify-email',
+      APP_BASE_URL: 'http://localhost:3002',
     };
 
     // Mock Brevo API
@@ -298,8 +299,8 @@ describe('EmailService', () => {
           sender: { email: 'test@example.com', name: 'OurChat Test' },
           to: [{ email: 'invitee@example.com' }],
           subject: "You've been invited to join Smith Family on Chamo",
-          htmlContent: expect.stringContaining('Smith Family'),
-          textContent: expect.stringContaining('SMITH123'),
+          htmlContent: expect.stringContaining('accept-invite?code=SMITH123'),
+          textContent: expect.stringContaining('accept-invite?code=SMITH123'),
         }),
       );
     });
@@ -329,6 +330,77 @@ describe('EmailService', () => {
       ).resolves.not.toThrow();
 
       loggerSpy.mockRestore();
+    });
+  });
+
+  describe('sendRegistrationInviteEmail', () => {
+    beforeEach(async () => {
+      const module: TestingModule = await Test.createTestingModule({
+        providers: [EmailService],
+      }).compile();
+      service = module.get<EmailService>(EmailService);
+    });
+
+    it('should reject invalid invitee email', async () => {
+      const loggerSpy = jest.spyOn(service['logger'], 'error');
+
+      await service.sendRegistrationInviteEmail('bad-email', 'The Parkers', 'Sam');
+
+      expect(mockSendTransacEmail).not.toHaveBeenCalled();
+      expect(loggerSpy).toHaveBeenCalledWith(
+        expect.stringContaining('Invalid email format'),
+      );
+      loggerSpy.mockRestore();
+    });
+
+    it('should send registration invite with correct CTA', async () => {
+      const email = 'guest@example.com';
+      await service.sendRegistrationInviteEmail(email, 'Team Nova', 'Ava');
+
+      const payload = mockSendTransacEmail.mock.calls[0][0];
+      expect(payload.subject).toContain('Team Nova');
+      expect(payload.htmlContent).toContain('Create your account');
+      expect(payload.htmlContent).toContain(encodeURIComponent(email));
+      expect(payload.textContent).toContain('Create your account');
+    });
+  });
+
+  describe('sendInviteeRegistrationNotification', () => {
+    beforeEach(async () => {
+      const module: TestingModule = await Test.createTestingModule({
+        providers: [EmailService],
+      }).compile();
+      service = module.get<EmailService>(EmailService);
+    });
+
+    it('should reject invalid inviter email', async () => {
+      const loggerSpy = jest.spyOn(service['logger'], 'error');
+
+      await service.sendInviteeRegistrationNotification(
+        'invalid',
+        'member@example.com',
+        'Lumen Family',
+      );
+
+      expect(mockSendTransacEmail).not.toHaveBeenCalled();
+      expect(loggerSpy).toHaveBeenCalledWith(
+        expect.stringContaining('Invalid inviter email format'),
+      );
+      loggerSpy.mockRestore();
+    });
+
+    it('should notify inviter with pending invite instructions', async () => {
+      await service.sendInviteeRegistrationNotification(
+        'admin@example.com',
+        'member@example.com',
+        'Orbit Family',
+      );
+
+      const payload = mockSendTransacEmail.mock.calls[0][0];
+      expect(payload.subject).toContain('member@example.com');
+      expect(payload.htmlContent).toContain('Complete invite now');
+      expect(payload.htmlContent).toContain('completeInvite%3D');
+      expect(payload.textContent).toContain('member@example.com');
     });
   });
 

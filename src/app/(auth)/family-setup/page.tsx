@@ -19,10 +19,15 @@ import {
 } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Plus, X, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react';
-import { useMutation } from '@apollo/client/react';
+import { useMutation, useLazyQuery } from '@apollo/client/react';
 import {
   CREATE_PENDING_INVITE_MUTATION,
+  CREATE_ENCRYPTED_INVITE_MUTATION,
+  GET_USER_PUBLIC_KEY_QUERY,
 } from '@/lib/graphql/operations';
+import { encryptFamilyKeyForRecipient } from '@/lib/e2ee/invite-encryption';
+import { getFamilyKeyBase64, generateInviteCode } from '@/lib/e2ee/key-management';
+import { isInviteeFlowActive, clearInviteeFlowFlag } from '@/lib/invite/invitee-flow';
 
 export default function FamilySetupPage() {
   const router = useRouter();
@@ -30,9 +35,12 @@ export default function FamilySetupPage() {
   const { language } = useLanguage();
 
   const [createPendingInvite] = useMutation(CREATE_PENDING_INVITE_MUTATION);
+  const [createEncryptedInvite] = useMutation(CREATE_ENCRYPTED_INVITE_MUTATION);
+  const [getUserPublicKey] = useLazyQuery(GET_USER_PUBLIC_KEY_QUERY);
 
   const [isCreating, setIsCreating] = useState(false);
   const [isJoining, setIsJoining] = useState(false);
+  const [showInviteeNotice, setShowInviteeNotice] = useState(false);
 
   // Create family state
   const [familyName, setFamilyName] = useState('');
@@ -41,6 +49,12 @@ export default function FamilySetupPage() {
 
   // Join family state
   const [inviteCode, setInviteCode] = useState('');
+
+  useEffect(() => {
+    if (isInviteeFlowActive()) {
+      setShowInviteeNotice(true);
+    }
+  }, []);
 
   // Helper functions for member email management
   const addMemberEmailField = () => {
@@ -59,6 +73,13 @@ export default function FamilySetupPage() {
   };
 
   const sendInvitesToMembers = async (familyId: string) => {
+    if (!user) {
+      toast.error(t('toast.notAuthenticated', language));
+      return;
+    }
+
+    const inviterId = user.id;
+
     const validEmails = memberEmails.filter(email => email.trim() && email.includes('@'));
     if (validEmails.length === 0) return;
 
@@ -78,23 +99,78 @@ export default function FamilySetupPage() {
       setInviteStatuses(prev => ({ ...prev, [trimmedEmail]: { status: 'sending' } }));
 
       try {
-        // Always use createPendingInvite during family creation since we have the explicit familyId
-        // The backend will send the appropriate email based on whether the user is registered
-        await createPendingInvite({
-          variables: {
-            input: {
-              familyId,
-              inviteeEmail: trimmedEmail
-            }
-          }
+        const normalizedEmail = trimmedEmail.toLowerCase();
+        const { data } = await getUserPublicKey({
+          variables: { email: normalizedEmail },
         });
-        setInviteStatuses(prev => ({
-          ...prev,
-          [trimmedEmail]: {
-            status: 'sent',
-            message: t('familySetup.inviteSent', language)
+        const publicKey = data?.getUserPublicKey;
+
+        if (publicKey) {
+          const familyKeyBase64 = await getFamilyKeyBase64(familyId);
+          if (!familyKeyBase64) {
+            toast.error(t('toast.familyKeyNotFound', language));
+            setInviteStatuses(prev => ({
+              ...prev,
+              [trimmedEmail]: { status: 'error', message: t('toast.familyKeyNotFound', language) },
+            }));
+            continue;
           }
-        }));
+
+          const { encryptedKey, nonce } = await encryptFamilyKeyForRecipient(
+            familyKeyBase64,
+            publicKey,
+            inviterId
+          );
+          const inviteCode = generateInviteCode();
+          const expiresAt = new Date();
+          expiresAt.setDate(expiresAt.getDate() + 7);
+
+          await createEncryptedInvite({
+            variables: {
+              input: {
+                familyId,
+                inviteeEmail: normalizedEmail,
+                encryptedFamilyKey: encryptedKey,
+                nonce,
+                inviteCode,
+                expiresAt: expiresAt.toISOString(),
+              },
+            },
+          });
+          setInviteStatuses(prev => ({
+            ...prev,
+            [trimmedEmail]: {
+              status: 'sent',
+              message: t('familySetup.inviteSent', language),
+            },
+          }));
+          toast.success(
+            t('toast.inviteCreated', language, {
+              email: trimmedEmail,
+            }),
+          );
+        } else {
+          await createPendingInvite({
+            variables: {
+              input: {
+                familyId,
+                inviteeEmail: normalizedEmail,
+              },
+            },
+          });
+          setInviteStatuses(prev => ({
+            ...prev,
+            [trimmedEmail]: {
+              status: 'sent',
+              message: t('familySetup.registrationLinkSent', language),
+            },
+          }));
+          toast.info(
+            t('toast.pendingInviteCreated', language, {
+              email: trimmedEmail,
+            }),
+          );
+        }
       } catch (error) {
         console.error(`Failed to send invite to ${trimmedEmail}:`, error);
         setInviteStatuses(prev => ({
@@ -122,6 +198,8 @@ export default function FamilySetupPage() {
       const result = await createFamily(familyName.trim());
 
       toast.success(t('toast.familyCreated', language));
+      clearInviteeFlowFlag();
+      setShowInviteeNotice(false);
 
       // Send invites to all specified members
       if (result?.family?.id) {
@@ -131,7 +209,11 @@ export default function FamilySetupPage() {
       // Show summary of sent invites if any
       const validEmails = memberEmails.filter(email => email.trim() && email.includes('@'));
       if (validEmails.length > 0) {
-        toast.success(t('familySetup.invitesSummary', language).replace('{count}', validEmails.length.toString()));
+        toast.success(
+          t('familySetup.invitesSummary', language, {
+            count: validEmails.length,
+          }),
+        );
       }
 
       // Redirect to chat after a brief delay to show invite statuses
@@ -160,6 +242,7 @@ export default function FamilySetupPage() {
       await joinFamilyExisting(inviteCode.trim());
 
       toast.success(t('toast.familyJoined', language));
+      clearInviteeFlowFlag();
 
       // Redirect to chat
       router.push('/chat');
@@ -197,7 +280,23 @@ export default function FamilySetupPage() {
             <CardDescription>{t('familySetup.description', language)}</CardDescription>
           </div>
         </CardHeader>
-        <CardContent>
+       <CardContent>
+          {showInviteeNotice && (
+            <div className="mb-6 rounded-xl border border-indigo-200 bg-indigo-50 p-4 text-sm text-indigo-900 space-y-3">
+              <div>
+                <p className="font-semibold">{t('familySetup.inviteeNoticeTitle', language)}</p>
+                <p className="text-sm mt-1">{t('familySetup.inviteeNoticeBody', language)}</p>
+              </div>
+              <div className="flex flex-col gap-2">
+                <Button variant="outline" onClick={dismissInviteeNotice}>
+                  {t('familySetup.inviteeNoticeWait', language)}
+                </Button>
+                <Button onClick={dismissInviteeNotice}>
+                  {t('familySetup.inviteeNoticeCreate', language)}
+                </Button>
+              </div>
+            </div>
+          )}
           <Tabs defaultValue="create" className="w-full">
             <TabsList className="grid w-full grid-cols-2">
               <TabsTrigger value="create">{t('familySetup.createTab', language)}</TabsTrigger>
@@ -350,3 +449,7 @@ export default function FamilySetupPage() {
     </div>
   );
 }
+  const dismissInviteeNotice = () => {
+    clearInviteeFlowFlag();
+    setShowInviteeNotice(false);
+  };
