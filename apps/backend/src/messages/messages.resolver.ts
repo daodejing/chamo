@@ -2,6 +2,7 @@ import { Resolver, Mutation, Query, Args, Subscription } from '@nestjs/graphql';
 import { UseGuards, Injectable, Inject } from '@nestjs/common';
 import { PubSub } from 'graphql-subscriptions';
 import { GqlAuthGuard } from '../auth/guards/gql-auth.guard';
+import { GqlSubscriptionAuthGuard } from '../auth/gql-subscription-auth.guard';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { MessagesService } from './messages.service';
 import { MessageWithUserType } from './types/message.type';
@@ -81,13 +82,13 @@ export class MessagesResolver {
   }
 
   @Subscription(() => MessageWithUserType, {
-    // Note: Auth guards removed for WebSocket subscriptions
-    // Channel-level filtering provides security via channelId check
+    // WebSocket auth via GqlSubscriptionAuthGuard (reads from connectionParams)
     resolve: (payload) => payload.messageAdded,
     filter: (payload, variables) => {
       return payload.channelId === variables.channelId;
     },
   })
+  @UseGuards(GqlSubscriptionAuthGuard)
   messageAdded(@Args('channelId') channelId: string) {
     return this.pubSub.asyncIterableIterator('messageAdded');
   }
@@ -98,6 +99,7 @@ export class MessagesResolver {
       return payload.channelId === variables.channelId;
     },
   })
+  @UseGuards(GqlSubscriptionAuthGuard)
   messageEdited(@Args('channelId') channelId: string) {
     return this.pubSub.asyncIterableIterator('messageEdited');
   }
@@ -107,6 +109,7 @@ export class MessagesResolver {
       return payload.channelId === variables.channelId;
     },
   })
+  @UseGuards(GqlSubscriptionAuthGuard)
   messageDeleted(@Args('channelId') channelId: string) {
     return this.pubSub.asyncIterableIterator('messageDeleted');
   }

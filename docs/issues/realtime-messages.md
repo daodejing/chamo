@@ -175,3 +175,73 @@ Current security:
 
 ### Status: RESOLVED (security TODO remains)
 Real-time messaging works. Proper WebSocket auth guards needed later.
+
+## ✅ SECURITY FIX: WebSocket Authentication Guards (2025-11-16 Part 3)
+
+### Implementation: Dual-Transport Authentication Guard
+Created a custom authentication guard that works for both HTTP requests and WebSocket subscriptions by extracting JWT tokens from different sources depending on the transport type.
+
+### Files Created
+**`apps/backend/src/auth/gql-subscription-auth.guard.ts`**:
+- Custom `CanActivate` guard that handles both HTTP and WebSocket transports
+- Extracts JWT from `Authorization` header for HTTP requests
+- Extracts JWT from `ctx.req.headers.authorization` for WebSocket subscriptions
+- Verifies JWT using `JwtService.verifyAsync()`
+- Attaches decoded user payload to context for resolver access
+- Throws `UnauthorizedException` for missing or invalid tokens
+
+### Files Modified
+
+**`apps/backend/src/app.module.ts`**:
+- Added WebSocket configuration with `onConnect` callback to extract authorization from `connectionParams`
+- Modified `context` function to read from `context.connectionParams.authorization` (not `extra`!)
+- Formats WebSocket auth as `{ req: { headers: { authorization: token } } }` for guard compatibility
+
+**Key Discovery**: With Apollo Server 5's `graphql-ws` protocol, the return value from `onConnect` is merged into `context.connectionParams`, not `extra`. This is different from the legacy `subscriptions-transport-ws` protocol.
+
+**`apps/backend/src/auth/auth.module.ts`**:
+- Added `JwtModule` to exports array to allow other modules to inject `JwtService`
+
+**`apps/backend/src/messages/messages.module.ts`**:
+- Imported `JwtModule.register()` to provide JWT functionality
+- Added `GqlSubscriptionAuthGuard` to providers
+- Imported `AuthModule` for authentication services
+
+**`apps/backend/src/messages/messages.resolver.ts`**:
+- Applied `@UseGuards(GqlSubscriptionAuthGuard)` to all subscription resolvers:
+  - `messageAdded` (line 91)
+  - `messageEdited` (line 102)
+  - `messageDeleted` (line 112)
+
+### Authentication Flow
+
+1. **Client Connection**: Client connects to WebSocket with JWT in `connectionParams.authorization`
+2. **onConnect Callback**: Extracts token and returns `{ authorization: token }`
+3. **Context Merging**: The return value is merged into `context.connectionParams` by graphql-ws
+4. **Context Formatting**: Context handler formats it as `{ req: { headers: { authorization: token } } }`
+5. **Guard Execution**: Guard reads from `ctx.req.headers.authorization` and verifies JWT
+6. **User Attachment**: Decoded JWT payload is attached to `ctx.user` for resolver access
+7. **Subscription Authorized**: If valid, subscription proceeds; if invalid, throws `UnauthorizedException`
+
+### Dependency Injection Fix
+
+**Error encountered**: `UnknownDependenciesException: Nest can't resolve dependencies of the GqlSubscriptionAuthGuard (?). Please make sure that the argument JwtService at index [0] is available in the MessagesModule context.`
+
+**Solution**:
+1. Export `JwtModule` from `AuthModule`
+2. Import `JwtModule.register()` in `MessagesModule`
+3. Add `GqlSubscriptionAuthGuard` to `MessagesModule` providers
+
+### Testing & Verification
+
+**Debug Process**:
+1. Initially tested with `onConnect` return merged into `extra` - didn't work
+2. Added comprehensive debug logging to track context flow
+3. Discovered authorization was in `context.connectionParams`, not `extra`
+4. Updated context handler to read from correct location
+5. Verified with real message sending between two authenticated users
+
+**User Confirmation**: "messages received and displaying!" ✅
+
+### Status: FULLY RESOLVED WITH SECURITY
+WebSocket subscriptions now require valid JWT authentication. Unauthorized clients cannot subscribe to message updates.

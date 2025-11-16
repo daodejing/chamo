@@ -3,6 +3,7 @@ import { GraphQLModule } from '@nestjs/graphql';
 import { ApolloDriver, ApolloDriverConfig } from '@nestjs/apollo';
 import { join } from 'path';
 import { APP_GUARD } from '@nestjs/core';
+import { JwtService } from '@nestjs/jwt';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { PrismaModule } from './prisma/prisma.module';
@@ -23,7 +24,34 @@ import { EmailModule } from './email/email.module';
       sortSchema: true,
       playground: true,
       subscriptions: {
-        'graphql-ws': true,
+        'graphql-ws': {
+          onConnect: (context: any) => {
+            const { connectionParams } = context;
+            // Extract authorization from connectionParams for WebSocket subscriptions
+            if (connectionParams?.authorization) {
+              return { authorization: connectionParams.authorization };
+            }
+            return {};
+          },
+        },
+      },
+      context: (context: any) => {
+        const { req } = context;
+
+        // For WebSocket subscriptions, extract authorization from connectionParams
+        // The onConnect callback return value is merged into connectionParams
+        if (context.connectionParams?.authorization) {
+          return {
+            req: {
+              headers: {
+                authorization: context.connectionParams.authorization,
+              }
+            }
+          };
+        }
+
+        // For HTTP requests, use standard request
+        return { req };
       },
     }),
     // Application modules

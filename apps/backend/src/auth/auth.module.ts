@@ -27,6 +27,6 @@ import { JwtAuthGuard } from './guards/jwt-auth.guard';
     TelemetryService,
     JwtAuthGuard,
   ],
-  exports: [AuthService, JwtStrategy, PassportModule],
+  exports: [AuthService, JwtStrategy, PassportModule, JwtModule],
 })
 export class AuthModule {}
