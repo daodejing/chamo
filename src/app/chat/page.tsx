@@ -252,14 +252,22 @@ export default function ChatPage() {
 
   // Decrypt messages when raw messages change
   useEffect(() => {
+    console.log('[Decrypt] Effect triggered:', {
+      rawMessagesCount: rawMessages?.length ?? 0,
+      hasFamilyKey: !!familyKey,
+      hasUser: !!user,
+    });
+
     if (!rawMessages || rawMessages.length === 0) {
-      if (displayMessages.length > 0) {
-        setDisplayMessages([]);
-      }
+      console.log('[Decrypt] No raw messages, clearing display');
+      setDisplayMessages((prev) => prev.length === 0 ? prev : []);
       return;
     }
 
+    let cancelled = false;
+
     const decryptMessages = async () => {
+      console.log('[Decrypt] Starting decryption of', rawMessages.length, 'messages');
       const decrypted = await Promise.all(
         rawMessages.map(async (msg) => {
           try {
@@ -294,20 +302,49 @@ export default function ChatPage() {
         })
       );
 
+      if (cancelled) {
+        console.log('[Decrypt] Cancelled, not updating display');
+        return;
+      }
+
+      console.log('[Decrypt] Setting display messages to', decrypted.length, 'decrypted messages');
+      console.log('[Decrypt] Message IDs:', decrypted.map(m => m.id));
+
       // Use query result as source of truth, removing any temp optimistic messages
-      setDisplayMessages(decrypted);
+      setDisplayMessages((prev) => {
+        console.log('[Decrypt] Previous display messages:', prev.length);
+        console.log('[Decrypt] Previous IDs:', prev.map(m => m.id));
+        console.log('[Decrypt] New IDs:', decrypted.map(m => m.id));
+        return decrypted;
+      });
     };
 
     decryptMessages();
-  }, [rawMessages, familyKey, user?.id, language, displayMessages.length]);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [rawMessages, familyKey, user?.id, language]);
 
   // Handle real-time message added
   useEffect(() => {
-    if (!messageAdded || !familyKey) return;
+    console.log('[Subscription] messageAdded effect triggered:', {
+      hasMessageAdded: !!messageAdded,
+      hasFamilyKey: !!familyKey,
+      messageId: messageAdded?.id,
+      messageData: messageAdded,
+    });
+
+    if (!messageAdded || !familyKey) {
+      console.log('[Subscription] Skipping - missing messageAdded or familyKey');
+      return;
+    }
 
     const processNewMessage = async () => {
       try {
+        console.log('[Subscription] Processing new message:', messageAdded.id);
         const plaintext = await decryptMessage(messageAdded.encryptedContent, familyKey);
+        console.log('[Subscription] Message decrypted successfully');
 
         const newMessage: DisplayMessage = {
           id: messageAdded.id,
@@ -320,18 +357,23 @@ export default function ChatPage() {
           isEdited: messageAdded.isEdited,
         };
 
+        console.log('[Subscription] New message object created:', newMessage);
+
         setDisplayMessages((prev) => {
+          console.log('[Subscription] Current messages count:', prev.length);
           // Avoid duplicates - check if message already exists
           const exists = prev.some((m) => m.id === newMessage.id);
           if (exists) {
-            console.log('[Subscription] Skipping duplicate message:', newMessage.id);
+            console.log('[Subscription] ⚠️ Skipping duplicate message:', newMessage.id);
             return prev;
           }
-          console.log('[Subscription] Adding new message:', newMessage.id);
-          return [...prev, newMessage];
+          console.log('[Subscription] ✅ Adding new message:', newMessage.id);
+          const updated = [...prev, newMessage];
+          console.log('[Subscription] Updated messages count:', updated.length);
+          return updated;
         });
       } catch (error) {
-        console.error('Failed to process new message:', error);
+        console.error('[Subscription] ❌ Failed to process new message:', error);
       }
     };
 

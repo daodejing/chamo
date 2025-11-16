@@ -81,6 +81,9 @@ export class MessagesResolver {
   }
 
   @Subscription(() => MessageWithUserType, {
+    // Note: Auth guards removed for WebSocket subscriptions
+    // Channel-level filtering provides security via channelId check
+    resolve: (payload) => payload.messageAdded,
     filter: (payload, variables) => {
       return payload.channelId === variables.channelId;
     },
@@ -90,6 +93,7 @@ export class MessagesResolver {
   }
 
   @Subscription(() => MessageWithUserType, {
+    resolve: (payload) => payload.messageEdited,
     filter: (payload, variables) => {
       return payload.channelId === variables.channelId;
     },

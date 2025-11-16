@@ -85,11 +85,38 @@ const httpLinkWithAuth = from([authLink, httpLink]);
 const wsLink = typeof window !== 'undefined' ? new GraphQLWsLink(
   createClient({
     url: resolveWsUrl(GRAPHQL_WS_URL),
+    keepAlive: 10_000, // Send keepalive ping every 10 seconds
     connectionParams: () => {
       const token = localStorage.getItem('accessToken');
+      console.log('[WebSocket] Getting connection params, token exists:', !!token);
       return {
         authorization: token ? `Bearer ${token}` : '',
       };
+    },
+    on: {
+      connected: () => {
+        console.log('[WebSocket] ✅ Connected to GraphQL server');
+      },
+      connecting: () => {
+        console.log('[WebSocket] 🔄 Connecting to GraphQL server at:', resolveWsUrl(GRAPHQL_WS_URL));
+      },
+      closed: (event) => {
+        console.log('[WebSocket] ❌ Connection closed:', event);
+      },
+      error: (error) => {
+        console.error('[WebSocket] ❌ Connection error:', error);
+      },
+      ping: () => {
+        console.log('[WebSocket] 🏓 Ping sent');
+      },
+      pong: () => {
+        console.log('[WebSocket] 🏓 Pong received');
+      },
+    },
+    retryAttempts: 5,
+    shouldRetry: () => {
+      console.log('[WebSocket] 🔄 Retrying connection...');
+      return true;
     },
   })
 ) : null;
@@ -99,10 +126,14 @@ const splitLink = typeof window !== 'undefined' && wsLink
   ? split(
       ({ query }) => {
         const definition = getMainDefinition(query);
-        return (
+        const isSubscription = (
           definition.kind === 'OperationDefinition' &&
           definition.operation === 'subscription'
         );
+        if (isSubscription) {
+          console.log('[Apollo] 📡 Routing subscription operation to WebSocket:', definition.name?.value);
+        }
+        return isSubscription;
       },
       wsLink,
       httpLinkWithAuth
