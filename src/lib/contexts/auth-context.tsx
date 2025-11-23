@@ -392,7 +392,7 @@ function AuthProviderInner({ children }: { children: React.ReactNode}) {
         return null;
       }
 
-      const pendingFromResult = getPendingVerificationFromErrors(result.error ? [result.error] : [], input.email);
+      const pendingFromResult = getPendingVerificationFromErrors(result.error ? [result.error as GraphQlErrorLike] : [], input.email);
       if (pendingFromResult) {
         return pendingFromResult;
       }
