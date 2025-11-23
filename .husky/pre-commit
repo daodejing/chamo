@@ -1,1 +1,13 @@
-pnpm lint
+#!/bin/sh
+. "$(dirname "$0")/_/husky.sh"
+
+echo "🔧 Generating GraphQL types..."
+pnpm codegen || exit 1
+
+echo "🔍 Running TypeScript type check..."
+pnpm type-check || exit 1
+
+echo "✨ Running ESLint..."
+pnpm lint || exit 1
+
+echo "✅ All pre-commit checks passed!"
