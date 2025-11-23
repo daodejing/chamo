@@ -107,13 +107,33 @@ jobs:
         env:
           RENDER_DEPLOY_HOOK_URL: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
         run: |
-          response=$(curl -X POST "$RENDER_DEPLOY_HOOK_URL" -w "%{http_code}" -o /dev/null -s)
-          if [ "$response" -eq 200 ] || [ "$response" -eq 201 ] || [ "$response" -eq 202 ]; then
-            echo "✅ Render deployment triggered successfully"
-          else
-            echo "❌ Failed to trigger Render deployment (HTTP $response)"
-            exit 1
-          fi
+          max_attempts=5
+          attempt=1
+          delay=5
+
+          while [ $attempt -le $max_attempts ]; do
+            response=$(curl -X POST "$RENDER_DEPLOY_HOOK_URL" -w "%{http_code}" -o /dev/null -s)
+
+            if [ "$response" -eq 200 ] || [ "$response" -eq 201 ] || [ "$response" -eq 202 ]; then
+              echo "✅ Render deployment triggered successfully (attempt $attempt)"
+              exit 0
+            fi
+
+            echo "⚠️  Render deploy hook returned HTTP $response (attempt $attempt/$max_attempts)"
+
+            # 409 is common when a deploy is already in progress; retry with backoff
+            if [ "$response" -eq 409 ]; then
+              sleep $delay
+              delay=$((delay * 2))
+              attempt=$((attempt + 1))
+            else
+              # For non-retriable codes, fail immediately
+              exit 1
+            fi
+          done
+
+          echo "❌ Failed to trigger Render deployment after $max_attempts attempts"
+          exit 1
 
       - name: Wait for backend deployment
         env:

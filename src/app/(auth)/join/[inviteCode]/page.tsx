@@ -1,5 +1,8 @@
 'use client';
 
+// Dynamic route: must not be statically exported
+export const dynamic = 'force-dynamic';
+
 import { useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { storePendingInviteCode } from '@/lib/invite/pending-invite';
@@ -38,4 +41,3 @@ export default function JoinInviteRedirect() {
 
   return null;
 }
-
