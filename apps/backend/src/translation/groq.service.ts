@@ -60,7 +60,9 @@ export class GroqService {
 
       if (!response.ok) {
         const errorPayload = await response.text();
-        this.logger.error(`Groq API error: ${response.status} ${errorPayload}`);
+        this.logger.error(
+          `Groq API error: status=${response.status} target=${targetLanguage} payload=${errorPayload}`,
+        );
 
         if (response.status === HttpStatus.TOO_MANY_REQUESTS) {
           throw new HttpException(

@@ -6,7 +6,7 @@
 
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { ChatScreen } from '@/components/chat-screen';
@@ -54,6 +54,16 @@ type DisplayMessage = {
   isEdited: boolean;
 };
 
+type ChannelData = {
+  processedIds: Set<string>;
+  lastAccessed: number;
+};
+
+type SetStateCacheEntry = {
+  prevRef: DisplayMessage[];
+  result: DisplayMessage[];
+};
+
 export default function ChatPage() {
   const router = useRouter();
   const { user, family, loading: authLoading, logout, switchActiveFamily } = useAuth();
@@ -82,6 +92,67 @@ export default function ChatPage() {
     useState<TranslationLanguage>(DEFAULT_TRANSLATION_LANGUAGE);
   const [settingsChannels, setSettingsChannels] = useState<SettingsChannel[]>([]);
   const [settingsFamilyMembers, setSettingsFamilyMembers] = useState<SettingsFamilyMember[]>([]);
+
+  // Instrumentation refs for debugging double-subscription issue
+  const executionCounterRef = useRef(0);
+  const objectIdentityMap = useRef(new WeakMap<any, number>());
+  const nextIdentityIdRef = useRef(0);
+
+  // Helper to track object identity changes (reveals Apollo cache creating new references)
+  const getObjectId = (obj: any) => {
+    if (!obj) return null;
+    if (!objectIdentityMap.current.has(obj)) {
+      objectIdentityMap.current.set(obj, nextIdentityIdRef.current++);
+    }
+    return objectIdentityMap.current.get(obj);
+  };
+
+  // Per-channel deduplication to prevent double-processing (StrictMode + other edge cases)
+  const processedMessagesByChannel = useRef<Map<string, ChannelData>>(new Map());
+
+  // Track setState results per message keyed by previous state reference
+  // This avoids creating a second array when StrictMode re-invokes the updater with the same prev ref.
+  const setStateResultsRef = useRef<Map<string, SetStateCacheEntry>>(new Map());
+
+  // Get channel identifier with fallback for single-room flows
+  const getChannelKey = (channelId: string | null | undefined, familyId: string | null | undefined) => {
+    return channelId || familyId || 'default';
+  };
+
+  // Get or create channel data with recency tracking
+  const getChannelData = (channelKey: string): ChannelData => {
+    if (!processedMessagesByChannel.current.has(channelKey)) {
+      processedMessagesByChannel.current.set(channelKey, {
+        processedIds: new Set(),
+        lastAccessed: Date.now(),
+      });
+    }
+    const data = processedMessagesByChannel.current.get(channelKey)!;
+    data.lastAccessed = Date.now(); // Update access time
+    return data;
+  };
+
+  // Prune old channels based on recency (keep current + 2 most recent)
+  const pruneOldChannels = (currentChannelKey: string) => {
+    const entries = Array.from(processedMessagesByChannel.current.entries());
+    if (entries.length <= 3) return; // Keep at least 3
+
+    // Sort by lastAccessed (most recent first)
+    entries.sort((a, b) => b[1].lastAccessed - a[1].lastAccessed);
+
+    // Keep current channel + 2 most recent others
+    const toKeep = new Set([
+      currentChannelKey,
+      ...entries.slice(0, 3).map(([key]) => key),
+    ]);
+
+    // Delete old channels
+    entries.forEach(([key]) => {
+      if (!toKeep.has(key)) {
+        processedMessagesByChannel.current.delete(key);
+      }
+    });
+  };
 
   // GraphQL hooks
   const { channels, loading: channelsLoading } = useChannels();
@@ -315,7 +386,39 @@ export default function ChatPage() {
         console.log('[Decrypt] Previous display messages:', prev.length);
         console.log('[Decrypt] Previous IDs:', prev.map(m => m.id));
         console.log('[Decrypt] New IDs:', decrypted.map(m => m.id));
-        return decrypted;
+
+        // Smart merge: preserve existing message objects AND subscription messages
+        const prevMap = new Map(prev.filter(m => !m.id.startsWith('temp-')).map(m => [m.id, m]));
+        const decryptedMap = new Map(decrypted.map(m => [m.id, m]));
+
+        // Start with decrypted messages, reusing existing objects where unchanged
+        const merged = decrypted.map(newMsg => {
+          const existing = prevMap.get(newMsg.id);
+          // If message already exists and content hasn't changed, reuse the existing object reference
+          if (existing &&
+              existing.message === newMsg.message &&
+              existing.isEdited === newMsg.isEdited) {
+            return existing;
+          }
+          return newMsg;
+        });
+
+        // Add any subscription-only messages that aren't in the query yet (race condition protection)
+        prev.forEach(prevMsg => {
+          if (!prevMsg.id.startsWith('temp-') && !decryptedMap.has(prevMsg.id)) {
+            console.log('[Decrypt] Preserving subscription message not yet in query:', prevMsg.id);
+            merged.push(prevMsg);
+          }
+        });
+
+        // Only update if there are actual changes (new messages, edited messages, or different order)
+        if (merged.length === prev.length &&
+            merged.every((msg, idx) => msg === prev[idx])) {
+          console.log('[Decrypt] No changes detected, keeping previous state');
+          return prev;
+        }
+
+        return merged;
       });
     };
 
@@ -328,23 +431,41 @@ export default function ChatPage() {
 
   // Handle real-time message added
   useEffect(() => {
-    console.log('[Subscription] messageAdded effect triggered:', {
-      hasMessageAdded: !!messageAdded,
-      hasFamilyKey: !!familyKey,
+    const execId = ++executionCounterRef.current;
+    const messageObjId = getObjectId(messageAdded);
+
+    console.log(`[Subscription:${execId}] Effect triggered`, {
       messageId: messageAdded?.id,
-      messageData: messageAdded,
+      messageObjId, // Track object identity - changes reveal new references
+      familyKeyPresent: !!familyKey,
+      userId: user?.id,
+      language,
+      timestamp: Date.now(),
     });
 
     if (!messageAdded || !familyKey) {
-      console.log('[Subscription] Skipping - missing messageAdded or familyKey');
+      console.log(`[Subscription:${execId}] Skipping - missing deps`);
       return;
     }
 
+    // Deduplication: prevent processing same message multiple times
+    const channelKey = getChannelKey(currentChannelId, family?.id);
+    const channelData = getChannelData(channelKey);
+
+    if (channelData.processedIds.has(messageAdded.id)) {
+      console.log(`[Subscription:${execId}] ⚠️ Already processed:`, messageAdded.id, 'in channel:', channelKey);
+      return;
+    }
+
+    // Mark as processed before async operations
+    channelData.processedIds.add(messageAdded.id);
+    pruneOldChannels(channelKey);
+
     const processNewMessage = async () => {
       try {
-        console.log('[Subscription] Processing new message:', messageAdded.id);
+        console.log(`[Subscription:${execId}] Processing new message:`, messageAdded.id);
         const plaintext = await decryptMessage(messageAdded.encryptedContent, familyKey);
-        console.log('[Subscription] Message decrypted successfully');
+        console.log(`[Subscription:${execId}] Message decrypted successfully`);
 
         const newMessage: DisplayMessage = {
           id: messageAdded.id,
@@ -357,28 +478,58 @@ export default function ChatPage() {
           isEdited: messageAdded.isEdited,
         };
 
-        console.log('[Subscription] New message object created:', newMessage);
+        console.log(`[Subscription:${execId}] New message object created:`, newMessage);
 
         setDisplayMessages((prev) => {
-          console.log('[Subscription] Current messages count:', prev.length);
-          // Avoid duplicates - check if message already exists
+          console.log(`[Subscription:${execId}] setState callback`, {
+            prevLength: prev.length,
+            prevIds: prev.map(m => m.id).slice(-5).join(','), // Last 5 IDs
+            timestamp: Date.now(),
+          });
+
+          // StrictMode protection: return cached result if we've already processed this message
+          const cachedResult = setStateResultsRef.current.get(newMessage.id);
+          if (cachedResult && cachedResult.prevRef === prev) {
+            console.log(`[Subscription:${execId}] ⚠️ Returning cached result for:`, newMessage.id, '(StrictMode duplicate)');
+            return cachedResult.result;
+          }
+
+          // Avoid duplicates - check if message already exists in state
           const exists = prev.some((m) => m.id === newMessage.id);
           if (exists) {
-            console.log('[Subscription] ⚠️ Skipping duplicate message:', newMessage.id);
+            console.log(`[Subscription:${execId}] ⚠️ Already in state:`, newMessage.id);
             return prev;
           }
-          console.log('[Subscription] ✅ Adding new message:', newMessage.id);
+
+          console.log(`[Subscription:${execId}] ✅ Adding new message:`, newMessage.id);
           const updated = [...prev, newMessage];
-          console.log('[Subscription] Updated messages count:', updated.length);
+          console.log(`[Subscription:${execId}] Updated messages count:`, updated.length);
+
+          // Cache the result for StrictMode duplicate call keyed by previous state reference
+          setStateResultsRef.current.set(newMessage.id, { prevRef: prev, result: updated });
+
           return updated;
         });
       } catch (error) {
-        console.error('[Subscription] ❌ Failed to process new message:', error);
+        console.error(`[Subscription:${execId}] ❌ Failed to process:`, error);
+        // Remove from processed set to allow retry on next dependency change
+        channelData.processedIds.delete(messageAdded.id);
       }
     };
 
     processNewMessage();
-  }, [messageAdded, familyKey, user?.id, language]);
+
+    return () => {
+      console.log(`[Subscription:${execId}] Cleanup running at`, Date.now());
+    };
+  }, [messageAdded, familyKey, user?.id, language, currentChannelId, family?.id]);
+
+  // Clear all processed IDs when family key changes (key rotation or family switch)
+  useEffect(() => {
+    console.log('[Subscription] Family key changed, clearing all processed IDs');
+    processedMessagesByChannel.current.clear();
+    setStateResultsRef.current.clear();
+  }, [familyKey]);
 
   // Handle real-time message edited
   useEffect(() => {

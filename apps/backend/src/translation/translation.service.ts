@@ -85,6 +85,9 @@ export class TranslationService {
       text,
       targetLanguage,
     );
+    this.logger.debug(
+      `Groq translation succeeded messageId=${messageId} target=${targetLanguage}`,
+    );
 
     return {
       cached: false,

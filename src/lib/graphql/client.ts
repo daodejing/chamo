@@ -15,6 +15,7 @@ import { setContext } from '@apollo/client/link/context';
 import { GraphQLWsLink } from '@apollo/client/link/subscriptions';
 import { getMainDefinition } from '@apollo/client/utilities';
 import { createClient } from 'graphql-ws';
+import { DEBUG_LOGS_ENABLED } from '@/lib/debug';
 
 // Validate required environment variables at build/runtime
 if (!process.env.NEXT_PUBLIC_GRAPHQL_HTTP_URL) {
@@ -88,34 +89,53 @@ const wsLink = typeof window !== 'undefined' ? new GraphQLWsLink(
     keepAlive: 10_000, // Send keepalive ping every 10 seconds
     connectionParams: () => {
       const token = localStorage.getItem('accessToken');
-      console.log('[WebSocket] Getting connection params, token exists:', !!token);
+      if (DEBUG_LOGS_ENABLED) {
+        console.log('[WebSocket] Getting connection params, token exists:', !!token);
+      }
       return {
         authorization: token ? `Bearer ${token}` : '',
       };
     },
     on: {
       connected: () => {
-        console.log('[WebSocket] ✅ Connected to GraphQL server');
+        if (DEBUG_LOGS_ENABLED) {
+          console.log('[WebSocket] ✅ Connected to GraphQL server');
+        }
       },
       connecting: () => {
-        console.log('[WebSocket] 🔄 Connecting to GraphQL server at:', resolveWsUrl(GRAPHQL_WS_URL));
+        if (DEBUG_LOGS_ENABLED) {
+          console.log('[WebSocket] 🔄 Connecting to GraphQL server at:', resolveWsUrl(GRAPHQL_WS_URL));
+        }
       },
       closed: (event) => {
-        console.log('[WebSocket] ❌ Connection closed:', event);
+        if (DEBUG_LOGS_ENABLED) {
+          console.log('[WebSocket] ❌ Connection closed:', {
+            code: event?.code,
+            reason: event?.reason,
+            wasClean: event?.wasClean,
+            url: resolveWsUrl(GRAPHQL_WS_URL),
+          });
+        } else {
+          console.log('[WebSocket] ❌ Connection closed');
+        }
       },
       error: (error) => {
-        console.error('[WebSocket] ❌ Connection error:', error);
-      },
-      ping: () => {
-        console.log('[WebSocket] 🏓 Ping sent');
-      },
-      pong: () => {
-        console.log('[WebSocket] 🏓 Pong received');
+        if (DEBUG_LOGS_ENABLED) {
+          console.error('[WebSocket] ❌ Connection error:', {
+            message: (error as any)?.message,
+            name: (error as any)?.name,
+            url: resolveWsUrl(GRAPHQL_WS_URL),
+          });
+        } else {
+          console.error('[WebSocket] ❌ Connection error');
+        }
       },
     },
     retryAttempts: 5,
     shouldRetry: () => {
-      console.log('[WebSocket] 🔄 Retrying connection...');
+      if (DEBUG_LOGS_ENABLED) {
+        console.log('[WebSocket] 🔄 Retrying connection...');
+      }
       return true;
     },
   })

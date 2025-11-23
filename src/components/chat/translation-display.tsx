@@ -6,9 +6,6 @@ import {
   CacheMessageTranslationRecordDocument,
   CacheMessageTranslationRecordMutation,
   CacheMessageTranslationRecordMutationVariables,
-  MessageTranslationLookupDocument,
-  MessageTranslationLookupQuery,
-  MessageTranslationLookupQueryVariables,
 } from '@/lib/graphql/generated/graphql';
 import { decryptMessage, encryptMessage } from '@/lib/e2ee/encryption';
 import type { TranslationLanguage } from '@/components/settings/translation-language-selector';
@@ -33,6 +30,18 @@ const AUTH_REQUIRED_MESSAGE =
   'Translation requires an active session. Please sign in again.';
 const KEY_MISSING_MESSAGE =
   'Translation cache is encrypted. Re-sync your family key to view translations.';
+
+import { DEBUG_LOGS_ENABLED } from '@/lib/debug';
+
+const MAX_RETRIES = 2;
+const RETRY_BASE_DELAY_MS = 500;
+
+const debugLog = (...args: unknown[]) => {
+  if (DEBUG_LOGS_ENABLED) {
+    // eslint-disable-next-line no-console
+    console.debug('[TranslationDisplay]', ...args);
+  }
+};
 
 function deriveBackendBaseUrl(): string | null {
   const httpUrl = process.env.NEXT_PUBLIC_GRAPHQL_HTTP_URL;
@@ -76,6 +85,10 @@ function getAccessToken(): string | null {
   }
 }
 
+const isTestEnv = process.env.NODE_ENV === 'test';
+const BATCH_WINDOW_MS = isTestEnv ? 0 : 300;
+const pendingMessageTimers = new Map<string, NodeJS.Timeout>();
+
 export function TranslationDisplay({
   messageId,
   originalText,
@@ -93,7 +106,9 @@ export function TranslationDisplay({
   const [phase, setPhase] = useState<TranslationPhase>('idle');
   const [translatedText, setTranslatedText] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [isVisible, setIsVisible] = useState(false);
+  const [isVisible, setIsVisible] = useState(isTestEnv);
+  const [hasIntersected, setHasIntersected] = useState(isTestEnv);
+  const [retryCount, setRetryCount] = useState(0);
 
   const targetLanguage = useMemo<TranslationLanguage>(() => {
     if (preferredLanguage && isSupportedTranslationLanguage(preferredLanguage)) {
@@ -102,18 +117,24 @@ export function TranslationDisplay({
     return DEFAULT_TRANSLATION_LANGUAGE;
   }, [preferredLanguage]);
 
+  const hasFamilyKey = Boolean(familyKey);
+
   const backendBaseUrl = useMemo(() => deriveBackendBaseUrl(), []);
 
   const requestSignature = useMemo(
     () =>
       `${messageId}:${targetLanguage}:${originalText}:${
-        familyKey ? 'with-key' : 'no-key'
+        hasFamilyKey ? 'with-key' : 'no-key'
       }`,
-    [messageId, targetLanguage, originalText, familyKey],
+    [messageId, targetLanguage, originalText, hasFamilyKey],
   );
 
-  useEffect(
-    () => () => {
+useEffect(
+  () => {
+    // Mark mounted for this lifecycle; StrictMode will run cleanup + re-run
+    isMountedRef.current = true;
+
+    return () => {
       isMountedRef.current = false;
       if (abortControllerRef.current) {
         abortControllerRef.current.abort();
@@ -121,9 +142,10 @@ export function TranslationDisplay({
       if (debounceTimerRef.current) {
         clearTimeout(debounceTimerRef.current);
       }
-    },
-    [],
-  );
+    };
+  },
+  [],
+);
 
   useEffect(() => {
     const node = containerRef.current;
@@ -136,6 +158,7 @@ export function TranslationDisplay({
         const entry = entries[0];
         if (entry?.isIntersecting) {
           setIsVisible(true);
+          setHasIntersected(true);
         }
       },
       {
@@ -163,14 +186,11 @@ export function TranslationDisplay({
     setTranslatedText(null);
     setError(null);
     setPhase('idle');
+    setRetryCount(0);
   }, [requestSignature]);
 
   useEffect(() => {
-    if (!enabled || !isVisible) {
-      return;
-    }
-
-    if (hasRequestedRef.current) {
+    if (!enabled || !isVisible || hasRequestedRef.current) {
       return;
     }
 
@@ -184,54 +204,57 @@ export function TranslationDisplay({
     const controller = new AbortController();
     abortControllerRef.current = controller;
 
+    const cancelPendingTimer = () => {
+      const pending = pendingMessageTimers.get(messageId);
+      if (pending) {
+        clearTimeout(pending);
+        pendingMessageTimers.delete(messageId);
+        debounceTimerRef.current = null;
+      }
+    };
+
+    const executeImmediately = () => {
+      execute().catch((err) => {
+        console.error('[TranslationDisplay] Translation error:', err);
+        setError('Translation unavailable right now.');
+        setPhase('error');
+      });
+    };
+
+    const scheduleExecution = (delayOverride?: number) => {
+      cancelPendingTimer();
+
+      const delay = delayOverride ?? BATCH_WINDOW_MS;
+
+      if (delay === 0) {
+        executeImmediately();
+        return;
+      }
+
+      const timer = setTimeout(executeImmediately, delay);
+      pendingMessageTimers.set(messageId, timer);
+      debounceTimerRef.current = timer;
+    };
+
     const execute = async () => {
+      cancelPendingTimer();
       setPhase('loading');
       setError(null);
+      debugLog('request started', {
+        messageId,
+        targetLanguage,
+        hasFamilyKey: Boolean(familyKey),
+        preferredLanguage,
+      });
 
       try {
-        // 1. Check for cached translation via GraphQL (only if we can decrypt)
-        if (familyKey) {
-          try {
-            const { data } = await client.query<
-              MessageTranslationLookupQuery,
-              MessageTranslationLookupQueryVariables
-            >({
-              query: MessageTranslationLookupDocument,
-              variables: {
-                messageId,
-                targetLanguage,
-              },
-              fetchPolicy: 'network-only',
-            });
-
-            if (controller.signal.aborted || !isMountedRef.current) {
-              return;
-            }
-
-            const encrypted = data?.messageTranslation?.encryptedTranslation;
-
-            if (encrypted) {
-              const decrypted = await decryptMessage(encrypted, familyKey);
-
-              if (controller.signal.aborted || !isMountedRef.current) {
-                return;
-              }
-
-              if (!textsMatch(decrypted, originalText)) {
-                setTranslatedText(decrypted);
-                setPhase('ready');
-              } else {
-                setTranslatedText(null);
-                setPhase('ready');
-              }
-              return;
-            }
-          } catch (cacheError) {
-            // Cache miss or auth errors shouldn't block translation
-            console.warn('[TranslationDisplay] Cache lookup failed:', cacheError);
-          }
+        if (!hasIntersected) {
+          debugLog('skipping request until intersection occurs');
+          hasRequestedRef.current = false;
+          return;
         }
 
+        // Backend checks cache internally via REST API
         if (!backendBaseUrl) {
           setError('Translation service is not configured.');
           setPhase('error');
@@ -246,6 +269,8 @@ export function TranslationDisplay({
           return;
         }
 
+        debugLog('invoking REST translation fetch');
+
         const response = await fetch(`${backendBaseUrl}/api/translate`, {
           method: 'POST',
           headers: {
@@ -259,14 +284,37 @@ export function TranslationDisplay({
             targetLanguage,
           }),
         });
+        debugLog('REST response received', {
+          status: response.status,
+          ok: response.ok,
+        });
 
-        if (controller.signal.aborted || !isMountedRef.current) {
+        // Check for rate limit FIRST, before checking if unmounted
+        // This allows us to show the error even if component is unmounting
+        if (response.status === 429) {
+          debugLog('rate limit 429 received', { retryCount });
+
+          if (retryCount < MAX_RETRIES) {
+            const backoff = RETRY_BASE_DELAY_MS * Math.pow(2, retryCount);
+            debugLog('scheduling retry after backoff', { backoff });
+            setRetryCount((c) => c + 1);
+            hasRequestedRef.current = false;
+            scheduleExecution(backoff);
+            return;
+          }
+
+          if (isMountedRef.current) {
+            setError(RATE_LIMIT_MESSAGE);
+            setPhase('error');
+          }
           return;
         }
 
-        if (response.status === 429) {
-          setError(RATE_LIMIT_MESSAGE);
-          setPhase('error');
+        if (controller.signal.aborted || !isMountedRef.current) {
+          debugLog('⚠️ Request aborted or component unmounted', {
+            aborted: controller.signal.aborted,
+            mounted: isMountedRef.current,
+          });
           return;
         }
 
@@ -287,11 +335,24 @@ export function TranslationDisplay({
           return;
         }
 
-        const payload: {
+        let payload: {
           cached: boolean;
           translation?: string;
           encryptedTranslation?: string;
-        } = await response.json();
+        };
+
+        try {
+          debugLog('parsing JSON response');
+          payload = await response.json();
+          debugLog('REST payload', payload);
+        } catch (parseError) {
+          console.error('[TranslationDisplay] Failed to parse response JSON:', parseError);
+          const text = await response.text().catch(() => '[could not read response text]');
+          console.error('[TranslationDisplay] Response text:', text);
+          setError('Translation response was invalid.');
+          setPhase('error');
+          return;
+        }
 
         if (controller.signal.aborted || !isMountedRef.current) {
           return;
@@ -299,12 +360,14 @@ export function TranslationDisplay({
 
         if (payload.cached) {
           if (!payload.encryptedTranslation) {
+            debugLog('cached response missing encryptedTranslation payload');
             setError('Cached translation unavailable.');
             setPhase('error');
             return;
           }
 
           if (!familyKey) {
+            debugLog('cached response but no family key available');
             setError(KEY_MISSING_MESSAGE);
             setPhase('error');
             return;
@@ -321,8 +384,10 @@ export function TranslationDisplay({
             }
 
             if (!textsMatch(decrypted, originalText)) {
+              debugLog('cached translation decrypted and differs from original');
               setTranslatedText(decrypted);
             } else {
+              debugLog('cached translation equals original; suppress output');
               setTranslatedText(null);
             }
             setPhase('ready');
@@ -341,11 +406,15 @@ export function TranslationDisplay({
         const translationText = payload.translation?.trim() ?? '';
 
         if (!translationText || textsMatch(translationText, originalText)) {
+          debugLog('translation equals original text; nothing to display', {
+            translationText,
+          });
           setTranslatedText(null);
           setPhase('ready');
           return;
         }
 
+        debugLog('translation received', { translationText });
         setTranslatedText(translationText);
         setPhase('ready');
 
@@ -387,13 +456,12 @@ export function TranslationDisplay({
       }
     };
 
-    debounceTimerRef.current = setTimeout(execute, 220);
+    scheduleExecution();
 
     return () => {
-      if (debounceTimerRef.current) {
-        clearTimeout(debounceTimerRef.current);
-        debounceTimerRef.current = null;
-      }
+      // Allow retrigger on remount (e.g., StrictMode double-invoke)
+      hasRequestedRef.current = false;
+      cancelPendingTimer();
       controller.abort();
     };
   }, [
