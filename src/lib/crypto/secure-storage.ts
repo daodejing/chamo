@@ -121,7 +121,18 @@ async function createDatabase(): Promise<CryptoDatabase> {
     ])
   );
 
-  applyEncryptionMiddleware(db, encryptionKey, tableSettings);
+  const onKeyChange = async (db: CryptoDatabase) => {
+    // Clear all encrypted tables when the encryption key changes
+    // This ensures we don't have data encrypted with an old key
+    console.warn('[SecureStorage] Encryption key changed - clearing encrypted tables');
+    await Promise.all(
+      cryptoStorageConfig.encryption.tables.map((tableName) =>
+        db.table(tableName).clear()
+      )
+    );
+  };
+
+  applyEncryptionMiddleware(db, encryptionKey, tableSettings, onKeyChange);
   db.version(cryptoStorageConfig.version).stores(cryptoStorageConfig.stores);
 
   db.userKeys = db.table(USER_KEYS_TABLE);
