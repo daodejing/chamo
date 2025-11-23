@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { Suspense, useEffect, useRef, useState } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { gql } from '@apollo/client';
 import { useMutation } from '@apollo/client/react';
@@ -29,7 +29,7 @@ const VERIFY_EMAIL = gql`
   }
 `;
 
-export default function VerifyEmailPage() {
+function VerifyEmailContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const token = searchParams.get('token') || '';
@@ -211,4 +211,12 @@ export default function VerifyEmailPage() {
   }
 
   return null;
+}
+
+export default function VerifyEmailPage() {
+  return (
+    <Suspense fallback={null}>
+      <VerifyEmailContent />
+    </Suspense>
+  );
 }

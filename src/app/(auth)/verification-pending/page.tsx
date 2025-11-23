@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { Suspense, useState } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { gql } from '@apollo/client';
 import { useMutation } from '@apollo/client/react';
@@ -14,7 +14,7 @@ const RESEND_VERIFICATION_EMAIL = gql`
   }
 `;
 
-export default function VerificationPendingPage() {
+function VerificationPendingContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const email = searchParams.get('email') || '';
@@ -162,5 +162,13 @@ export default function VerificationPendingPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function VerificationPendingPage() {
+  return (
+    <Suspense fallback={null}>
+      <VerificationPendingContent />
+    </Suspense>
   );
 }

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { toast } from 'sonner';
 import { useAuth } from '@/lib/contexts/auth-context';
@@ -9,7 +9,7 @@ import { t } from '@/lib/translations';
 import { UnifiedLoginScreen } from '@/components/auth/unified-login-screen';
 import { markInviteeFlowActive } from '@/lib/invite/invitee-flow';
 
-export default function LoginPage() {
+function LoginContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user, loading: authLoading } = useAuth();
@@ -91,4 +91,12 @@ export default function LoginPage() {
   }
 
   return null;
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={null}>
+      <LoginContent />
+    </Suspense>
+  );
 }

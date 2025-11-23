@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { Suspense, useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { ArrowLeft, UserPlus, Users, Mail } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -17,7 +17,7 @@ import { PendingInvitationsSection } from '@/components/family/pending-invitatio
 import { useAuth } from '@/lib/contexts/auth-context';
 import { useLanguage } from '@/lib/contexts/language-context';
 
-export default function FamilySettingsPage() {
+function FamilySettingsContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user } = useAuth();
@@ -128,5 +128,13 @@ export default function FamilySettingsPage() {
         familyName={activeFamily.name}
       />
     </div>
+  );
+}
+
+export default function FamilySettingsPage() {
+  return (
+    <Suspense fallback={null}>
+      <FamilySettingsContent />
+    </Suspense>
   );
 }

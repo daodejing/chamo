@@ -1,0 +1,2 @@
+# Redirect dynamic join links to query-based join page for static hosting
+/join/* /join?code=:splat 302
