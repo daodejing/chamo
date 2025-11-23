@@ -192,23 +192,11 @@ export function SettingsScreen({ userName, userEmail, userAvatar, familyName, fa
               </div>
               <Separator />
               <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <Label>{t("settings.memberManagement", language)}</Label>
-                    <p className="text-sm text-muted-foreground">
-                      {t("settings.membersCount", language, { current: familyMembers.length.toString(), max: maxMembers.toString() })}
-                    </p>
-                  </div>
-                  <Button
-                    onClick={() => alert(t("settings.inviteMessage", language))}
-                    disabled={familyMembers.length >= maxMembers}
-                    variant="outline"
-                    size="sm"
-                    className="rounded-xl"
-                  >
-                    <UserPlus className="w-4 h-4 mr-2" />
-                    {t("settings.invite", language)}
-                  </Button>
+                <div>
+                  <Label>{t("settings.memberManagement", language)}</Label>
+                  <p className="text-sm text-muted-foreground">
+                    {t("settings.membersCount", language, { current: familyMembers.length.toString(), max: maxMembers.toString() })}
+                  </p>
                 </div>
                 {familyMembers.length >= maxMembers && (
                   <div className="bg-amber-500/10 text-amber-600 dark:text-amber-400 px-3 py-2 rounded-xl text-sm">

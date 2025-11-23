@@ -15,8 +15,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { InviteMemberButton } from "@/components/family/invite-member-button";
-import { InviteQrCode } from "@/components/family/invite-qr-code";
+import { InviteMemberDialog } from "@/components/family/invite-member-dialog";
 import { Language, t } from "@/lib/translations";
 import { formatDateTime } from "@/lib/utils/date-format";
 import type { TranslationLanguage } from "@/components/settings/translation-language-selector";
@@ -133,6 +132,7 @@ interface ChatScreenProps {
   familyMembers: FamilyMember[];
   memberships: UserFamilyMembership[];
   activeFamilyId?: string | null;
+  familyId: string;
   currentUserId: string;
   currentUserName: string;
   language: Language;
@@ -160,7 +160,7 @@ interface ChatScreenProps {
   preferredTranslationLanguage?: TranslationLanguage;
 }
 
-export function ChatScreen({ chatName, chatAvatar, chatMembers, messages, channels, currentChannelId, scheduledMessages, calendarEvents, photos, photoFolders, familyMembers, memberships = [], activeFamilyId, currentUserId, currentUserName, language, onSettingsClick, onLogoutClick, onSwitchFamily, onChannelChange, onSendMessage, onScheduleMessage, onDeleteMessage, onEditMessage, onCancelScheduledMessage, onAddEvent, onEditEvent, onDeleteEvent, onAddPhoto, onDeletePhoto, onLikePhoto, onAddPhotoComment, onCreateFolder, onDeleteFolder, onRenameFolder, onMovePhotoToFolder, translationFamilyKey = null, preferredTranslationLanguage }: ChatScreenProps) {
+export function ChatScreen({ chatName, chatAvatar, chatMembers, messages, channels, currentChannelId, scheduledMessages, calendarEvents, photos, photoFolders, familyMembers, memberships = [], activeFamilyId, familyId, currentUserId, currentUserName, language, onSettingsClick, onLogoutClick, onSwitchFamily, onChannelChange, onSendMessage, onScheduleMessage, onDeleteMessage, onEditMessage, onCancelScheduledMessage, onAddEvent, onEditEvent, onDeleteEvent, onAddPhoto, onDeletePhoto, onLikePhoto, onAddPhotoComment, onCreateFolder, onDeleteFolder, onRenameFolder, onMovePhotoToFolder, translationFamilyKey = null, preferredTranslationLanguage }: ChatScreenProps) {
   const router = useRouter();
   const [newMessage, setNewMessage] = useState("");
   const [showTranslation, setShowTranslation] = useState(true);
@@ -388,32 +388,15 @@ export function ChatScreen({ chatName, chatAvatar, chatMembers, messages, channe
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
-        <Dialog open={isInviteDialogOpen} onOpenChange={setIsInviteDialogOpen}>
-          <DialogTrigger asChild>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="text-card-foreground"
-              aria-label={t("settings.invite", language)}
-            >
-              <UserPlus className="w-5 h-5" />
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="sm:max-w-lg">
-            <DialogHeader>
-              <DialogTitle>{t("settings.invite", language)}</DialogTitle>
-              <DialogDescription>{t("settings.inviteMessage", language)}</DialogDescription>
-            </DialogHeader>
-            <div className="space-y-4">
-              <InviteMemberButton
-                language={language}
-                familyName={chatName}
-                className="w-full justify-center rounded-xl"
-              />
-              <InviteQrCode language={language} familyName={chatName} />
-            </div>
-          </DialogContent>
-        </Dialog>
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => setIsInviteDialogOpen(true)}
+          className="text-card-foreground"
+          aria-label={t("settings.invite", language)}
+        >
+          <UserPlus className="w-5 h-5" />
+        </Button>
         <Button variant="ghost" size="icon" onClick={onSettingsClick} className="text-card-foreground">
           <Settings className="w-5 h-5" />
         </Button>
@@ -771,6 +754,14 @@ export function ChatScreen({ chatName, chatAvatar, chatMembers, messages, channe
       </div>
         </>
       )}
+
+      {/* Invite Member Dialog */}
+      <InviteMemberDialog
+        open={isInviteDialogOpen}
+        onOpenChange={setIsInviteDialogOpen}
+        familyId={familyId}
+        familyName={chatName}
+      />
     </div>
   );
 }

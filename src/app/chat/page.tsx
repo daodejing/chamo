@@ -888,6 +888,7 @@ export default function ChatPage() {
           familyMembers={settingsFamilyMembers}
           memberships={user?.memberships ?? []}
           activeFamilyId={user?.activeFamilyId ?? null}
+          familyId={family?.id || user?.activeFamilyId || ''}
           currentUserId={user?.id || ''}
           currentUserName={user?.name || ''}
           language={language}
