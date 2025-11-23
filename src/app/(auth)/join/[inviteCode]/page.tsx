@@ -2,6 +2,11 @@
 
 // Dynamic route: must not be statically exported
 export const dynamic = 'force-dynamic';
+export const dynamicParams = true;
+export function generateStaticParams() {
+  // Invite codes are user-specific; nothing to pre-render for export builds.
+  return [];
+}
 
 import { useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
