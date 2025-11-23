@@ -10,7 +10,7 @@ import { Loader2, RefreshCcw } from 'lucide-react';
 import { useAuth } from '@/lib/contexts/auth-context';
 import { useLanguage } from '@/lib/contexts/language-context';
 import { t } from '@/lib/translations';
-import { GET_FAMILY_INVITES_QUERY } from '@/lib/graphql/operations';
+import { GetFamilyInvitesDocument } from '@/lib/graphql/generated/graphql';
 
 type InviteStatus = 'PENDING_REGISTRATION' | 'PENDING' | 'ACCEPTED';
 
@@ -44,8 +44,8 @@ export default function FamilyInvitationsPage() {
     }
   }, [loading, user, router]);
 
-  const { data, loading: invitesLoading, refetch } = useQuery(GET_FAMILY_INVITES_QUERY, {
-    variables: { familyId },
+  const { data, loading: invitesLoading, refetch } = useQuery(GetFamilyInvitesDocument, {
+    variables: { familyId: familyId! },
     skip: !familyId,
     fetchPolicy: 'cache-and-network',
   });

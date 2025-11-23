@@ -2,24 +2,15 @@
 
 import { Suspense, useState } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { gql } from '@apollo/client';
 import { useMutation } from '@apollo/client/react';
-
-const RESEND_VERIFICATION_EMAIL = gql`
-  mutation ResendVerificationEmail($email: String!) {
-    resendVerificationEmail(email: $email) {
-      success
-      message
-    }
-  }
-`;
+import { ResendVerificationEmailDocument } from '@/lib/graphql/generated/graphql';
 
 function VerificationPendingContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const email = searchParams.get('email') || '';
 
-  const [resendMutation, { loading }] = useMutation(RESEND_VERIFICATION_EMAIL);
+  const [resendMutation, { loading }] = useMutation(ResendVerificationEmailDocument);
   const [message, setMessage] = useState<string>('');
   const [error, setError] = useState<string>('');
 

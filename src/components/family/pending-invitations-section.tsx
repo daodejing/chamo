@@ -11,10 +11,10 @@ import { useAuth } from '@/lib/contexts/auth-context';
 import { useLanguage } from '@/lib/contexts/language-context';
 import { t, Language } from '@/lib/translations';
 import {
-  GET_PENDING_INVITES_QUERY,
-  GET_USER_PUBLIC_KEY_QUERY,
-  CREATE_ENCRYPTED_INVITE_MUTATION,
-} from '@/lib/graphql/operations';
+  GetPendingInvitesDocument,
+  GetUserPublicKeyDocument,
+  CreateEncryptedInviteDocument,
+} from '@/lib/graphql/generated/graphql';
 import { encryptFamilyKeyForRecipient } from '@/lib/e2ee/invite-encryption';
 import { getFamilyKeyBase64, generateInviteCode } from '@/lib/e2ee/key-management';
 
@@ -29,13 +29,13 @@ export function PendingInvitationsSection({ familyId, autoCompleteEmail }: Pendi
   const [completingInviteId, setCompletingInviteId] = useState<string | null>(null);
   const [autoCompleteHandled, setAutoCompleteHandled] = useState(false);
 
-  const { data, loading, refetch } = useQuery(GET_PENDING_INVITES_QUERY, {
+  const { data, loading, refetch } = useQuery(GetPendingInvitesDocument, {
     variables: { familyId },
     skip: !familyId,
   });
 
-  const [getUserPublicKey] = useLazyQuery(GET_USER_PUBLIC_KEY_QUERY);
-  const [createEncryptedInvite] = useMutation(CREATE_ENCRYPTED_INVITE_MUTATION);
+  const [getUserPublicKey] = useLazyQuery(GetUserPublicKeyDocument);
+  const [createEncryptedInvite] = useMutation(CreateEncryptedInviteDocument);
 
   const pendingInvites = data?.getPendingInvites || [];
   const normalizedAutoEmail = autoCompleteEmail?.toLowerCase() ?? null;

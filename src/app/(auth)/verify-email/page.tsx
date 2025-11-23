@@ -2,39 +2,18 @@
 
 import { Suspense, useEffect, useRef, useState } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { gql } from '@apollo/client';
 import { useMutation } from '@apollo/client/react';
+import { VerifyEmailDocument } from '@/lib/graphql/generated/graphql';
 import { initializeFamilyKey } from '@/lib/e2ee/key-management';
 import { clearPendingFamilySecrets, getPendingFamilySecrets } from '@/lib/contexts/auth-context';
 import { storePersistentPendingInviteCode } from '@/lib/invite/pending-invite';
-
-const VERIFY_EMAIL = gql`
-  mutation VerifyEmail($token: String!) {
-    verifyEmail(token: $token) {
-      accessToken
-      refreshToken
-      user {
-        id
-        email
-        name
-        emailVerified
-      }
-      family {
-        id
-        name
-        inviteCode
-      }
-      pendingInviteCode
-    }
-  }
-`;
 
 function VerifyEmailContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const token = searchParams.get('token') || '';
 
-  const [verifyMutation, { loading }] = useMutation(VERIFY_EMAIL);
+  const [verifyMutation, { loading }] = useMutation(VerifyEmailDocument);
   const [error, setError] = useState<string>('');
   const [success, setSuccess] = useState(false);
   const redirectScheduledRef = useRef(false);

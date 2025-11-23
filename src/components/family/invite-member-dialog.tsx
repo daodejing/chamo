@@ -18,7 +18,11 @@ import { Label } from '@/components/ui/label';
 import { useAuth } from '@/lib/contexts/auth-context';
 import { useLanguage } from '@/lib/contexts/language-context';
 import { t } from '@/lib/translations';
-import { GET_USER_PUBLIC_KEY_QUERY, CREATE_ENCRYPTED_INVITE_MUTATION, CREATE_PENDING_INVITE_MUTATION } from '@/lib/graphql/operations';
+import {
+  GetUserPublicKeyDocument,
+  CreateEncryptedInviteDocument,
+  CreatePendingInviteDocument,
+} from '@/lib/graphql/generated/graphql';
 import { encryptFamilyKeyForRecipient } from '@/lib/e2ee/invite-encryption';
 import { getFamilyKeyBase64, generateInviteCode } from '@/lib/e2ee/key-management';
 
@@ -42,12 +46,12 @@ export function InviteMemberDialog({
   const [isChecking, setIsChecking] = useState(false);
   const [userNotRegistered, setUserNotRegistered] = useState(false);
 
-  const [getUserPublicKey] = useLazyQuery(GET_USER_PUBLIC_KEY_QUERY);
+  const [getUserPublicKey] = useLazyQuery(GetUserPublicKeyDocument);
   const [createEncryptedInvite, { loading: isCreatingInvite }] = useMutation(
-    CREATE_ENCRYPTED_INVITE_MUTATION
+    CreateEncryptedInviteDocument
   );
   const [createPendingInvite, { loading: isCreatingPendingInvite }] = useMutation(
-    CREATE_PENDING_INVITE_MUTATION
+    CreatePendingInviteDocument
   );
 
   const handleClose = () => {

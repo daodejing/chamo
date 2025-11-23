@@ -342,6 +342,7 @@ export const VERIFY_EMAIL_MUTATION = gql`
         inviteCode
         maxMembers
       }
+      pendingInviteCode
     }
   }
 `;

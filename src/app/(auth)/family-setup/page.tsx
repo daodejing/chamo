@@ -21,10 +21,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Plus, X, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react';
 import { useMutation, useLazyQuery } from '@apollo/client/react';
 import {
-  CREATE_PENDING_INVITE_MUTATION,
-  CREATE_ENCRYPTED_INVITE_MUTATION,
-  GET_USER_PUBLIC_KEY_QUERY,
-} from '@/lib/graphql/operations';
+  CreatePendingInviteDocument,
+  CreateEncryptedInviteDocument,
+  GetUserPublicKeyDocument,
+} from '@/lib/graphql/generated/graphql';
 import { encryptFamilyKeyForRecipient } from '@/lib/e2ee/invite-encryption';
 import { getFamilyKeyBase64, generateInviteCode } from '@/lib/e2ee/key-management';
 import { isInviteeFlowActive, clearInviteeFlowFlag } from '@/lib/invite/invitee-flow';
@@ -34,9 +34,9 @@ export default function FamilySetupPage() {
   const { createFamily, joinFamilyExisting, user } = useAuth();
   const { language } = useLanguage();
 
-  const [createPendingInvite] = useMutation(CREATE_PENDING_INVITE_MUTATION);
-  const [createEncryptedInvite] = useMutation(CREATE_ENCRYPTED_INVITE_MUTATION);
-  const [getUserPublicKey] = useLazyQuery(GET_USER_PUBLIC_KEY_QUERY);
+  const [createPendingInvite] = useMutation(CreatePendingInviteDocument);
+  const [createEncryptedInvite] = useMutation(CreateEncryptedInviteDocument);
+  const [getUserPublicKey] = useLazyQuery(GetUserPublicKeyDocument);
 
   const [isCreating, setIsCreating] = useState(false);
   const [isJoining, setIsJoining] = useState(false);
