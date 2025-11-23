@@ -112,7 +112,7 @@ jobs:
           delay=5
 
           while [ $attempt -le $max_attempts ]; do
-            response=$(curl -X POST "$RENDER_DEPLOY_HOOK_URL" -w "%{http_code}" -o /dev/null -s)
+            response=$(curl -X POST "$RENDER_DEPLOY_HOOK_URL" -w "%{http_code}" -o /tmp/render_hook_body -s)
 
             if [ "$response" -eq 200 ] || [ "$response" -eq 201 ] || [ "$response" -eq 202 ]; then
               echo "✅ Render deployment triggered successfully (attempt $attempt)"
@@ -120,6 +120,8 @@ jobs:
             fi
 
             echo "⚠️  Render deploy hook returned HTTP $response (attempt $attempt/$max_attempts)"
+            echo "Response body:"
+            cat /tmp/render_hook_body || true
 
             # 409 is common when a deploy is already in progress; retry with backoff
             if [ "$response" -eq 409 ]; then
