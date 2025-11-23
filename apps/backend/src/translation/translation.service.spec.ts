@@ -91,6 +91,53 @@ describe('TranslationService', () => {
       expect(groq.translateText).toHaveBeenCalledWith('Hola', 'en');
     });
 
+    it('stores translation via cacheTranslation and reuses it without Groq call', async () => {
+      prisma.message.findUnique.mockResolvedValue(baseMessage);
+      prisma.messageTranslation.findUnique
+        .mockResolvedValueOnce(null) // first translate -> cache miss
+        .mockResolvedValueOnce({
+          encryptedTranslation: 'cipher-text',
+        } as any); // second translate -> cache hit
+
+      groq.translateText.mockResolvedValue('Bonjour');
+
+      const first = await service.translate({
+        ...accessParams,
+        text: 'Bonjour',
+      });
+
+      expect(first).toEqual({
+        cached: false,
+        translation: 'Bonjour',
+        targetLanguage: 'en',
+      });
+      expect(groq.translateText).toHaveBeenCalledTimes(1);
+
+      prisma.messageTranslation.upsert.mockResolvedValue({
+        messageId: accessParams.messageId,
+        targetLanguage: accessParams.targetLanguage,
+        encryptedTranslation: 'cipher-text',
+      } as any);
+
+      await service.cacheTranslation({
+        ...accessParams,
+        encryptedTranslation: 'cipher-text',
+      });
+
+      const second = await service.translate({
+        ...accessParams,
+        text: 'Bonjour',
+      });
+
+      expect(second).toEqual({
+        cached: true,
+        encryptedTranslation: 'cipher-text',
+        targetLanguage: 'en',
+      });
+      expect(groq.translateText).toHaveBeenCalledTimes(1);
+      expect(prisma.messageTranslation.upsert).toHaveBeenCalledTimes(1);
+    });
+
     it('throws ForbiddenException when family mismatch occurs', async () => {
       prisma.message.findUnique.mockResolvedValue({
         channel: { familyId: 'another-family' },

@@ -205,6 +205,14 @@ type MessageWithUserType {
   userId: ID!
 }
 
+type MessagingFixturePayload {
+  admin: AuthResponse!
+  channel: Channel!
+  family: FamilyType!
+  inviteCode: String!
+  member: AuthResponse!
+}
+
 type Mutation {
   acceptInvite(input: AcceptInviteInput!): AcceptInviteResponse!
   cacheMessageTranslation(input: CacheMessageTranslationInput!): MessageTranslationType!
@@ -232,6 +240,7 @@ type Mutation {
   """Send a test welcome email (for development/testing only)"""
   sendTestWelcomeEmail(email: String!, userName: String! = "Test User"): Boolean!
   switchActiveFamily(input: SwitchFamilyInput!): UserType!
+  testCreateMessagingFixture(input: TestCreateMessagingFixtureInput!): MessagingFixturePayload!
   updateUserPreferences(input: UpdateUserPreferencesInput!): UserType!
   verifyEmail(token: String!): AuthResponse!
 }
@@ -273,6 +282,20 @@ type Subscription {
 
 input SwitchFamilyInput {
   familyId: ID!
+}
+
+input TestCreateMessagingFixtureInput {
+  admin: TestUserSetupInput!
+  channelName: String
+  familyName: String!
+  member: TestUserSetupInput!
+}
+
+input TestUserSetupInput {
+  email: String!
+  name: String!
+  password: String!
+  publicKey: String
 }
 
 input UpdateUserPreferencesInput {

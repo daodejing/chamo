@@ -53,6 +53,7 @@ services:
       JWT_SECRET: "ourchat-local-jwt-secret-20250309"
       REFRESH_TOKEN_SECRET: "ourchat-local-refresh-secret-20250309"
       NODE_ENV: "development"
+      ENABLE_TEST_SUPPORT: "true"
     volumes:
       - ../../:/app
     command: sh -c "cd /app/apps/backend && pnpm prisma generate && pnpm prisma migrate deploy && pnpm start:dev"

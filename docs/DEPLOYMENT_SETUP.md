@@ -191,6 +191,7 @@ The staging stack consists of:
    NODE_ENV=staging
    PORT=4000
    ```
+   **Important:** Render will fail the build with `FATAL: Missing required environment variables: INVITE_SECRET` or `BREVO_API_KEY` if either is absent. Generate `INVITE_SECRET` with `openssl rand -hex 32` (64 hex characters) and add both variables before triggering the first deploy.
 
 6. Click **Create Web Service**
 
@@ -324,7 +325,7 @@ After build completes:
 3. Click **Generate a new API key**
 4. Name it `Chamo Staging`
 5. Copy the API key (starts with `xkeysib-`)
-6. **Save as**: `BREVO_API_KEY_STAGING` (Render environment variable)
+6. **Save as**: `BREVO_API_KEY` (Render environment variable)
 
 ### 4.5.3 Generate Invite Secret
 
@@ -476,6 +477,18 @@ If checks fail, it creates a GitHub Issue automatically.
 2. Ensure `DATABASE_URL` is valid
 3. Check build logs for errors
 4. Verify `pnpm` is installed during build
+
+### Render deploy fails with `INVITE_SECRET` error
+1. Generate a 64-character hex secret locally: `openssl rand -hex 32`
+2. In Render → Service → Environment, add `INVITE_SECRET=<value>` (not a GitHub secret)
+3. Re-deploy the service or re-trigger the Deploy Hook
+4. Confirm the next build log no longer shows the fatal missing variable message
+
+### Render deploy fails with `BREVO_API_KEY` error
+1. Create an API key in Brevo (Settings → SMTP & API → API Keys)
+2. In Render → Service → Environment, add `BREVO_API_KEY=<value>` (not a GitHub secret)
+3. Re-deploy the service or re-trigger the Deploy Hook
+4. Confirm the next build log no longer shows the fatal missing variable message
 
 ### Frontend build fails on Cloudflare
 1. Ensure `NODE_VERSION=20` environment variable is set

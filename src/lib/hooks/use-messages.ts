@@ -72,7 +72,8 @@ export function useSendMessage() {
     SendMessageMutation,
     SendMessageMutationVariables
   >(SEND_MESSAGE_MUTATION, {
-    refetchQueries: ['GetMessages'],
+    // Removed refetchQueries - subscriptions handle real-time updates
+    // This prevents race condition where query refetch unmounts components
   });
 
   const send = async (channelId: string, encryptedContent: string) => {

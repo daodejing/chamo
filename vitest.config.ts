@@ -20,6 +20,19 @@ export default defineConfig({
       NEXT_PUBLIC_SUPABASE_ANON_KEY: 'sb_publishable_ACJWlzQHlZjBrEguHvfOxg_3BJgxAaH',
       SUPABASE_SERVICE_ROLE_KEY: 'sb_secret_N7UND0UgjKTVK-Uodkm0Hg_xSvEMPvz',
       NEXT_PUBLIC_APP_URL: 'http://localhost:3002', // Integration tests use dev server port
+      NEXT_PUBLIC_GRAPHQL_HTTP_URL:
+        process.env.NEXT_PUBLIC_GRAPHQL_HTTP_URL ||
+        'http://localhost:4000/graphql',
+      NEXT_PUBLIC_GRAPHQL_WS_URL:
+        process.env.NEXT_PUBLIC_GRAPHQL_WS_URL || 'ws://localhost:4000/graphql',
+      TEST_GRAPHQL_HTTP_URL:
+        process.env.TEST_GRAPHQL_HTTP_URL ||
+        process.env.NEXT_PUBLIC_GRAPHQL_HTTP_URL ||
+        'http://localhost:4000/graphql',
+      TEST_GRAPHQL_WS_URL:
+        process.env.TEST_GRAPHQL_WS_URL ||
+        process.env.NEXT_PUBLIC_GRAPHQL_WS_URL ||
+        'ws://localhost:4000/graphql',
       NODE_ENV: 'test',
     },
     coverage: {
