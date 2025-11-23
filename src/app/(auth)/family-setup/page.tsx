@@ -254,6 +254,11 @@ export default function FamilySetupPage() {
     }
   };
 
+  const dismissInviteeNotice = () => {
+    clearInviteeFlowFlag();
+    setShowInviteeNotice(false);
+  };
+
   useEffect(() => {
     if (!user) {
       router.push('/login');
@@ -449,7 +454,3 @@ export default function FamilySetupPage() {
     </div>
   );
 }
-  const dismissInviteeNotice = () => {
-    clearInviteeFlowFlag();
-    setShowInviteeNotice(false);
-  };
