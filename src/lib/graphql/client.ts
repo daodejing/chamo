@@ -107,7 +107,7 @@ const wsLink = typeof window !== 'undefined' ? new GraphQLWsLink(
           console.log('[WebSocket] 🔄 Connecting to GraphQL server at:', resolveWsUrl(GRAPHQL_WS_URL));
         }
       },
-      closed: (event) => {
+      closed: (event: CloseEvent | undefined) => {
         if (DEBUG_LOGS_ENABLED) {
           console.log('[WebSocket] ❌ Connection closed:', {
             code: event?.code,

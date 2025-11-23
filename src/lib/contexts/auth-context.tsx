@@ -392,13 +392,13 @@ function AuthProviderInner({ children }: { children: React.ReactNode}) {
         return null;
       }
 
-      const pendingFromResult = getPendingVerificationFromErrors(result.errors ?? [], input.email);
+      const pendingFromResult = getPendingVerificationFromErrors(result.error ? [result.error] : [], input.email);
       if (pendingFromResult) {
         return pendingFromResult;
       }
 
-      if (result.errors?.length) {
-        throw result.errors[0];
+      if (result.error) {
+        throw result.error;
       }
 
       return null;
@@ -734,7 +734,7 @@ function getPendingVerificationFromErrors(
   fallbackEmail: string,
 ): PendingVerificationResult | null {
   for (const graphQlError of errors) {
-    const extensions = graphQlError.extensions ?? {};
+    const extensions = (graphQlError.extensions ?? {}) as Record<string, any>;
     const response =
       (extensions.response as { requiresEmailVerification?: boolean; email?: string } | undefined) ??
       (extensions.originalError as { requiresEmailVerification?: boolean; email?: string } | undefined) ??
