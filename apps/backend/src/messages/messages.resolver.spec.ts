@@ -6,6 +6,8 @@ import { PrismaService } from '../prisma/prisma.service';
 import { PUB_SUB } from './messages.constants';
 import { GUARDS_METADATA } from '@nestjs/common/constants';
 import { GqlAuthGuard } from '../auth/guards/gql-auth.guard';
+import { GqlSubscriptionAuthGuard } from '../auth/gql-subscription-auth.guard';
+import { JwtService } from '@nestjs/jwt';
 
 /**
  * Integration Tests for GraphQL Message Subscriptions
@@ -93,6 +95,24 @@ describe('MessagesResolver - Subscription Integration', () => {
         {
           provide: PUB_SUB,
           useValue: pubSub,
+        },
+        {
+          provide: JwtService,
+          useValue: {
+            verifyAsync: jest.fn(),
+          },
+        },
+        {
+          provide: GqlSubscriptionAuthGuard,
+          useValue: {
+            canActivate: jest.fn().mockResolvedValue(true),
+          },
+        },
+        {
+          provide: GqlAuthGuard,
+          useValue: {
+            canActivate: jest.fn().mockResolvedValue(true),
+          },
         },
       ],
     }).compile();
@@ -202,31 +222,31 @@ describe('MessagesResolver - Subscription Integration', () => {
   });
 
   describe('subscription guards', () => {
-    it('should protect messageAdded with GqlAuthGuard', () => {
+    it('should protect messageAdded with GqlSubscriptionAuthGuard', () => {
       const guards: any[] =
         Reflect.getMetadata(
           GUARDS_METADATA,
           MessagesResolver.prototype.messageAdded,
         ) ?? [];
-      expect(guards).toContain(GqlAuthGuard);
+      expect(guards).toContain(GqlSubscriptionAuthGuard);
     });
 
-    it('should protect messageEdited with GqlAuthGuard', () => {
+    it('should protect messageEdited with GqlSubscriptionAuthGuard', () => {
       const guards: any[] =
         Reflect.getMetadata(
           GUARDS_METADATA,
           MessagesResolver.prototype.messageEdited,
         ) ?? [];
-      expect(guards).toContain(GqlAuthGuard);
+      expect(guards).toContain(GqlSubscriptionAuthGuard);
     });
 
-    it('should protect messageDeleted with GqlAuthGuard', () => {
+    it('should protect messageDeleted with GqlSubscriptionAuthGuard', () => {
       const guards: any[] =
         Reflect.getMetadata(
           GUARDS_METADATA,
           MessagesResolver.prototype.messageDeleted,
         ) ?? [];
-      expect(guards).toContain(GqlAuthGuard);
+      expect(guards).toContain(GqlSubscriptionAuthGuard);
     });
   });
 
