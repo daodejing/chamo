@@ -2,6 +2,7 @@ import { Test } from '@nestjs/testing';
 import { AuthService } from '../src/auth/auth.service';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { EmailService } from '../src/email/email.service';
+import { TelemetryService } from '../src/telemetry/telemetry.service';
 import { JwtService } from '@nestjs/jwt';
 
 describe('AuthService verifyEmail (integration)', () => {
@@ -29,6 +30,11 @@ describe('AuthService verifyEmail (integration)', () => {
     sign: jest.fn().mockReturnValue('token'),
   };
 
+  const telemetryServiceMock: any = {
+    recordUnverifiedLogin: jest.fn(),
+    recordInviteDecryptFailure: jest.fn(),
+  };
+
   beforeEach(async () => {
     jest.resetAllMocks();
     prismaMock.$transaction.mockImplementation(async (cb: any) =>
@@ -44,6 +50,7 @@ describe('AuthService verifyEmail (integration)', () => {
         { provide: PrismaService, useValue: prismaMock as PrismaService },
         { provide: EmailService, useValue: emailServiceMock as EmailService },
         { provide: JwtService, useValue: jwtServiceMock as JwtService },
+        { provide: TelemetryService, useValue: telemetryServiceMock as TelemetryService },
       ],
     }).compile();
 

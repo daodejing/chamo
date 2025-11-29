@@ -52,6 +52,8 @@ services:
       DATABASE_URL: "postgresql://ourchat_user:ourchat_password@postgres:5432/ourchat_dev?schema=public"
       JWT_SECRET: "ourchat-local-jwt-secret-20250309"
       REFRESH_TOKEN_SECRET: "ourchat-local-refresh-secret-20250309"
+      INVITE_SECRET: "${INVITE_SECRET:-0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef}"
+      CORS_ALLOWED_ORIGINS: "http://localhost:3000,http://localhost:3002"
       NODE_ENV: "development"
       ENABLE_TEST_SUPPORT: "true"
     volumes:
