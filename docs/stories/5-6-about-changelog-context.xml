@@ -1,0 +1,179 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<story-context story="5-6-about-changelog" generated="2025-11-29">
+  <summary>
+    Technical context for implementing About screen with version info and git-based changelog.
+    Includes build-time script to generate changelog from conventional commits.
+  </summary>
+
+  <artifacts>
+    <!-- Settings Screen (add About option here) -->
+    <artifact type="component" path="src/components/settings-screen.tsx" relevance="high">
+      <description>Settings screen where About option will be added. Uses Card components for each section.</description>
+      <key-lines>
+        <line num="106">Main container with h-screen flex flex-col</line>
+        <line num="708-720">Logout card at bottom - About can be added before this</line>
+      </key-lines>
+      <implementation-notes>
+        Add new Card section for "About" between Security and Logout sections.
+        Can use existing Card, CardHeader, CardTitle, CardContent components.
+        Include version badge and link to About screen/modal.
+      </implementation-notes>
+    </artifact>
+
+    <!-- UI Components for Changelog -->
+    <artifact type="component" path="src/components/ui/accordion.tsx" relevance="high">
+      <description>Existing Accordion component from shadcn/ui for expandable changelog entries.</description>
+      <exports>Accordion, AccordionItem, AccordionTrigger, AccordionContent</exports>
+      <implementation-notes>
+        Use for expandable version entries in changelog.
+        Already styled with animations and chevron indicator.
+      </implementation-notes>
+    </artifact>
+
+    <artifact type="component" path="src/components/ui/card.tsx" relevance="medium">
+      <description>Card component for About screen container.</description>
+      <implementation-notes>
+        Use Card, CardHeader, CardTitle, CardDescription, CardContent for layout.
+      </implementation-notes>
+    </artifact>
+
+    <artifact type="component" path="src/components/ui/badge.tsx" relevance="medium">
+      <description>Badge component for version number display.</description>
+      <implementation-notes>
+        Display version like Badge variant="secondary" with v1.2.3
+      </implementation-notes>
+    </artifact>
+
+    <!-- Translations -->
+    <artifact type="translations" path="src/lib/translations.ts" relevance="high">
+      <description>Translation system with ja/en support. All UI text must use t() function.</description>
+      <pattern>
+        Export type Language = "ja" | "en"
+        Use t("key.subkey", language) for translated strings
+      </pattern>
+      <new-keys-needed>
+        - about.title: "About" / "アプリについて"
+        - about.version: "Version" / "バージョン"
+        - about.releaseDate: "Release Date" / "リリース日"
+        - about.changelog: "Changelog" / "変更履歴"
+        - about.features: "Features" / "新機能"
+        - about.fixes: "Bug Fixes" / "バグ修正"
+        - about.improvements: "Improvements" / "改善"
+      </new-keys-needed>
+    </artifact>
+
+    <!-- Package.json for build scripts -->
+    <artifact type="config" path="package.json" relevance="high">
+      <description>Package.json with build scripts. Need to add generate-changelog script.</description>
+      <current-scripts>
+        "build": "next build"
+        No prebuild hook currently
+      </current-scripts>
+      <proposed-scripts>
+        "generate-changelog": "node scripts/generate-changelog.js"
+        "prebuild": "npm run generate-changelog"
+      </proposed-scripts>
+    </artifact>
+
+    <!-- Documentation -->
+    <artifact type="spec" path="docs/tech-spec-epic-5.md" relevance="high">
+      <description>Epic 5 tech spec with US-5.6 acceptance criteria.</description>
+      <acceptance-criteria>
+        <ac id="1">About option accessible from Settings screen</ac>
+        <ac id="2">Displays current app version number</ac>
+        <ac id="3">Shows release date</ac>
+        <ac id="4">Expandable changelog organized by version</ac>
+        <ac id="5">Changelog content generated from git tags/commits at build time</ac>
+        <ac id="6">Clean, readable presentation of changes</ac>
+      </acceptance-criteria>
+    </artifact>
+  </artifacts>
+
+  <files-to-create>
+    <file path="src/components/settings/about-screen.tsx">
+      About screen component with version display and changelog accordion.
+    </file>
+    <file path="scripts/generate-changelog.js">
+      Node.js script to generate changelog from git history.
+      Parse conventional commits (feat:, fix:, etc.).
+      Output to src/data/changelog.json.
+    </file>
+    <file path="src/data/changelog.json">
+      Generated changelog data (gitignored).
+      Structure: { versions: [{ version, date, changes: { features, fixes, improvements } }] }
+    </file>
+    <file path="src/lib/changelog.ts">
+      Utility to load and type changelog data.
+    </file>
+  </files-to-create>
+
+  <patterns>
+    <pattern name="Conventional Commits">
+      <description>Parse git log for conventional commit prefixes.</description>
+      <prefixes>
+        <prefix type="feat">Maps to "features" category</prefix>
+        <prefix type="fix">Maps to "fixes" category</prefix>
+        <prefix type="perf">Maps to "improvements" category</prefix>
+        <prefix type="refactor">Maps to "improvements" category</prefix>
+        <prefix type="chore">Typically excluded from user-facing changelog</prefix>
+        <prefix type="docs">Typically excluded from user-facing changelog</prefix>
+      </prefixes>
+    </pattern>
+
+    <pattern name="Changelog JSON Structure">
+      <json>
+{
+  "versions": [
+    {
+      "version": "1.2.0",
+      "date": "2025-11-29",
+      "changes": {
+        "features": ["Added sticky header", "Added About screen"],
+        "fixes": ["Fixed auto-scroll in chat"],
+        "improvements": ["Performance optimizations"]
+      }
+    }
+  ]
+}
+      </json>
+    </pattern>
+
+    <pattern name="Git Commands for Changelog">
+      <description>Commands to extract changelog data from git.</description>
+      <commands>
+        <cmd purpose="list-tags">git tag --sort=-version:refname</cmd>
+        <cmd purpose="commits-between-tags">git log v1.1.0..v1.2.0 --pretty=format:"%s"</cmd>
+        <cmd purpose="tag-date">git log -1 --format=%ai v1.2.0</cmd>
+        <cmd purpose="current-version">Read from package.json version field</cmd>
+      </commands>
+    </pattern>
+  </patterns>
+
+  <dependencies>
+    <dependency name="@radix-ui/react-accordion" version="^1.2.12">
+      Already installed. Used for expandable changelog entries.
+    </dependency>
+    <dependency name="lucide-react" version="^0.545.0">
+      For icons (Info icon for About option).
+    </dependency>
+  </dependencies>
+
+  <testing-notes>
+    <note type="unit">Test About component renders version correctly</note>
+    <note type="unit">Test changelog accordion expands/collapses</note>
+    <note type="unit">Test build script generates valid changelog JSON</note>
+    <note type="e2e">Navigate to Settings -> About -> verify content</note>
+    <note type="e2e">Expand version entry, verify changes visible</note>
+    <note type="build">Verify changelog.json is generated during build</note>
+  </testing-notes>
+
+  <implementation-order>
+    <step n="1">Create generate-changelog.js script</step>
+    <step n="2">Add npm scripts to package.json</step>
+    <step n="3">Create changelog.ts utility to load data</step>
+    <step n="4">Create about-screen.tsx component</step>
+    <step n="5">Add About option to settings-screen.tsx</step>
+    <step n="6">Add translation keys to translations.ts</step>
+    <step n="7">Write tests</step>
+  </implementation-order>
+</story-context>

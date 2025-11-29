@@ -1,0 +1,15 @@
+{
+  "versions": [
+    {
+      "version": "1.0.0",
+      "date": "2025-11-29",
+      "changes": {
+        "features": [
+          "Implement sticky header and fix scroll behavior (Story 5.5) (ui)"
+        ],
+        "fixes": [],
+        "improvements": []
+      }
+    }
+  ]
+}

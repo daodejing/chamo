@@ -1,0 +1,256 @@
+<story-context id="bmad/bmm/workflows/4-implementation/story-context/template" v="1.0">
+  <metadata>
+    <epicId>1</epicId>
+    <storyId>11</storyId>
+    <title>Cross-Device Key Transfer via QR Code</title>
+    <status>drafted</status>
+    <generatedAt>2025-11-29</generatedAt>
+    <generator>BMAD Story Context Workflow</generator>
+    <sourceStoryPath>docs/stories/1-11-cross-device-key-transfer.md</sourceStoryPath>
+  </metadata>
+
+  <story>
+    <asA>Chamo user</asA>
+    <iWant>to transfer my encryption keys to another device or browser using a QR code</iWant>
+    <soThat>I can access my encrypted messages and photos from multiple devices without losing my decryption capability</soThat>
+    <tasks>
+      <task id="1" title="Crypto Utilities for Key Transfer" ac="2,3,5">
+        <subtask>Create /src/lib/crypto/key-transfer.ts module</subtask>
+        <subtask>Implement generateTransferPIN(): string - 6 random digits</subtask>
+        <subtask>Implement deriveKeyFromPIN(pin, salt) with PBKDF2 100k iterations</subtask>
+        <subtask>Implement encryptKeyForTransfer(privateKey, publicKey, pin)</subtask>
+        <subtask>Implement decryptKeyFromTransfer(payload, pin)</subtask>
+        <subtask>Implement verifyKeyPair(privateKey, publicKey)</subtask>
+        <subtask>Unit tests: Round-trip, wrong PIN, payload validation</subtask>
+      </task>
+      <task id="2" title="QR Code Generation Component" ac="1,2,3,6">
+        <subtask>Install qrcode.react library</subtask>
+        <subtask>Create /src/components/settings/KeyTransferExport.tsx</subtask>
+        <subtask>State: pin, qrPayload, expiresAt, isExpired</subtask>
+        <subtask>5-minute expiration with countdown timer</subtask>
+        <subtask>Regenerate button after expiry</subtask>
+        <subtask>Clear sensitive data on unmount</subtask>
+      </task>
+      <task id="3" title="QR Code Scanner Component" ac="4,7,8">
+        <subtask>Install QR scanner library</subtask>
+        <subtask>Create /src/components/settings/KeyTransferImport.tsx</subtask>
+        <subtask>Camera permission handling</subtask>
+        <subtask>QR validation and PIN entry dialog</subtask>
+        <subtask>PIN attempt tracking (max 3)</subtask>
+        <subtask>Manual entry fallback</subtask>
+      </task>
+      <task id="4" title="Key Import and Verification Logic" ac="5,7">
+        <subtask>Implement importTransferredKey function</subtask>
+        <subtask>Server public key verification via getUserPublicKey query</subtask>
+        <subtask>Detailed error codes: INVALID_PIN, KEY_MISMATCH, STORAGE_FAILED</subtask>
+      </task>
+      <task id="5" title="Settings UI Integration" ac="1">
+        <subtask>Add Security section to Settings</subtask>
+        <subtask>Transfer Keys button (disabled if no key)</subtask>
+        <subtask>Import Keys button (visible when key missing)</subtask>
+        <subtask>Update LostKeyModal with transfer option</subtask>
+      </task>
+      <task id="6" title="Translation Keys" ac="all">
+        <subtask>Add keyTransfer.* translation keys</subtask>
+      </task>
+      <task id="7" title="E2E Tests" ac="all">
+        <subtask>Export flow test</subtask>
+        <subtask>Import flow test</subtask>
+        <subtask>Wrong PIN lockout test</subtask>
+        <subtask>QR expiration test</subtask>
+        <subtask>Lost Key modal integration test</subtask>
+      </task>
+    </tasks>
+  </story>
+
+  <acceptanceCriteria>
+    <ac id="AC1">Export Key Flow Initiation - Settings > Security > "Transfer Keys to Another Device" button, only when hasPrivateKey(userId) === true</ac>
+    <ac id="AC2">QR Code Generation - Contains encrypted private key (32 bytes) + public key (32 bytes), AES-256-GCM with PIN-derived key (PBKDF2, 100k iterations), displays QR + 6-digit PIN</ac>
+    <ac id="AC3">PIN Security - 6 random digits, client-side generated, displayed only on source, valid 5 minutes, single-use</ac>
+    <ac id="AC4">QR Scan and Import Flow - Target device scans QR, prompts for PIN, decrypts and stores key in IndexedDB</ac>
+    <ac id="AC5">Verification and Confirmation - Derive public from imported private, compare with QR payload and server, store only if all match</ac>
+    <ac id="AC6">Security Constraints - 5-minute expiry, 3 PIN attempts max, no network during QR display, encrypted data only in QR</ac>
+    <ac id="AC7">Error Handling - Camera denied, invalid QR, wrong PIN with count, expired QR, key mismatch messages</ac>
+    <ac id="AC8">Accessibility - Manual entry fallback, PIN screen reader support, accessible camera UI</ac>
+  </acceptanceCriteria>
+
+  <artifacts>
+    <docs>
+      <doc>
+        <path>docs/stories/1-9-per-user-keypairs.md</path>
+        <title>Story 1.9: Per-User Keypair Generation</title>
+        <section>Full Story</section>
+        <snippet>Foundation story establishing tweetnacl keypair generation, dexie-encrypted IndexedDB storage, and LostKeyModal. This story builds directly on 1.9's infrastructure.</snippet>
+      </doc>
+      <doc>
+        <path>docs/solution-architecture.md</path>
+        <title>Solution Architecture</title>
+        <section>E2EE Architecture</section>
+        <snippet>Zero-knowledge architecture where private encryption keys never leave client devices. Public keys stored server-side for invite encryption. AES-256-GCM for symmetric encryption.</snippet>
+      </doc>
+      <doc>
+        <path>docs/PRD.md</path>
+        <title>Product Requirements Document</title>
+        <section>NFR-1: Security and Privacy</section>
+        <snippet>NFR-1.3: Encryption keys never leave client devices. NFR-1.4: Server cannot decrypt user content (zero-knowledge architecture).</snippet>
+      </doc>
+      <doc>
+        <path>docs/troubleshooting/lost-encryption-keys.md</path>
+        <title>Lost Encryption Keys Troubleshooting</title>
+        <section>Recovery Actions</section>
+        <snippet>Documents current recovery paths (re-invitation). Notes "future recovery tooling will rely on that device exporting the key" - this story implements that tooling.</snippet>
+      </doc>
+    </docs>
+    <code>
+      <artifact>
+        <path>src/lib/crypto/keypair.ts</path>
+        <kind>crypto-module</kind>
+        <symbol>generateKeypair, encodePublicKey, decodePublicKey</symbol>
+        <lines>1-100</lines>
+        <reason>Existing keypair generation using tweetnacl. New key-transfer.ts module should follow same patterns and import verifyKeyPair logic.</reason>
+      </artifact>
+      <artifact>
+        <path>src/lib/crypto/secure-storage.ts</path>
+        <kind>crypto-module</kind>
+        <symbol>storePrivateKey, getPrivateKey, hasPrivateKey</symbol>
+        <lines>1-210</lines>
+        <reason>IndexedDB storage with dexie-encrypted. Import flow must use storePrivateKey to persist transferred key.</reason>
+      </artifact>
+      <artifact>
+        <path>src/components/auth/LostKeyModal.tsx</path>
+        <kind>component</kind>
+        <symbol>LostKeyModal</symbol>
+        <lines>1-80</lines>
+        <reason>Existing modal for lost key detection. Must be updated to add "Transfer from another device" option linking to KeyTransferImport.</reason>
+      </artifact>
+      <artifact>
+        <path>src/lib/contexts/auth-context.tsx</path>
+        <kind>context</kind>
+        <symbol>AuthContext, hasPrivateKey check</symbol>
+        <lines>261-420</lines>
+        <reason>Auth context performs hasPrivateKey check on load. Key transfer success should update auth context state.</reason>
+      </artifact>
+      <artifact>
+        <path>src/lib/translations.ts</path>
+        <kind>i18n</kind>
+        <symbol>translations object</symbol>
+        <lines>all</lines>
+        <reason>All user-facing strings must use translation keys. Add keyTransfer.* namespace for new UI text.</reason>
+      </artifact>
+      <artifact>
+        <path>src/app/settings/page.tsx</path>
+        <kind>page</kind>
+        <symbol>SettingsPage</symbol>
+        <lines>1-300</lines>
+        <reason>Settings page where Security section with key transfer buttons will be added.</reason>
+      </artifact>
+    </code>
+    <dependencies>
+      <node>
+        <package>tweetnacl</package>
+        <version>^1.0.3</version>
+        <purpose>X25519/Ed25519 keypair operations, verifyKeyPair derivation</purpose>
+      </node>
+      <node>
+        <package>dexie</package>
+        <version>^4.0.0</version>
+        <purpose>IndexedDB wrapper for key storage</purpose>
+      </node>
+      <node>
+        <package>dexie-encrypted</package>
+        <version>^3.0.0</version>
+        <purpose>Encrypted IndexedDB storage</purpose>
+      </node>
+      <node>
+        <package>qrcode.react</package>
+        <version>^4.0.0</version>
+        <purpose>QR code generation component (to install)</purpose>
+        <note>NEW DEPENDENCY - install with: pnpm add qrcode.react</note>
+      </node>
+      <node>
+        <package>@yudiel/react-qr-scanner</package>
+        <version>^2.0.0</version>
+        <purpose>QR code scanning via camera (to install)</purpose>
+        <note>NEW DEPENDENCY - install with: pnpm add @yudiel/react-qr-scanner (or alternative)</note>
+      </node>
+    </dependencies>
+  </artifacts>
+
+  <constraints>
+    <constraint type="security">Private key MUST never be transmitted to server - transfer is purely client-to-client via QR</constraint>
+    <constraint type="security">QR payload MUST be encrypted with PIN-derived key - raw key never in QR</constraint>
+    <constraint type="security">PIN derivation MUST use PBKDF2 with minimum 100,000 iterations to resist brute-force</constraint>
+    <constraint type="security">QR session MUST auto-expire after 5 minutes maximum</constraint>
+    <constraint type="security">PIN attempts MUST be limited to 3 before invalidating session</constraint>
+    <constraint type="architecture">Follow existing patterns in src/lib/crypto/ for new crypto modules</constraint>
+    <constraint type="architecture">Use Web Crypto API (crypto.subtle) for PBKDF2 and AES-256-GCM</constraint>
+    <constraint type="architecture">Use tweetnacl for keypair verification (derive public from private)</constraint>
+    <constraint type="i18n">All user-facing strings MUST use translation keys from src/lib/translations.ts</constraint>
+    <constraint type="ui">Components follow existing modal patterns (Dialog from shadcn/ui)</constraint>
+    <constraint type="offline">QR display/scan MUST work fully offline - server verification is optional enhancement</constraint>
+  </constraints>
+
+  <interfaces>
+    <interface>
+      <name>getUserPublicKey</name>
+      <kind>GraphQL Query</kind>
+      <signature>query GetUserPublicKey($email: String!): String</signature>
+      <path>apps/backend/src/auth/auth.resolver.ts</path>
+      <note>Existing query from Story 1.9. Used for optional server-side verification after import.</note>
+    </interface>
+    <interface>
+      <name>hasPrivateKey</name>
+      <kind>Function</kind>
+      <signature>hasPrivateKey(userId: string): Promise&lt;boolean&gt;</signature>
+      <path>src/lib/crypto/secure-storage.ts</path>
+      <note>Check if private key exists in IndexedDB. Used to enable/disable export button.</note>
+    </interface>
+    <interface>
+      <name>storePrivateKey</name>
+      <kind>Function</kind>
+      <signature>storePrivateKey(userId: string, secretKey: Uint8Array): Promise&lt;void&gt;</signature>
+      <path>src/lib/crypto/secure-storage.ts</path>
+      <note>Store private key in encrypted IndexedDB. Called after successful import.</note>
+    </interface>
+    <interface>
+      <name>getPrivateKey</name>
+      <kind>Function</kind>
+      <signature>getPrivateKey(userId: string): Promise&lt;Uint8Array | null&gt;</signature>
+      <path>src/lib/crypto/secure-storage.ts</path>
+      <note>Retrieve private key from IndexedDB. Used by export flow to get key for QR.</note>
+    </interface>
+    <interface>
+      <name>TransferPayload</name>
+      <kind>TypeScript Interface</kind>
+      <signature>{ encryptedKey: string; iv: string; salt: string; publicKey: string; version: number; expiresAt: number; }</signature>
+      <path>src/lib/crypto/key-transfer.ts (NEW)</path>
+      <note>Payload structure encoded in QR code. All fields base64 encoded.</note>
+    </interface>
+  </interfaces>
+
+  <tests>
+    <standards>
+      Unit tests use Vitest with fake-indexeddb for IndexedDB mocking. E2E tests use Playwright.
+      Crypto tests should verify round-trip encryption/decryption, error cases (wrong PIN), and edge cases (expired session).
+      Follow existing test patterns in tests/unit/lib/crypto/ and tests/e2e/.
+    </standards>
+    <locations>
+      <location>tests/unit/lib/crypto/key-transfer.test.ts (NEW)</location>
+      <location>tests/unit/lib/crypto/secure-storage.test.ts (existing, may extend)</location>
+      <location>tests/e2e/story-1.11-key-transfer.spec.ts (NEW)</location>
+    </locations>
+    <ideas>
+      <idea ac="AC2">Test generateTransferPIN produces 6-digit string</idea>
+      <idea ac="AC2">Test deriveKeyFromPIN with known vectors</idea>
+      <idea ac="AC2,AC5">Test encryptKeyForTransfer + decryptKeyFromTransfer round-trip</idea>
+      <idea ac="AC3">Test wrong PIN throws error with correct error code</idea>
+      <idea ac="AC5">Test verifyKeyPair returns true for valid pair, false for mismatched</idea>
+      <idea ac="AC6">Test payload validation rejects malformed data</idea>
+      <idea ac="AC6">Test expiration logic (mock Date.now)</idea>
+      <idea ac="AC7">Test PIN attempt counter increments and locks after 3</idea>
+      <idea ac="AC4,AC5">E2E: Full export → scan → PIN → success flow</idea>
+      <idea ac="AC7">E2E: Invalid QR code shows appropriate error</idea>
+      <idea ac="AC8">E2E: Manual entry fallback works when camera unavailable</idea>
+    </ideas>
+  </tests>
+</story-context>

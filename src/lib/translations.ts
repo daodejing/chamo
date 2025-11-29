@@ -390,6 +390,18 @@ export const translations = {
     // Channel Names
     "channel.general": "一般",
     "channel.school": "学校関係",
+
+    // About Screen
+    "about.title": "アプリについて",
+    "about.tagline": "家族のコミュニケーションをシンプルに",
+    "about.version": "バージョン",
+    "about.releaseDate": "リリース日",
+    "about.changelog": "変更履歴",
+    "about.changelogDescription": "アプリの更新履歴を確認できます",
+    "about.features": "新機能",
+    "about.fixes": "バグ修正",
+    "about.improvements": "改善",
+    "about.noChanges": "変更はありません",
   },
   en: {
     // Login Screen
@@ -780,6 +792,18 @@ export const translations = {
     // Channel Names
     "channel.general": "General",
     "channel.school": "School",
+
+    // About Screen
+    "about.title": "About",
+    "about.tagline": "Family communication made simple",
+    "about.version": "Version",
+    "about.releaseDate": "Release Date",
+    "about.changelog": "Changelog",
+    "about.changelogDescription": "View app update history",
+    "about.features": "Features",
+    "about.fixes": "Bug Fixes",
+    "about.improvements": "Improvements",
+    "about.noChanges": "No changes",
   },
 };
 

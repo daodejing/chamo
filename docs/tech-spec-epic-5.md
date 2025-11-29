@@ -37,6 +37,21 @@ Settings and customization allow family members to personalize their experience.
   - **AC4:** Date/time formats localized
   - **AC5:** Settings persist across sessions
 
+- **US-5.5:** As a family member, I want the header bar to stay fixed at the top so that I can always access navigation icons while scrolling
+  - **AC1:** Header (family name + action icons) remains fixed/pinned at top of screen
+  - **AC2:** Content scrolls beneath the header without overlap
+  - **AC3:** Works on all scrollable screens (chat, settings, etc.)
+  - **AC4:** No visual glitches or z-index issues
+  - **AC5:** Responsive across all screen sizes
+
+- **US-5.6:** As a family member, I want to view app version and release notes so that I can see what's new and verify which version I'm using
+  - **AC1:** About option accessible from Settings screen
+  - **AC2:** Displays current app version number
+  - **AC3:** Shows release date
+  - **AC4:** Expandable changelog organized by version
+  - **AC5:** Changelog content generated from git tags/commits at build time
+  - **AC6:** Clean, readable presentation of changes
+
 ---
 
 ## 2. Architecture Components

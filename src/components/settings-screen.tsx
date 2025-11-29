@@ -1,4 +1,7 @@
-import { ArrowLeft, Globe, Shield, LogOut, Bell, Moon, Sun, Camera, Type, Users, UserPlus, UserMinus, Crown, Clock, Hash, Plus, Trash, Languages, Calendar as CalendarIcon, RefreshCw, Check } from "lucide-react";
+"use client";
+
+import { useState } from "react";
+import { ArrowLeft, Globe, Shield, LogOut, Bell, Moon, Sun, Camera, Type, Users, UserPlus, UserMinus, Crown, Clock, Hash, Plus, Trash, Languages, Calendar as CalendarIcon, RefreshCw, Check, Info } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -12,6 +15,9 @@ import { Language, t } from "@/lib/translations";
 import { LanguageSelector } from "@/components/settings/language-selector";
 import { TranslationLanguageSelector, type TranslationLanguage } from "@/components/settings/translation-language-selector";
 import { formatDateTime } from "@/lib/utils/date-format";
+import { AboutScreen } from "@/components/settings/about-screen";
+import { Badge } from "@/components/ui/badge";
+import { getCurrentVersion } from "@/lib/changelog";
 
 interface FamilyMember {
   id: string;
@@ -73,6 +79,13 @@ interface SettingsScreenProps {
 }
 
 export function SettingsScreen({ userName, userEmail, userAvatar, familyName, familyAvatar, familyMembers, maxMembers, channels, inviteCode, isDarkMode, fontSize, language, quietHoursEnabled, quietHoursStart, quietHoursEnd, googleConnected, googleEmail, lastSyncTime, autoSync, onBack, onLogout, onThemeToggle, onFontSizeChange, onFamilyNameChange, onFamilyAvatarChange, onMaxMembersChange, onQuietHoursToggle, onQuietHoursStartChange, onQuietHoursEndChange, onRemoveMember, onCreateChannel, onDeleteChannel, onConnectGoogle, onDisconnectGoogle, onSyncGoogle, onAutoSyncToggle, preferredTranslationLanguage = "en", onPreferredTranslationLanguageChange }: SettingsScreenProps) {
+  const [showAbout, setShowAbout] = useState(false);
+
+  // Show About screen when active
+  if (showAbout) {
+    return <AboutScreen language={language} onBack={() => setShowAbout(false)} />;
+  }
+
   // Helper function to get channel display name
   const getChannelName = (channel: Channel) => {
     // If it's a translation key (starts with "channel."), translate it
@@ -702,6 +715,28 @@ export function SettingsScreen({ userName, userEmail, userAvatar, familyName, fa
               <Button variant="outline" className="w-full rounded-xl">
                 {t("settings.setBiometrics", language)}
               </Button>
+            </CardContent>
+          </Card>
+
+          {/* About */}
+          <Card
+            className="rounded-[20px] shadow-lg overflow-hidden cursor-pointer hover:bg-muted/50 transition-colors"
+            onClick={() => setShowAbout(true)}
+          >
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Info className="w-5 h-5" />
+                {t("about.title", language)}
+              </CardTitle>
+              <CardDescription>{t("about.tagline", language)}</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-muted-foreground">{t("about.version", language)}</span>
+                <Badge variant="secondary" className="font-mono">
+                  v{getCurrentVersion()}
+                </Badge>
+              </div>
             </CardContent>
           </Card>
 

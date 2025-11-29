@@ -6,6 +6,8 @@
   "scripts": {
     "dev": "next dev --port 3002",
     "dev:next-only": "next dev --port 3002",
+    "generate-changelog": "node scripts/generate-changelog.js",
+    "prebuild": "npm run generate-changelog",
     "build": "next build",
     "build:static": "NEXT_PUBLIC_BUILD_STATIC=true next build",
     "start": "next start",
