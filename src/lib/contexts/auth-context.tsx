@@ -40,6 +40,7 @@ import {
   generateFamilyKey,
   generateInviteCode,
   createInviteCodeWithKey,
+  getFamilyKey,
 } from '../e2ee/key-management';
 import { decryptFamilyKey } from '../e2ee/invite-encryption';
 import { generateKeypair } from '@/lib/crypto/keypair';
@@ -240,9 +241,19 @@ function AuthProviderInner({ children }: { children: React.ReactNode}) {
       }
 
       try {
-        const exists = await hasPrivateKey(user.id);
+        const hasUserKey = await hasPrivateKey(user.id);
+        const hasFamilyKeyAccess = user.activeFamilyId
+          ? (await getFamilyKey(user.activeFamilyId)) !== null
+          : false;
+
         if (cancelled) return;
-        if (!exists) {
+
+        // Debug: log key status
+        console.log('[KeyCheck] userId:', user.id, 'hasUserKey:', hasUserKey, 'hasFamilyKey:', hasFamilyKeyAccess);
+
+        // Only show modal if user private key is missing AND they haven't seen it
+        // The family key is separate - used for message encryption
+        if (!hasUserKey) {
           if (!hasSeenLostKeyModal(user.id)) {
             setLostKeyModalOpen(true);
           }

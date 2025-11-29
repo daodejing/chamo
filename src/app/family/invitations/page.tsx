@@ -1,12 +1,15 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useQuery } from '@apollo/client/react';
+import { toast } from 'sonner';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Loader2, RefreshCcw } from 'lucide-react';
+import { MainHeader } from '@/components/main-header';
+import { InviteMemberDialog } from '@/components/family/invite-member-dialog';
 import { useAuth } from '@/lib/contexts/auth-context';
 import { useLanguage } from '@/lib/contexts/language-context';
 import { t } from '@/lib/translations';
@@ -35,8 +38,9 @@ const STATUS_CONFIG: Record<
 export default function FamilyInvitationsPage() {
   const router = useRouter();
   const { language } = useLanguage();
-  const { user, loading } = useAuth();
+  const { user, loading, logout, switchActiveFamily } = useAuth();
   const familyId = user?.activeFamily?.id ?? null;
+  const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -50,11 +54,26 @@ export default function FamilyInvitationsPage() {
     fetchPolicy: 'cache-and-network',
   });
 
+  const handleLogout = async () => {
+    try {
+      await logout();
+      toast.success(t('toast.logoutSuccess', language));
+      window.location.href = '/login';
+    } catch (error) {
+      console.error('Logout error:', error);
+      toast.error('Logout failed');
+    }
+  };
+
+  const handleSettingsClick = () => {
+    router.push('/chat');
+  };
+
   if (loading || !user) {
     return null;
   }
 
-  if (!familyId) {
+  if (!familyId || !user.activeFamily) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background p-4">
         <Card className="w-full max-w-md">
@@ -68,9 +87,30 @@ export default function FamilyInvitationsPage() {
   }
 
   const invites = data?.getFamilyInvites ?? [];
+  const { activeFamily } = user;
+  // Member count not available on activeFamily - use 0 as fallback
+  const memberCount = 0;
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background p-4">
+    <div className="h-screen flex flex-col bg-background">
+      {/* Persistent Header */}
+      <MainHeader
+        familyName={activeFamily.name}
+        familyAvatar={activeFamily.avatar ?? ''}
+        memberCount={memberCount}
+        currentView="family-invitations"
+        memberships={user.memberships ?? []}
+        activeFamilyId={user.activeFamilyId ?? null}
+        onSwitchFamily={switchActiveFamily}
+        onChatClick={() => router.push('/chat')}
+        onSettingsClick={handleSettingsClick}
+        onLogoutClick={handleLogout}
+        onInviteClick={() => setInviteDialogOpen(true)}
+        language={language}
+      />
+
+      {/* Content */}
+      <div className="flex-1 overflow-y-auto flex items-center justify-center p-4">
       <Card className="w-full max-w-2xl shadow-xl rounded-[20px]">
         <CardHeader className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <div>
@@ -145,6 +185,15 @@ export default function FamilyInvitationsPage() {
           )}
         </CardContent>
       </Card>
+      </div>
+
+      {/* Invite Dialog */}
+      <InviteMemberDialog
+        open={inviteDialogOpen}
+        onOpenChange={setInviteDialogOpen}
+        familyId={activeFamily.id}
+        familyName={activeFamily.name}
+      />
     </div>
   );
 }

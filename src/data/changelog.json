@@ -5,6 +5,7 @@
       "date": "2025-11-29",
       "changes": {
         "features": [
+          "Add About screen with version and changelog (Story 5.6) (settings)",
           "Implement sticky header and fix scroll behavior (Story 5.5) (ui)"
         ],
         "fixes": [],

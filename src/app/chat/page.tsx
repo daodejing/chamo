@@ -11,6 +11,8 @@ import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { ChatScreen } from '@/components/chat-screen';
 import { SettingsScreen } from '@/components/settings-screen';
+import { MainHeader, type MainHeaderView } from '@/components/main-header';
+import { InviteMemberDialog } from '@/components/family/invite-member-dialog';
 import { useMessages, useSendMessage, useEditMessage, useDeleteMessage, useMessageSubscription } from '@/lib/hooks/use-messages';
 import { useChannels } from '@/lib/hooks/use-channels';
 import { useAuth } from '@/lib/contexts/auth-context';
@@ -76,6 +78,14 @@ export default function ChatPage() {
   const [sending, setSending] = useState(false);
   const [familyKey, setFamilyKey] = useState<CryptoKey | null>(null);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [currentView, setCurrentView] = useState<MainHeaderView>('chat');
+
+  // Header state (lifted from ChatScreen for persistent header)
+  const [showPhotos, setShowPhotos] = useState(false);
+  const [showCalendar, setShowCalendar] = useState(false);
+  const [showTranslation, setShowTranslation] = useState(true);
+  const [autoTranslate, setAutoTranslate] = useState(true);
+  const [isInviteDialogOpen, setIsInviteDialogOpen] = useState(false);
   const [settingsFamilyName, setSettingsFamilyName] = useState(family?.name ?? '');
   const [settingsFamilyAvatar, setSettingsFamilyAvatar] = useState(family?.avatar ?? '');
   const [settingsMaxMembers, setSettingsMaxMembers] = useState(family?.maxMembers ?? 0);
@@ -677,13 +687,43 @@ export default function ChatPage() {
     setDisplayMessages([]); // Clear messages when switching channels
   };
 
-  // Handler: Settings click
+  // Handler: Chat click - always goes to chat messages view
+  const handleChatClick = () => {
+    setCurrentView('chat');
+    setIsSettingsOpen(false);
+    // Reset photo/calendar views to show chat messages
+    setShowPhotos(false);
+    setShowCalendar(false);
+  };
+
+  // Handler: Settings click - always goes to settings
   const handleSettingsClick = () => {
+    setCurrentView('settings');
     setIsSettingsOpen(true);
   };
 
-  const handleCloseSettings = () => {
-    setIsSettingsOpen(false);
+  // Handler: About screen navigation (from SettingsScreen)
+  const handleAboutOpen = () => {
+    setCurrentView('about');
+  };
+
+  const handleAboutClose = () => {
+    setCurrentView('settings');
+  };
+
+  // Handler: Header view buttons - each takes you to that view (no toggle)
+  const handlePhotosClick = () => {
+    setShowPhotos(true);
+    setShowCalendar(false);
+  };
+
+  const handleCalendarClick = () => {
+    setShowCalendar(true);
+    setShowPhotos(false);
+  };
+
+  const handleInviteClick = () => {
+    setIsInviteDialogOpen(true);
   };
 
   // Handler: Logout click
@@ -867,58 +907,81 @@ export default function ChatPage() {
   }
 
   return (
-    <>
-      <div
-        aria-hidden={isSettingsOpen}
-        className={`transition-opacity duration-200 ${
-          isSettingsOpen ? 'opacity-0 pointer-events-none select-none' : 'opacity-100'
-        }`}
-      >
-        <ChatScreen
-          chatName={familyName}
-          chatAvatar={familyAvatar}
-          chatMembers={familyMemberCount}
-          messages={displayMessages}
-          channels={transformedChannels}
-          currentChannelId={currentChannelId || ''}
-          scheduledMessages={[]}
-          calendarEvents={[]}
-          photos={[]}
-          photoFolders={[]}
-          familyMembers={settingsFamilyMembers}
-          memberships={user?.memberships ?? []}
-          activeFamilyId={user?.activeFamilyId ?? null}
-          familyId={family?.id || user?.activeFamilyId || ''}
-          currentUserId={user?.id || ''}
-          currentUserName={user?.name || ''}
-          language={language}
-          onSettingsClick={handleSettingsClick}
-          onLogoutClick={handleLogoutClick}
-          onSwitchFamily={switchActiveFamily}
-          onChannelChange={handleChannelChange}
-          onSendMessage={handleSendMessage}
-          onScheduleMessage={handleScheduleMessage}
-          onDeleteMessage={handleDeleteMessage}
-          onEditMessage={handleEditMessage}
-          onCancelScheduledMessage={handleCancelScheduledMessage}
-          onAddEvent={handleAddEvent}
-          onEditEvent={handleEditEvent}
-          onDeleteEvent={handleDeleteEvent}
-          onAddPhoto={handleAddPhoto}
-          onDeletePhoto={handleDeletePhoto}
-          onLikePhoto={handleLikePhoto}
-          onAddPhotoComment={handleAddPhotoComment}
-          onCreateFolder={handleCreateFolder}
-          onDeleteFolder={handleDeleteFolder}
-          onRenameFolder={handleRenameFolder}
-          onMovePhotoToFolder={handleMovePhotoToFolder}
-          translationFamilyKey={familyKey}
-          preferredTranslationLanguage={preferredTranslationLanguage}
-        />
-      </div>
+    <div className="h-screen flex flex-col bg-background">
+      {/* Persistent Header */}
+      <MainHeader
+        familyName={familyName}
+        familyAvatar={familyAvatar}
+        memberCount={familyMemberCount}
+        currentView={currentView}
+        memberships={user?.memberships ?? []}
+        activeFamilyId={user?.activeFamilyId ?? null}
+        onSwitchFamily={switchActiveFamily}
+        onChatClick={handleChatClick}
+        onSettingsClick={handleSettingsClick}
+        onLogoutClick={handleLogoutClick}
+        onInviteClick={handleInviteClick}
+        showPhotos={showPhotos}
+        showCalendar={showCalendar}
+        showTranslation={showTranslation}
+        autoTranslate={autoTranslate}
+        onPhotosClick={handlePhotosClick}
+        onCalendarClick={handleCalendarClick}
+        onShowTranslationChange={setShowTranslation}
+        onAutoTranslateChange={setAutoTranslate}
+        language={language}
+      />
 
-      {isSettingsOpen && user && (
-        <div className="fixed inset-0 z-50 bg-background">
+      {/* Content area - switches between views */}
+      <div className="flex-1 overflow-hidden">
+        {currentView === 'chat' ? (
+          <ChatScreen
+            chatName={familyName}
+            chatAvatar={familyAvatar}
+            chatMembers={familyMemberCount}
+            messages={displayMessages}
+            channels={transformedChannels}
+            currentChannelId={currentChannelId || ''}
+            scheduledMessages={[]}
+            calendarEvents={[]}
+            photos={[]}
+            photoFolders={[]}
+            familyMembers={settingsFamilyMembers}
+            memberships={user?.memberships ?? []}
+            activeFamilyId={user?.activeFamilyId ?? null}
+            familyId={family?.id || user?.activeFamilyId || ''}
+            currentUserId={user?.id || ''}
+            currentUserName={user?.name || ''}
+            language={language}
+            onSettingsClick={handleSettingsClick}
+            onLogoutClick={handleLogoutClick}
+            onSwitchFamily={switchActiveFamily}
+            onChannelChange={handleChannelChange}
+            onSendMessage={handleSendMessage}
+            onScheduleMessage={handleScheduleMessage}
+            onDeleteMessage={handleDeleteMessage}
+            onEditMessage={handleEditMessage}
+            onCancelScheduledMessage={handleCancelScheduledMessage}
+            onAddEvent={handleAddEvent}
+            onEditEvent={handleEditEvent}
+            onDeleteEvent={handleDeleteEvent}
+            onAddPhoto={handleAddPhoto}
+            onDeletePhoto={handleDeletePhoto}
+            onLikePhoto={handleLikePhoto}
+            onAddPhotoComment={handleAddPhotoComment}
+            onCreateFolder={handleCreateFolder}
+            onDeleteFolder={handleDeleteFolder}
+            onRenameFolder={handleRenameFolder}
+            onMovePhotoToFolder={handleMovePhotoToFolder}
+            translationFamilyKey={familyKey}
+            preferredTranslationLanguage={preferredTranslationLanguage}
+            hideHeader
+            showPhotos={showPhotos}
+            showCalendar={showCalendar}
+            showTranslation={showTranslation}
+            autoTranslate={autoTranslate}
+          />
+        ) : user && (
           <SettingsScreen
             userName={user.name}
             userEmail={user.email}
@@ -939,7 +1002,7 @@ export default function ChatPage() {
             googleEmail={googleEmail}
             lastSyncTime={lastSyncTime}
             autoSync={autoSync}
-            onBack={handleCloseSettings}
+            onBack={handleChatClick}
             onLogout={handleLogoutClick}
             onThemeToggle={handleThemeToggle}
             onFontSizeChange={handleFontSizeChange}
@@ -958,9 +1021,21 @@ export default function ChatPage() {
             onAutoSyncToggle={handleAutoSyncToggle}
             preferredTranslationLanguage={preferredTranslationLanguage}
             onPreferredTranslationLanguageChange={handlePreferredTranslationLanguageChange}
+            hideHeader
+            onAboutOpen={handleAboutOpen}
+            onAboutClose={handleAboutClose}
+            showAbout={currentView === 'about'}
           />
-        </div>
-      )}
-    </>
+        )}
+      </div>
+
+      {/* Invite Dialog */}
+      <InviteMemberDialog
+        open={isInviteDialogOpen}
+        onOpenChange={setIsInviteDialogOpen}
+        familyId={family?.id || user?.activeFamilyId || ''}
+        familyName={familyName}
+      />
+    </div>
   );
 }

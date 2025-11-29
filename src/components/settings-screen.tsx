@@ -1,12 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import { ArrowLeft, Globe, Shield, LogOut, Bell, Moon, Sun, Camera, Type, Users, UserPlus, UserMinus, Crown, Clock, Hash, Plus, Trash, Languages, Calendar as CalendarIcon, RefreshCw, Check, Info } from "lucide-react";
+import { ArrowLeft, Globe, Shield, LogOut, Bell, Moon, Sun, Camera, Type, Users, UserMinus, Crown, Clock, Hash, Plus, Trash, Languages, Calendar as CalendarIcon, RefreshCw, Check, Info } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
@@ -76,14 +75,24 @@ interface SettingsScreenProps {
   onAutoSyncToggle: (enabled: boolean) => void;
   preferredTranslationLanguage?: TranslationLanguage;
   onPreferredTranslationLanguageChange?: (lang: TranslationLanguage) => void;
+  // New props for persistent header integration
+  hideHeader?: boolean;
+  showAbout?: boolean;
+  onAboutOpen?: () => void;
+  onAboutClose?: () => void;
 }
 
-export function SettingsScreen({ userName, userEmail, userAvatar, familyName, familyAvatar, familyMembers, maxMembers, channels, inviteCode, isDarkMode, fontSize, language, quietHoursEnabled, quietHoursStart, quietHoursEnd, googleConnected, googleEmail, lastSyncTime, autoSync, onBack, onLogout, onThemeToggle, onFontSizeChange, onFamilyNameChange, onFamilyAvatarChange, onMaxMembersChange, onQuietHoursToggle, onQuietHoursStartChange, onQuietHoursEndChange, onRemoveMember, onCreateChannel, onDeleteChannel, onConnectGoogle, onDisconnectGoogle, onSyncGoogle, onAutoSyncToggle, preferredTranslationLanguage = "en", onPreferredTranslationLanguageChange }: SettingsScreenProps) {
-  const [showAbout, setShowAbout] = useState(false);
+export function SettingsScreen({ userName, userEmail, userAvatar, familyName, familyAvatar, familyMembers, maxMembers, channels, inviteCode, isDarkMode, fontSize, language, quietHoursEnabled, quietHoursStart, quietHoursEnd, googleConnected, googleEmail, lastSyncTime, autoSync, onBack, onLogout, onThemeToggle, onFontSizeChange, onFamilyNameChange, onFamilyAvatarChange, onMaxMembersChange, onQuietHoursToggle, onQuietHoursStartChange, onQuietHoursEndChange, onRemoveMember, onCreateChannel, onDeleteChannel, onConnectGoogle, onDisconnectGoogle, onSyncGoogle, onAutoSyncToggle, preferredTranslationLanguage = "en", onPreferredTranslationLanguageChange, hideHeader = false, showAbout: propShowAbout, onAboutOpen, onAboutClose }: SettingsScreenProps) {
+  const [internalShowAbout, setInternalShowAbout] = useState(false);
+
+  // Use prop if provided (for lifted state), otherwise use internal state
+  const showAbout = propShowAbout ?? internalShowAbout;
+  const handleAboutOpen = onAboutOpen ?? (() => setInternalShowAbout(true));
+  const handleAboutClose = onAboutClose ?? (() => setInternalShowAbout(false));
 
   // Show About screen when active
   if (showAbout) {
-    return <AboutScreen language={language} onBack={() => setShowAbout(false)} />;
+    return <AboutScreen language={language} onBack={handleAboutClose} hideHeader={hideHeader} />;
   }
 
   // Helper function to get channel display name
@@ -116,14 +125,16 @@ export function SettingsScreen({ userName, userEmail, userAvatar, familyName, fa
   };
 
   return (
-    <div className="h-screen flex flex-col bg-background overflow-hidden">
-      {/* Header */}
-      <div className="border-b bg-card px-4 py-3 flex items-center gap-3 flex-shrink-0 z-40">
-        <Button variant="ghost" size="icon" onClick={onBack} className="text-card-foreground">
-          <ArrowLeft className="w-5 h-5" />
-        </Button>
-        <h2 className="text-card-foreground">{t("settings.title", language)}</h2>
-      </div>
+    <div className={`${hideHeader ? 'h-full' : 'h-screen'} flex flex-col bg-background overflow-hidden`}>
+      {/* Header - only show when not using external header */}
+      {!hideHeader && (
+        <div className="border-b bg-card px-4 py-3 flex items-center gap-3 flex-shrink-0 z-40">
+          <Button variant="ghost" size="icon" onClick={onBack} className="text-card-foreground">
+            <ArrowLeft className="w-5 h-5" />
+          </Button>
+          <h2 className="text-card-foreground">{t("settings.title", language)}</h2>
+        </div>
+      )}
 
       <div className="flex-1 overflow-y-auto">
         <div className="p-4 space-y-4 pb-8 max-w-full">
@@ -721,7 +732,7 @@ export function SettingsScreen({ userName, userEmail, userAvatar, familyName, fa
           {/* About */}
           <Card
             className="rounded-[20px] shadow-lg overflow-hidden cursor-pointer hover:bg-muted/50 transition-colors"
-            onClick={() => setShowAbout(true)}
+            onClick={handleAboutOpen}
           >
             <CardHeader>
               <CardTitle className="flex items-center gap-2">

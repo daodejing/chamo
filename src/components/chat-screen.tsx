@@ -158,22 +158,35 @@ interface ChatScreenProps {
   onMovePhotoToFolder: (photoId: string, folderId: string) => void;
   translationFamilyKey?: CryptoKey | null;
   preferredTranslationLanguage?: TranslationLanguage;
+  // New props for lifted header state
+  hideHeader?: boolean;
+  showPhotos?: boolean;
+  showCalendar?: boolean;
+  showTranslation?: boolean;
+  autoTranslate?: boolean;
 }
 
-export function ChatScreen({ chatName, chatAvatar, chatMembers, messages, channels, currentChannelId, scheduledMessages, calendarEvents, photos, photoFolders, familyMembers, memberships = [], activeFamilyId, familyId, currentUserId, currentUserName, language, onSettingsClick, onLogoutClick, onSwitchFamily, onChannelChange, onSendMessage, onScheduleMessage, onDeleteMessage, onEditMessage, onCancelScheduledMessage, onAddEvent, onEditEvent, onDeleteEvent, onAddPhoto, onDeletePhoto, onLikePhoto, onAddPhotoComment, onCreateFolder, onDeleteFolder, onRenameFolder, onMovePhotoToFolder, translationFamilyKey = null, preferredTranslationLanguage }: ChatScreenProps) {
+export function ChatScreen({ chatName, chatAvatar, chatMembers, messages, channels, currentChannelId, scheduledMessages, calendarEvents, photos, photoFolders, familyMembers, memberships = [], activeFamilyId, familyId, currentUserId, currentUserName, language, onSettingsClick, onLogoutClick, onSwitchFamily, onChannelChange, onSendMessage, onScheduleMessage, onDeleteMessage, onEditMessage, onCancelScheduledMessage, onAddEvent, onEditEvent, onDeleteEvent, onAddPhoto, onDeletePhoto, onLikePhoto, onAddPhotoComment, onCreateFolder, onDeleteFolder, onRenameFolder, onMovePhotoToFolder, translationFamilyKey = null, preferredTranslationLanguage, hideHeader = false, showPhotos: propShowPhotos, showCalendar: propShowCalendar, showTranslation: propShowTranslation, autoTranslate: propAutoTranslate }: ChatScreenProps) {
   const router = useRouter();
   const [newMessage, setNewMessage] = useState("");
-  const [showTranslation, setShowTranslation] = useState(true);
-  const [autoTranslate, setAutoTranslate] = useState(true);
+  // Use props if provided (for lifted state), otherwise use internal state
+  const [internalShowTranslation, setInternalShowTranslation] = useState(true);
+  const [internalAutoTranslate, setInternalAutoTranslate] = useState(true);
   const [isScheduleDialogOpen, setIsScheduleDialogOpen] = useState(false);
   const [scheduleDate, setScheduleDate] = useState("");
   const [scheduleTime, setScheduleTime] = useState("");
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
   const [editingText, setEditingText] = useState("");
-  const [showCalendar, setShowCalendar] = useState(false);
-  const [showPhotos, setShowPhotos] = useState(false);
+  const [internalShowCalendar, setInternalShowCalendar] = useState(false);
+  const [internalShowPhotos, setInternalShowPhotos] = useState(false);
   const [isInviteDialogOpen, setIsInviteDialogOpen] = useState(false);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
+
+  // Use lifted state from props if provided, otherwise use internal state
+  const showPhotos = propShowPhotos ?? internalShowPhotos;
+  const showCalendar = propShowCalendar ?? internalShowCalendar;
+  const showTranslation = propShowTranslation ?? internalShowTranslation;
+  const autoTranslate = propAutoTranslate ?? internalAutoTranslate;
   const translationEnabled = autoTranslate && showTranslation;
 
   // Auto-scroll to bottom when messages change
@@ -276,155 +289,157 @@ export function ChatScreen({ chatName, chatAvatar, chatMembers, messages, channe
   };
 
   return (
-    <div className="h-screen flex flex-col bg-background">
-      {/* Header */}
-      <div className="border-b bg-card px-4 py-3 flex items-center justify-between flex-shrink-0 z-40">
-        <div className="flex items-center gap-3">
-          <Avatar className="w-10 h-10">
-            <AvatarImage src={chatAvatar} />
-            <AvatarFallback className="bg-gradient-to-br from-[#8B38BA] to-[#5518C1] text-white">
-              {chatName.substring(0, 2)}
-            </AvatarFallback>
-          </Avatar>
-          <div>
-            <h2 className="text-card-foreground">{chatName}</h2>
-            <p className="text-xs text-muted-foreground">{chatMembers} {t("chat.members", language)}</p>
+    <div className={`${hideHeader ? 'h-full' : 'h-screen'} flex flex-col bg-background`}>
+      {/* Header - only show when not using external header */}
+      {!hideHeader && (
+        <div className="border-b bg-card px-4 py-3 flex items-center justify-between flex-shrink-0 z-40">
+          <div className="flex items-center gap-3">
+            <Avatar className="w-10 h-10">
+              <AvatarImage src={chatAvatar} />
+              <AvatarFallback className="bg-gradient-to-br from-[#8B38BA] to-[#5518C1] text-white">
+                {chatName.substring(0, 2)}
+              </AvatarFallback>
+            </Avatar>
+            <div>
+              <h2 className="text-card-foreground">{chatName}</h2>
+              <p className="text-xs text-muted-foreground">{chatMembers} {t("chat.members", language)}</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-1">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => {
+              setInternalShowPhotos(!showPhotos);
+              if (!showPhotos) setInternalShowCalendar(false);
+            }}
+            className={`text-card-foreground ${showPhotos ? 'bg-accent' : ''}`}
+          >
+            <ImageIcon className="w-5 h-5" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => {
+              setInternalShowCalendar(!showCalendar);
+              if (!showCalendar) setInternalShowPhotos(false);
+            }}
+            className={`text-card-foreground ${showCalendar ? 'bg-accent' : ''}`}
+          >
+            <Calendar className="w-5 h-5" />
+          </Button>
+          {!showCalendar && !showPhotos && (
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="ghost" size="icon" className="text-card-foreground">
+                  <Languages className="w-5 h-5" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-80">
+                <div className="space-y-4">
+                  <h3>{t("chat.translation", language)}</h3>
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="show-translation">{t("chat.showTranslation", language)}</Label>
+                    <Switch
+                      id="show-translation"
+                      checked={showTranslation}
+                      onCheckedChange={setInternalShowTranslation}
+                    />
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="auto-translate">{t("chat.autoTranslate", language)}</Label>
+                    <Switch
+                      id="auto-translate"
+                      checked={autoTranslate}
+                      onCheckedChange={setInternalAutoTranslate}
+                    />
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    {t("chat.autoTranslateDescription", language)}
+                  </p>
+                </div>
+              </PopoverContent>
+          </Popover>
+          )}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="text-card-foreground"
+                aria-label={t('multiFamily.menuTitle', language)}
+              >
+                <Users className="w-5 h-5" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-64">
+              <DropdownMenuLabel className="text-xs text-muted-foreground">
+                {t('multiFamily.menuTitle', language)}
+              </DropdownMenuLabel>
+              {memberships.length === 0 && (
+                <div className="px-3 py-2 text-sm text-muted-foreground">
+                  {t('multiFamily.empty', language)}
+                </div>
+              )}
+              {memberships.map((membership) => {
+                const isActive = membership.familyId === activeFamilyId;
+                const initials = membership.family.name
+                  .split(' ')
+                  .map((part) => part.charAt(0))
+                  .join('')
+                  .slice(0, 2)
+                  .toUpperCase();
+                return (
+                  <DropdownMenuItem
+                    key={membership.id}
+                    disabled={isActive}
+                    onClick={() => onSwitchFamily(membership.familyId)}
+                    className="flex items-center gap-3"
+                  >
+                    <Avatar className="h-8 w-8">
+                      <AvatarImage src={membership.family.avatar ?? undefined} />
+                      <AvatarFallback>{initials}</AvatarFallback>
+                    </Avatar>
+                    <div className="flex-1">
+                      <p className="text-sm font-medium">{membership.family.name}</p>
+                      <p className="text-xs text-muted-foreground capitalize">
+                        {membership.role.toLowerCase()}
+                      </p>
+                    </div>
+                  {isActive && (
+                    <Badge variant="secondary" className="text-xs">
+                      {t('multiFamily.active', language)}
+                    </Badge>
+                  )}
+                  </DropdownMenuItem>
+                );
+              })}
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => router.push('/family-setup')}>
+                <Settings className="w-4 h-4 mr-2" />
+                {t('multiFamily.familySettings', language)}
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setIsInviteDialogOpen(true)}
+            className="text-card-foreground"
+            aria-label={t("settings.invite", language)}
+          >
+            <UserPlus className="w-5 h-5" />
+          </Button>
+          <Button variant="ghost" size="icon" onClick={onSettingsClick} className="text-card-foreground">
+            <Settings className="w-5 h-5" />
+          </Button>
+          <Button variant="ghost" onClick={onLogoutClick} className="text-card-foreground">
+            <LogOut className="w-4 h-4 mr-2" />
+            {t("settings.logout", language)}
+          </Button>
           </div>
         </div>
-        <div className="flex items-center gap-1">
-        <Button 
-          variant="ghost" 
-          size="icon" 
-          onClick={() => {
-            setShowPhotos(!showPhotos);
-            if (!showPhotos) setShowCalendar(false);
-          }}
-          className={`text-card-foreground ${showPhotos ? 'bg-accent' : ''}`}
-        >
-          <ImageIcon className="w-5 h-5" />
-        </Button>
-        <Button 
-          variant="ghost" 
-          size="icon" 
-          onClick={() => {
-            setShowCalendar(!showCalendar);
-            if (!showCalendar) setShowPhotos(false);
-          }}
-          className={`text-card-foreground ${showCalendar ? 'bg-accent' : ''}`}
-        >
-          <Calendar className="w-5 h-5" />
-        </Button>
-        {!showCalendar && !showPhotos && (
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button variant="ghost" size="icon" className="text-card-foreground">
-                <Languages className="w-5 h-5" />
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-80">
-              <div className="space-y-4">
-                <h3>{t("chat.translation", language)}</h3>
-                <div className="flex items-center justify-between">
-                  <Label htmlFor="show-translation">{t("chat.showTranslation", language)}</Label>
-                  <Switch
-                    id="show-translation"
-                    checked={showTranslation}
-                    onCheckedChange={setShowTranslation}
-                  />
-                </div>
-                <div className="flex items-center justify-between">
-                  <Label htmlFor="auto-translate">{t("chat.autoTranslate", language)}</Label>
-                  <Switch
-                    id="auto-translate"
-                    checked={autoTranslate}
-                    onCheckedChange={setAutoTranslate}
-                  />
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  {t("chat.autoTranslateDescription", language)}
-                </p>
-              </div>
-            </PopoverContent>
-        </Popover>
-        )}
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="text-card-foreground"
-              aria-label={t('multiFamily.menuTitle', language)}
-            >
-              <Users className="w-5 h-5" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-64">
-            <DropdownMenuLabel className="text-xs text-muted-foreground">
-              {t('multiFamily.menuTitle', language)}
-            </DropdownMenuLabel>
-            {memberships.length === 0 && (
-              <div className="px-3 py-2 text-sm text-muted-foreground">
-                {t('multiFamily.empty', language)}
-              </div>
-            )}
-            {memberships.map((membership) => {
-              const isActive = membership.familyId === activeFamilyId;
-              const initials = membership.family.name
-                .split(' ')
-                .map((part) => part.charAt(0))
-                .join('')
-                .slice(0, 2)
-                .toUpperCase();
-              return (
-                <DropdownMenuItem
-                  key={membership.id}
-                  disabled={isActive}
-                  onClick={() => onSwitchFamily(membership.familyId)}
-                  className="flex items-center gap-3"
-                >
-                  <Avatar className="h-8 w-8">
-                    <AvatarImage src={membership.family.avatar ?? undefined} />
-                    <AvatarFallback>{initials}</AvatarFallback>
-                  </Avatar>
-                  <div className="flex-1">
-                    <p className="text-sm font-medium">{membership.family.name}</p>
-                    <p className="text-xs text-muted-foreground capitalize">
-                      {membership.role.toLowerCase()}
-                    </p>
-                  </div>
-                {isActive && (
-                  <Badge variant="secondary" className="text-xs">
-                    {t('multiFamily.active', language)}
-                  </Badge>
-                )}
-                </DropdownMenuItem>
-              );
-            })}
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={() => router.push('/family-setup')}>
-              <Settings className="w-4 h-4 mr-2" />
-              {t('multiFamily.familySettings', language)}
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => setIsInviteDialogOpen(true)}
-          className="text-card-foreground"
-          aria-label={t("settings.invite", language)}
-        >
-          <UserPlus className="w-5 h-5" />
-        </Button>
-        <Button variant="ghost" size="icon" onClick={onSettingsClick} className="text-card-foreground">
-          <Settings className="w-5 h-5" />
-        </Button>
-        <Button variant="ghost" onClick={onLogoutClick} className="text-card-foreground">
-          <LogOut className="w-4 h-4 mr-2" />
-          {t("settings.logout", language)}
-        </Button>
-        </div>
-      </div>
+      )}
 
       {/* Channel Selector - Only show when not in calendar or photo view */}
       {!showCalendar && !showPhotos && (

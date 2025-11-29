@@ -17,21 +17,24 @@ import { loadChangelog, type ChangelogVersion } from "@/lib/changelog";
 interface AboutScreenProps {
   language: Language;
   onBack: () => void;
+  hideHeader?: boolean;
 }
 
-export function AboutScreen({ language, onBack }: AboutScreenProps) {
+export function AboutScreen({ language, onBack, hideHeader = false }: AboutScreenProps) {
   const changelog = loadChangelog();
   const currentVersion = changelog.versions[0];
 
   return (
-    <div className="h-screen flex flex-col bg-background overflow-hidden">
-      {/* Header */}
-      <div className="border-b bg-card px-4 py-3 flex items-center gap-3 flex-shrink-0 z-40">
-        <Button variant="ghost" size="icon" onClick={onBack} className="text-card-foreground">
-          <ArrowLeft className="w-5 h-5" />
-        </Button>
-        <h2 className="text-card-foreground">{t("about.title", language)}</h2>
-      </div>
+    <div className={`${hideHeader ? 'h-full' : 'h-screen'} flex flex-col bg-background overflow-hidden`}>
+      {/* Header - only show when not using external header */}
+      {!hideHeader && (
+        <div className="border-b bg-card px-4 py-3 flex items-center gap-3 flex-shrink-0 z-40">
+          <Button variant="ghost" size="icon" onClick={onBack} className="text-card-foreground">
+            <ArrowLeft className="w-5 h-5" />
+          </Button>
+          <h2 className="text-card-foreground">{t("about.title", language)}</h2>
+        </div>
+      )}
 
       <ScrollArea className="flex-1">
         <div className="p-4 space-y-4 pb-8 max-w-full">

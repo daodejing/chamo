@@ -2,7 +2,8 @@
 
 import { Suspense, useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { ArrowLeft, UserPlus, Users } from 'lucide-react';
+import { UserPlus, Users } from 'lucide-react';
+import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -13,13 +14,15 @@ import {
 } from '@/components/ui/card';
 import { InviteMemberDialog } from '@/components/family/invite-member-dialog';
 import { PendingInvitationsSection } from '@/components/family/pending-invitations-section';
+import { MainHeader } from '@/components/main-header';
 import { useAuth } from '@/lib/contexts/auth-context';
 import { useLanguage } from '@/lib/contexts/language-context';
+import { t } from '@/lib/translations';
 
 function FamilySettingsContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { user } = useAuth();
+  const { user, logout, switchActiveFamily } = useAuth();
   const { language } = useLanguage();
   const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
   const autoCompleteEmail = searchParams.get('completeInvite');
@@ -30,64 +33,87 @@ function FamilySettingsContent() {
     }
   }, [user, router]);
 
+  const handleLogout = async () => {
+    try {
+      await logout();
+      toast.success(t('toast.logoutSuccess', language));
+      window.location.href = '/login';
+    } catch (error) {
+      console.error('Logout error:', error);
+      toast.error('Logout failed');
+    }
+  };
+
+  const handleSettingsClick = () => {
+    router.push('/chat');
+  };
+
   if (!user?.activeFamily) {
     return null;
   }
 
   const { activeFamily } = user;
+  // Member count not available on activeFamily - use maxMembers as fallback
+  const memberCount = 0;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-50 to-pink-50 dark:from-gray-900 dark:to-gray-800 p-4">
-      <div className="max-w-2xl mx-auto space-y-4">
-        {/* Header */}
-        <div className="flex items-center gap-4">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => router.push('/chat')}
-            className="gap-2"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            Back to Chat
-          </Button>
-        </div>
+    <div className="h-screen flex flex-col bg-background">
+      {/* Persistent Header */}
+      <MainHeader
+        familyName={activeFamily.name}
+        familyAvatar={activeFamily.avatar ?? ''}
+        memberCount={memberCount}
+        currentView="family-settings"
+        memberships={user.memberships ?? []}
+        activeFamilyId={user.activeFamilyId ?? null}
+        onSwitchFamily={switchActiveFamily}
+        onChatClick={() => router.push('/chat')}
+        onSettingsClick={handleSettingsClick}
+        onLogoutClick={handleLogout}
+        onInviteClick={() => setInviteDialogOpen(true)}
+        language={language}
+      />
 
-        {/* Family Info Card */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Users className="w-5 h-5" />
-              {activeFamily.name}
-            </CardTitle>
-            <CardDescription>
-              Family Settings and Member Management
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {/* Encrypted Invite Section (Story 1.8) */}
-            <div className="flex items-center justify-between p-4 border rounded-lg">
-              <div className="space-y-1">
-                <h3 className="font-medium">Encrypted Family Invite</h3>
-                <p className="text-sm text-muted-foreground">
-                  Send an encrypted invite to registered members
-                </p>
+      {/* Content */}
+      <div className="flex-1 overflow-y-auto bg-gradient-to-br from-purple-50 to-pink-50 dark:from-gray-900 dark:to-gray-800 p-4">
+        <div className="max-w-2xl mx-auto space-y-4">
+          {/* Family Info Card */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Users className="w-5 h-5" />
+                {activeFamily.name}
+              </CardTitle>
+              <CardDescription>
+                Family Settings and Member Management
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {/* Encrypted Invite Section (Story 1.8) */}
+              <div className="flex items-center justify-between p-4 border rounded-lg">
+                <div className="space-y-1">
+                  <h3 className="font-medium">Encrypted Family Invite</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Send an encrypted invite to registered members
+                  </p>
+                </div>
+                <Button
+                  onClick={() => setInviteDialogOpen(true)}
+                  className="gap-2"
+                >
+                  <UserPlus className="w-4 h-4" />
+                  Invite
+                </Button>
               </div>
-              <Button
-                onClick={() => setInviteDialogOpen(true)}
-                className="gap-2"
-              >
-                <UserPlus className="w-4 h-4" />
-                Invite
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
 
-        {/* Pending Invitations */}
-        <PendingInvitationsSection
-          familyId={activeFamily.id}
-          autoCompleteEmail={autoCompleteEmail}
-        />
+          {/* Pending Invitations */}
+          <PendingInvitationsSection
+            familyId={activeFamily.id}
+            autoCompleteEmail={autoCompleteEmail}
+          />
+        </div>
       </div>
 
       {/* Encrypted Invite Dialog (Story 1.8) */}
