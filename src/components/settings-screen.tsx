@@ -105,7 +105,7 @@ export function SettingsScreen({ userName, userEmail, userAvatar, familyName, fa
   return (
     <div className="h-screen flex flex-col bg-background overflow-hidden">
       {/* Header */}
-      <div className="border-b bg-card px-4 py-3 flex items-center gap-3 flex-shrink-0">
+      <div className="border-b bg-card px-4 py-3 flex items-center gap-3 flex-shrink-0 z-40">
         <Button variant="ghost" size="icon" onClick={onBack} className="text-card-foreground">
           <ArrowLeft className="w-5 h-5" />
         </Button>

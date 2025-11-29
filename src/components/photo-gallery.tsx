@@ -198,7 +198,7 @@ export function PhotoGallery({
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
-      <div className="p-4 border-b bg-card">
+      <div className="p-4 border-b bg-card flex-shrink-0 z-40">
         <div className="flex items-center justify-between mb-3">
           <div>
             <h2 className="text-lg text-foreground">{language === "ja" ? "フォトアルバム" : "Photo Album"}</h2>

@@ -181,10 +181,23 @@ export function ChatScreen({ chatName, chatAvatar, chatMembers, messages, channe
     // Find the ScrollArea viewport container
     const viewport = scrollAreaRef.current?.querySelector('[data-radix-scroll-area-viewport]');
     if (viewport) {
-      // Use requestAnimationFrame to ensure DOM has updated
+      const scrollToBottom = () => {
+        if (viewport.scrollHeight > 0) {
+          viewport.scrollTop = viewport.scrollHeight;
+        }
+      };
+
+      // Multiple attempts to handle async rendering and layout shifts
       requestAnimationFrame(() => {
-        viewport.scrollTop = viewport.scrollHeight;
+        requestAnimationFrame(scrollToBottom);
       });
+
+      // Staggered timeouts for content that renders asynchronously
+      const timeouts = [100, 300, 600].map(delay =>
+        setTimeout(scrollToBottom, delay)
+      );
+
+      return () => timeouts.forEach(clearTimeout);
     }
   }, [messages]);
 
@@ -265,7 +278,7 @@ export function ChatScreen({ chatName, chatAvatar, chatMembers, messages, channe
   return (
     <div className="h-screen flex flex-col bg-background">
       {/* Header */}
-      <div className="border-b bg-card px-4 py-3 flex items-center justify-between">
+      <div className="border-b bg-card px-4 py-3 flex items-center justify-between flex-shrink-0 z-40">
         <div className="flex items-center gap-3">
           <Avatar className="w-10 h-10">
             <AvatarImage src={chatAvatar} />
@@ -493,7 +506,7 @@ export function ChatScreen({ chatName, chatAvatar, chatMembers, messages, channe
       ) : (
         <>
           {/* Messages */}
-          <ScrollArea ref={scrollAreaRef} className="flex-1 p-4 bg-background">
+          <ScrollArea ref={scrollAreaRef} className="flex-1 min-h-0 p-4 bg-background">
         <div className="space-y-4">
           {/* Scheduled Messages Banner */}
           {scheduledMessages.length > 0 && (
@@ -659,7 +672,7 @@ export function ChatScreen({ chatName, chatAvatar, chatMembers, messages, channe
       </ScrollArea>
 
       {/* Input */}
-      <div className="border-t bg-card px-4 py-3">
+      <div className="border-t bg-card px-4 py-3 flex-shrink-0">
         <div className="flex items-center gap-2">
           <Button variant="ghost" size="icon" className="flex-shrink-0 text-card-foreground">
             <ImageIcon className="w-5 h-5" />

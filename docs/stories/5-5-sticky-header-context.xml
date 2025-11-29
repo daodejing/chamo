@@ -1,0 +1,133 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<story-context story="5-5-sticky-header" generated="2025-11-29">
+  <summary>
+    Technical context for implementing sticky header bar across all scrollable screens.
+    The header should remain fixed at the top while content scrolls beneath.
+  </summary>
+
+  <artifacts>
+    <!-- Primary Implementation Files -->
+    <artifact type="component" path="src/components/chat-screen.tsx" relevance="high">
+      <description>Main chat screen with header at lines 267-414. Current structure uses flex column layout with h-screen. Header is a div with border-b bg-card classes, not sticky.</description>
+      <key-lines>
+        <line num="266">Main container: div className="h-screen flex flex-col bg-background"</line>
+        <line num="268">Header: div className="border-b bg-card px-4 py-3 flex items-center justify-between"</line>
+        <line num="496">ScrollArea with flex-1 for message content</line>
+        <line num="662">Input area at bottom with border-t</line>
+      </key-lines>
+      <implementation-notes>
+        Header contains: family avatar, family name, member count, action buttons (photos, calendar, translation, family switcher, invite, settings, logout).
+        To make sticky: add position sticky, top-0, z-index, ensure solid background.
+      </implementation-notes>
+    </artifact>
+
+    <artifact type="component" path="src/components/settings-screen.tsx" relevance="high">
+      <description>Settings overlay screen with similar header structure at lines 107-113. Uses flex-shrink-0 on header.</description>
+      <key-lines>
+        <line num="106">Main container: div className="h-screen flex flex-col bg-background overflow-hidden"</line>
+        <line num="108">Header: div className="border-b bg-card px-4 py-3 flex items-center gap-3 flex-shrink-0"</line>
+        <line num="115">Content: div className="flex-1 overflow-y-auto"</line>
+      </key-lines>
+      <implementation-notes>
+        Settings has flex-shrink-0 on header which prevents shrinking but doesn't make it sticky.
+        Content area uses overflow-y-auto for scrolling.
+      </implementation-notes>
+    </artifact>
+
+    <artifact type="component" path="src/components/calendar-view.tsx" relevance="medium">
+      <description>Calendar view component rendered inside chat-screen when calendar mode active.</description>
+      <implementation-notes>
+        Rendered in place of chat messages (lines 467-476 of chat-screen.tsx).
+        May need internal scroll handling compatible with sticky header.
+      </implementation-notes>
+    </artifact>
+
+    <artifact type="component" path="src/components/photo-gallery.tsx" relevance="medium">
+      <description>Photo gallery component rendered inside chat-screen when photos mode active.</description>
+      <implementation-notes>
+        Rendered in place of chat messages (lines 477-493 of chat-screen.tsx).
+        May need internal scroll handling compatible with sticky header.
+      </implementation-notes>
+    </artifact>
+
+    <artifact type="styles" path="src/app/globals.css" relevance="medium">
+      <description>Global CSS with Tailwind theme variables. No z-index scale defined.</description>
+      <implementation-notes>
+        Uses CSS custom properties for colors (--background, --card, etc.).
+        May need to add z-index utilities for consistent layering.
+      </implementation-notes>
+    </artifact>
+
+    <!-- Documentation -->
+    <artifact type="spec" path="docs/tech-spec-epic-5.md" relevance="high">
+      <description>Epic 5 tech spec containing US-5.5 acceptance criteria.</description>
+      <acceptance-criteria>
+        <ac id="1">Header (family name + action icons) remains fixed/pinned at top of screen</ac>
+        <ac id="2">Content scrolls beneath the header without overlap</ac>
+        <ac id="3">Works on all scrollable screens (chat, settings, etc.)</ac>
+        <ac id="4">No visual glitches or z-index issues</ac>
+        <ac id="5">Responsive across all screen sizes</ac>
+      </acceptance-criteria>
+    </artifact>
+
+    <artifact type="doc" path="docs/PRD.md" relevance="low">
+      <description>Product requirements emphasizing usability for ages 10-80+.</description>
+      <key-points>
+        <point>App usable by users aged 10-80+ without training</point>
+        <point>Simple, intuitive communication</point>
+      </key-points>
+    </artifact>
+  </artifacts>
+
+  <patterns>
+    <pattern name="Layout Structure">
+      <description>All main screens use h-screen flex flex-col pattern. Header is first child, content area uses flex-1 with overflow handling.</description>
+      <example>
+        div.h-screen.flex.flex-col
+          div.header (border-b, bg-card)
+          div/ScrollArea.flex-1 (content)
+          div.footer (if any, border-t)
+      </example>
+    </pattern>
+
+    <pattern name="Sticky Implementation">
+      <description>Recommended CSS pattern for sticky header.</description>
+      <css>
+        .sticky-header {
+          position: sticky;
+          top: 0;
+          z-index: 40;
+          background: hsl(var(--card)); /* Ensure solid background */
+        }
+      </css>
+      <tailwind>sticky top-0 z-40 bg-card</tailwind>
+    </pattern>
+
+    <pattern name="Z-Index Scale">
+      <description>Suggested z-index hierarchy for consistent layering.</description>
+      <scale>
+        <level z="10">Floating elements within content</level>
+        <level z="40">Sticky header</level>
+        <level z="50">Dropdowns, popovers (shadcn defaults)</level>
+        <level z="100">Modals, dialogs</level>
+      </scale>
+    </pattern>
+  </patterns>
+
+  <dependencies>
+    <dependency name="shadcn/ui ScrollArea" used-in="chat-screen.tsx">
+      Uses Radix ScrollArea with [data-radix-scroll-area-viewport] for custom scroll handling.
+    </dependency>
+    <dependency name="Tailwind CSS" used-in="all">
+      Utility-first CSS framework. Sticky positioning via sticky top-0 classes.
+    </dependency>
+  </dependencies>
+
+  <testing-notes>
+    <note type="e2e">Use Playwright to scroll page and verify header visibility</note>
+    <note type="e2e">Test header icon clickability after scrolling</note>
+    <note type="visual">Check for z-index conflicts with dropdowns, modals</note>
+    <note type="responsive">Test on mobile (320px-480px), tablet (768px-1024px), desktop (1280px+)</note>
+    <note type="touch">Verify touch scrolling on mobile devices</note>
+  </testing-notes>
+</story-context>
