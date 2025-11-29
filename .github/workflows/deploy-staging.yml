@@ -15,6 +15,13 @@ on:
       - 'tsconfig.json'
       - 'codegen.ts'
       - '.github/workflows/deploy-staging.yml'
+    paths-ignore:
+      - '**/*.test.ts'
+      - '**/*.spec.ts'
+      - '**/*.e2e-spec.ts'
+      - '**/test/**'
+      - '**/tests/**'
+      - '**/__tests__/**'
   workflow_dispatch: # Allow manual trigger
 
 # Prevent concurrent deployments
