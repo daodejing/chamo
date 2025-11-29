@@ -1097,26 +1097,50 @@ export class AuthService {
       },
     });
 
+    let invite;
+    let isResend = false;
+
     if (existingInvite) {
-      throw new ConflictException(
-        'A pending registration invite already exists for this email',
-      );
+      // Check rate limit: max 3 resends per hour
+      const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
+      const resendsInLastHour = existingInvite.lastResendAt && existingInvite.lastResendAt > oneHourAgo
+        ? existingInvite.resendCount
+        : 0;
+
+      if (resendsInLastHour >= 3) {
+        throw new ConflictException(
+          'Too many resend attempts. Please wait before trying again.',
+        );
+      }
+
+      // Update existing invite: reset expiry, increment resend count
+      invite = await this.prisma.invite.update({
+        where: { id: existingInvite.id },
+        data: {
+          expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // Reset to 30 days
+          resendCount: existingInvite.lastResendAt && existingInvite.lastResendAt > oneHourAgo
+            ? existingInvite.resendCount + 1
+            : 1, // Reset count if outside the hour window
+          lastResendAt: new Date(),
+        },
+      });
+      isResend = true;
+    } else {
+      // Generate unique invite code
+      const inviteCode = this.generateInviteCode();
+
+      // Create the pending registration invite (no encryption keys yet)
+      invite = await this.prisma.invite.create({
+        data: {
+          familyId,
+          inviterId,
+          inviteeEmail: normalizedEmail,
+          inviteCode,
+          status: 'PENDING_REGISTRATION',
+          expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days
+        },
+      });
     }
-
-    // Generate unique invite code
-    const inviteCode = this.generateInviteCode();
-
-    // Create the pending registration invite (no encryption keys yet)
-    const invite = await this.prisma.invite.create({
-      data: {
-        familyId,
-        inviterId,
-        inviteeEmail: normalizedEmail,
-        inviteCode,
-        status: 'PENDING_REGISTRATION',
-        expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days
-      },
-    });
 
     const result = {
       invite: {
@@ -1126,7 +1150,9 @@ export class AuthService {
         acceptedAt: invite.acceptedAt ?? undefined,
       },
       inviteCode: invite.inviteCode,
-      message: `Registration invitation created for ${inviteeEmail}. They must register before you can complete the invite.`,
+      message: isResend
+        ? `Registration invitation resent to ${inviteeEmail}.`
+        : `Registration invitation created for ${inviteeEmail}. They must register before you can complete the invite.`,
     };
 
     if (membership?.family?.name && membership?.user?.name) {

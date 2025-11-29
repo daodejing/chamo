@@ -302,6 +302,8 @@ model Invite {
   status             InviteStatus @default(PENDING)
   expiresAt          DateTime
   acceptedAt         DateTime?
+  resendCount        Int          @default(0) // Track resend attempts for rate limiting
+  lastResendAt       DateTime?    // Timestamp of last resend for rate limiting window
   createdAt          DateTime     @default(now())
   updatedAt          DateTime     @updatedAt
 
