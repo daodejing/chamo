@@ -1,0 +1,141 @@
+<story-context id="story-1.12-keypair-regeneration" v="1.0">
+  <metadata>
+    <epicId>1</epicId>
+    <storyId>12</storyId>
+    <title>User Keypair Regeneration</title>
+    <status>ready</status>
+    <generatedAt>2025-11-29</generatedAt>
+    <generator>Manual Context Generation</generator>
+    <sourceStoryPath>docs/stories/story-1.12-keypair-regeneration.md</sourceStoryPath>
+  </metadata>
+
+  <story>
+    <asA>user with missing encryption keys</asA>
+    <iWant>to regenerate my keypair automatically or manually</iWant>
+    <soThat>I can send and receive family invites again without losing access to existing messages</soThat>
+    <tasks>
+      <task id="1">Backend - GraphQL mutation (updateUserPublicKey, invite invalidation with invalidatedAt)</task>
+      <task id="2">Frontend - KeyRegenerationModal with trigger prop (auto/manual)</task>
+      <task id="3">Frontend - Detection integration (login + visibilitychange)</task>
+      <task id="4">Frontend - Manual trigger in Account Settings</task>
+      <task id="5">Testing suite</task>
+    </tasks>
+  </story>
+
+  <acceptanceCriteria>
+    <ac id="1">Detection on login and tab focus (visibilitychange)</ac>
+    <ac id="2">Context-aware messaging (auto: restore, manual: regenerate)</ac>
+    <ac id="3">Client-side X25519 keypair generation via nacl.box.keyPair()</ac>
+    <ac id="4">Local IndexedDB storage before server sync</ac>
+    <ac id="5">Server public key update via GraphQL mutation</ac>
+    <ac id="6">Pending invite invalidation with invalidatedAt timestamp</ac>
+    <ac id="7">Success feedback with invalidated invite count</ac>
+    <ac id="8">Error recovery with rollback</ac>
+    <ac id="9">Manual trigger in Account Settings</ac>
+  </acceptanceCriteria>
+
+  <artifacts>
+    <docs>
+      <doc path="docs/stories/story-1.12-keypair-regeneration.md" title="Story Definition" section="Full Story" snippet="Complete story with ACs, tasks, and dev notes for keypair regeneration feature" />
+      <doc path="docs/solution-architecture.md" title="Solution Architecture" section="E2EE Implementation" snippet="Describes X25519 keypair usage for invite encryption and client-side key storage patterns" />
+    </docs>
+
+    <code>
+      <!-- Core crypto modules -->
+      <file path="src/lib/crypto/keypair.ts" kind="crypto-utility" symbol="generateKeypair" lines="92-99" reason="Existing keypair generation using nacl.box.keyPair() - reuse for regeneration" />
+      <file path="src/lib/crypto/keypair.ts" kind="crypto-utility" symbol="encodePublicKey" lines="72-79" reason="Encode public key to base64 for server transmission" />
+      <file path="src/lib/crypto/secure-storage.ts" kind="crypto-storage" symbol="storePrivateKey" lines="176-199" reason="Store regenerated private key in IndexedDB" />
+      <file path="src/lib/crypto/secure-storage.ts" kind="crypto-storage" symbol="hasPrivateKey" lines="215-220" reason="Detection function - check if key exists" />
+      <file path="src/lib/crypto/secure-storage.ts" kind="crypto-storage" symbol="getPrivateKey" lines="201-213" reason="Retrieve private key for invite operations" />
+
+      <!-- Invite encryption (uses keypair) -->
+      <file path="src/lib/e2ee/invite-encryption.ts" kind="crypto-service" symbol="encryptFamilyKeyForRecipient" lines="23-61" reason="Shows how sender's private key is used - regeneration affects this" />
+      <file path="src/lib/e2ee/invite-encryption.ts" kind="crypto-service" symbol="decryptFamilyKey" lines="74-105" reason="Shows how recipient's private key is used - regeneration affects pending invites" />
+
+      <!-- Auth context (detection location) -->
+      <file path="src/lib/contexts/auth-context.tsx" kind="react-context" symbol="AuthProviderInner" lines="159-640" reason="Contains key detection logic (lines 231-274), modal state, and LostKeyModal integration" />
+      <file path="src/lib/contexts/auth-context.tsx" kind="react-context" symbol="hasPrivateKey check" lines="243-267" reason="Current detection logic - needs visibilitychange addition" />
+
+      <!-- Current modal to replace -->
+      <file path="src/components/auth/lost-key-modal.tsx" kind="react-component" symbol="LostKeyModal" lines="14-47" reason="Current warning modal - will be replaced by KeyRegenerationModal" />
+      <file path="src/components/auth/lost-key-modal.tsx" kind="utility" symbol="hasSeenLostKeyModal" lines="58-70" reason="Flag management functions to reuse/adapt" />
+      <file path="src/components/auth/lost-key-modal.tsx" kind="utility" symbol="clearLostKeyModalFlag" lines="72-90" reason="Flag clearing for success state" />
+
+      <!-- Settings screen (manual trigger location) -->
+      <file path="src/components/settings-screen.tsx" kind="react-component" symbol="Security Card" lines="696-730" reason="Account Settings section where manual regeneration button will be added" />
+
+      <!-- Backend patterns -->
+      <file path="apps/backend/src/auth/auth.resolver.ts" kind="resolver" symbol="AuthResolver" lines="33-265" reason="Pattern for adding new GraphQL mutations with GqlAuthGuard" />
+      <file path="apps/backend/prisma/schema.prisma" kind="schema" symbol="Invite model" lines="292-313" reason="Invite model - needs invalidatedAt column addition" />
+      <file path="apps/backend/prisma/schema.prisma" kind="schema" symbol="InviteStatus enum" lines="23-29" reason="May need INVALIDATED status added to enum" />
+      <file path="apps/backend/prisma/schema.prisma" kind="schema" symbol="User model" lines="31-69" reason="User model with publicKey field that will be updated" />
+    </code>
+
+    <dependencies>
+      <node>
+        <package name="tweetnacl" version="^1.0.3" reason="X25519 keypair generation via nacl.box.keyPair()" />
+        <package name="dexie" version="^4.0.0" reason="IndexedDB wrapper for secure key storage" />
+        <package name="dexie-encrypted" version="^1.4.0" reason="Encryption middleware for IndexedDB" />
+        <package name="@apollo/client" version="^3.8.0" reason="GraphQL client for mutation calls" />
+        <package name="@nestjs/graphql" version="^12.0.0" reason="Backend GraphQL decorators" />
+        <package name="@prisma/client" version="^5.0.0" reason="Database ORM for invite updates" />
+      </node>
+    </dependencies>
+  </artifacts>
+
+  <interfaces>
+    <interface name="generateKeypair" kind="function" path="src/lib/crypto/keypair.ts">
+      <signature>function generateKeypair(): { publicKey: string; secretKey: Uint8Array }</signature>
+      <note>Returns base64-encoded public key and raw Uint8Array secret key</note>
+    </interface>
+    <interface name="storePrivateKey" kind="function" path="src/lib/crypto/secure-storage.ts">
+      <signature>async function storePrivateKey(userId: string, secretKey: Uint8Array): Promise&lt;void&gt;</signature>
+      <note>Stores in encrypted IndexedDB, throws on quota exceeded</note>
+    </interface>
+    <interface name="hasPrivateKey" kind="function" path="src/lib/crypto/secure-storage.ts">
+      <signature>async function hasPrivateKey(userId: string): Promise&lt;boolean&gt;</signature>
+      <note>Detection function for triggering regeneration flow</note>
+    </interface>
+    <interface name="updateUserPublicKey" kind="GraphQL mutation" path="apps/backend/src/auth/auth.resolver.ts">
+      <signature>mutation updateUserPublicKey($publicKey: String!): UpdatePublicKeyResponse</signature>
+      <note>NEW - needs to be created. Returns { success: Boolean, invalidatedInviteCount: Int }</note>
+    </interface>
+  </interfaces>
+
+  <constraints>
+    <constraint type="security">Private key NEVER leaves device - E2EE requirement</constraint>
+    <constraint type="security">Rate limit regeneration to 3 per hour per user</constraint>
+    <constraint type="atomicity">Local storage must succeed before server update; rollback on failure</constraint>
+    <constraint type="ux">Differentiate messaging: auto trigger = "restore", manual trigger = "regenerate"</constraint>
+    <constraint type="pattern">Follow existing modal patterns in src/components/auth/</constraint>
+    <constraint type="pattern">Follow existing GraphQL mutation patterns in auth.resolver.ts</constraint>
+    <constraint type="i18n">All user-facing strings must use translation system (src/lib/translations.ts)</constraint>
+    <constraint type="migration">Add invalidatedAt column to Invite model via Prisma migration</constraint>
+  </constraints>
+
+  <tests>
+    <standards>
+      Unit tests with Vitest for crypto operations. Integration tests for GraphQL mutations.
+      E2E tests with Playwright for Settings manual trigger path.
+      Follow existing test patterns in tests/unit/ and tests/e2e/.
+    </standards>
+    <locations>
+      <location>tests/unit/crypto/</location>
+      <location>tests/unit/auth/</location>
+      <location>tests/integration/auth/</location>
+      <location>tests/e2e/</location>
+      <location>apps/backend/src/**/*.spec.ts</location>
+    </locations>
+    <ideas>
+      <idea ac="1">Test detection triggers on login and visibilitychange event</idea>
+      <idea ac="2">Test modal displays correct messaging based on trigger prop</idea>
+      <idea ac="3">Test nacl.box.keyPair() generates valid 32-byte keys</idea>
+      <idea ac="4">Test storePrivateKey succeeds before mutation is called</idea>
+      <idea ac="5">Test updateUserPublicKey mutation updates users.publicKey</idea>
+      <idea ac="6">Test pending invites get INVALIDATED status with invalidatedAt timestamp</idea>
+      <idea ac="7">Test success toast shows invalidated invite count</idea>
+      <idea ac="8">Test local key is deleted if server update fails</idea>
+      <idea ac="9">Test Settings button opens modal with trigger='manual'</idea>
+    </ideas>
+  </tests>
+</story-context>
