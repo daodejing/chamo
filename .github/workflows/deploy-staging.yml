@@ -3,6 +3,18 @@ name: Deploy to Staging
 on:
   push:
     branches: [main]
+    paths:
+      - 'src/**'
+      - 'apps/**'
+      - 'public/**'
+      - 'scripts/**'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+      - 'next.config.*'
+      - 'tailwind.config.*'
+      - 'tsconfig.json'
+      - 'codegen.ts'
+      - '.github/workflows/deploy-staging.yml'
   workflow_dispatch: # Allow manual trigger
 
 # Prevent concurrent deployments
