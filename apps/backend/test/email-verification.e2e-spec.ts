@@ -19,6 +19,9 @@ describe('AuthService verifyEmail (integration)', () => {
       findUnique: jest.fn(),
       update: jest.fn(),
     },
+    invite: {
+      findMany: jest.fn().mockResolvedValue([]),
+    },
     $transaction: jest.fn(),
   };
 
@@ -43,6 +46,7 @@ describe('AuthService verifyEmail (integration)', () => {
         emailVerificationToken: prismaMock.emailVerificationToken,
       }),
     );
+    prismaMock.invite.findMany.mockResolvedValue([]);
 
     const moduleRef = await Test.createTestingModule({
       providers: [
@@ -66,6 +70,7 @@ describe('AuthService verifyEmail (integration)', () => {
       usedAt: null,
       user: {
         id: 'user-1',
+        email: 'test@example.com',
         emailVerified: false,
         activeFamilyId: 'family-1',
       },
