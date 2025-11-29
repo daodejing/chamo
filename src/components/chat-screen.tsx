@@ -173,12 +173,18 @@ export function ChatScreen({ chatName, chatAvatar, chatMembers, messages, channe
   const [showCalendar, setShowCalendar] = useState(false);
   const [showPhotos, setShowPhotos] = useState(false);
   const [isInviteDialogOpen, setIsInviteDialogOpen] = useState(false);
-  const scrollRef = useRef<HTMLDivElement>(null);
+  const scrollAreaRef = useRef<HTMLDivElement>(null);
   const translationEnabled = autoTranslate && showTranslation;
 
+  // Auto-scroll to bottom when messages change
   useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollIntoView({ behavior: "smooth" });
+    // Find the ScrollArea viewport container
+    const viewport = scrollAreaRef.current?.querySelector('[data-radix-scroll-area-viewport]');
+    if (viewport) {
+      // Use requestAnimationFrame to ensure DOM has updated
+      requestAnimationFrame(() => {
+        viewport.scrollTop = viewport.scrollHeight;
+      });
     }
   }, [messages]);
 
@@ -487,7 +493,7 @@ export function ChatScreen({ chatName, chatAvatar, chatMembers, messages, channe
       ) : (
         <>
           {/* Messages */}
-          <ScrollArea className="flex-1 p-4 bg-background">
+          <ScrollArea ref={scrollAreaRef} className="flex-1 p-4 bg-background">
         <div className="space-y-4">
           {/* Scheduled Messages Banner */}
           {scheduledMessages.length > 0 && (
@@ -649,7 +655,6 @@ export function ChatScreen({ chatName, chatAvatar, chatMembers, messages, channe
               </div>
             </div>
           ))}
-          <div ref={scrollRef} />
         </div>
       </ScrollArea>
 
