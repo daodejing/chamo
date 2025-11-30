@@ -317,8 +317,12 @@ function AuthProviderInner({ children }: { children: React.ReactNode}) {
     const payload = data?.register;
     if (payload) {
       await storePrivateKeyOrThrow(payload.userId, secretKey);
-      // User must verify email before logging in
-      // After verification, user can create or join a family
+
+      // If email verification is not required (e.g., in test environments),
+      // automatically log the user in
+      if (!payload.requiresEmailVerification) {
+        await login({ email: input.email, password: input.password });
+      }
 
       return {
         email: input.email,
@@ -462,11 +466,15 @@ function AuthProviderInner({ children }: { children: React.ReactNode}) {
     const payload = data?.joinFamily;
     if (payload) {
       await storePrivateKeyOrThrow(payload.userId, secretKey);
-      // New flow: join family returns EmailVerificationResponse
-      // User must verify email before logging in
       // Store the family key temporarily in localStorage for after verification (only for encrypted invites)
       if (base64Key) {
         persistPendingFamilySecrets(base64Key, code);
+      }
+
+      // If email verification is not required (e.g., in test environments),
+      // automatically log the user in
+      if (!payload.requiresEmailVerification) {
+        await login({ email: input.email, password: input.password });
       }
 
       return {

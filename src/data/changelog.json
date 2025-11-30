@@ -5,11 +5,18 @@
       "date": "2025-11-29",
       "changes": {
         "features": [
+          "Allow resending registration invites with rate limiting (invite)",
           "Add About screen with version and changelog (Story 5.6) (settings)",
           "Implement sticky header and fix scroll behavior (Story 5.5) (ui)"
         ],
-        "fixes": [],
-        "improvements": []
+        "fixes": [
+          "Skip deployment for test-only changes (cd)",
+          "Add missing mocks for email verification e2e test (test)",
+          "Resolve CI test failures (ci)"
+        ],
+        "improvements": [
+          "Extract MainHeader component and lift state for persistent header (ui)"
+        ]
       }
     }
   ]

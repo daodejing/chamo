@@ -2,7 +2,7 @@
 
 import { Suspense, useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { UserPlus, Users } from 'lucide-react';
+import { UserPlus, Users, Mail } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import {
@@ -13,6 +13,7 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { InviteMemberDialog } from '@/components/family/invite-member-dialog';
+import { EmailBoundInviteDialog } from '@/components/family/email-bound-invite-dialog';
 import { PendingInvitationsSection } from '@/components/family/pending-invitations-section';
 import { MainHeader } from '@/components/main-header';
 import { useAuth } from '@/lib/contexts/auth-context';
@@ -22,16 +23,18 @@ import { t } from '@/lib/translations';
 function FamilySettingsContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { user, logout, switchActiveFamily } = useAuth();
+  const { user, loading, logout, switchActiveFamily } = useAuth();
   const { language } = useLanguage();
   const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
+  const [emailInviteDialogOpen, setEmailInviteDialogOpen] = useState(false);
   const autoCompleteEmail = searchParams.get('completeInvite');
 
   useEffect(() => {
-    if (!user?.activeFamily) {
+    // Wait for auth loading to complete before checking activeFamily
+    if (!loading && !user?.activeFamily) {
       router.push('/family-setup');
     }
-  }, [user, router]);
+  }, [user, loading, router]);
 
   const handleLogout = async () => {
     try {
@@ -48,7 +51,8 @@ function FamilySettingsContent() {
     router.push('/chat');
   };
 
-  if (!user?.activeFamily) {
+  // Show nothing while loading or if no active family
+  if (loading || !user?.activeFamily) {
     return null;
   }
 
@@ -105,6 +109,24 @@ function FamilySettingsContent() {
                   Invite
                 </Button>
               </div>
+
+              {/* Email-Bound Invite Section (Story 1.5/1.13) */}
+              <div className="flex items-center justify-between p-4 border rounded-lg">
+                <div className="space-y-1">
+                  <h3 className="font-medium">{t('emailInvite.title', language)}</h3>
+                  <p className="text-sm text-muted-foreground">
+                    {t('emailInvite.description', language, { familyName: activeFamily.name })}
+                  </p>
+                </div>
+                <Button
+                  onClick={() => setEmailInviteDialogOpen(true)}
+                  className="gap-2"
+                  variant="secondary"
+                >
+                  <Mail className="w-4 h-4" />
+                  Email-Bound Invite
+                </Button>
+              </div>
             </CardContent>
           </Card>
 
@@ -121,6 +143,13 @@ function FamilySettingsContent() {
         open={inviteDialogOpen}
         onOpenChange={setInviteDialogOpen}
         familyId={activeFamily.id}
+        familyName={activeFamily.name}
+      />
+
+      {/* Email-Bound Invite Dialog (Story 1.5/1.13) */}
+      <EmailBoundInviteDialog
+        open={emailInviteDialogOpen}
+        onOpenChange={setEmailInviteDialogOpen}
         familyName={activeFamily.name}
       />
     </div>

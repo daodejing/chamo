@@ -226,6 +226,7 @@ export class AuthResolver {
   /**
    * Story 1.5: Create email-bound invite
    * Generates secure invite code bound to specific email address
+   * Story 1.13: Added inviteeLanguage parameter for email language preference
    */
   @Mutation(() => InviteResponse)
   @UseGuards(GqlAuthGuard)
@@ -233,7 +234,7 @@ export class AuthResolver {
     @CurrentUser() user: User,
     @Args('input') input: CreateInviteInput,
   ): Promise<InviteResponse> {
-    return this.authService.createInvite(user.id, input.inviteeEmail);
+    return this.authService.createInvite(user.id, input.inviteeEmail, input.inviteeLanguage);
   }
 
   @Query(() => [InviteType])

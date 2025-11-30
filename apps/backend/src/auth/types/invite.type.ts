@@ -85,6 +85,7 @@ export class AcceptInviteResponse {
 /**
  * Response type for Story 1.5 email-bound invite creation
  * Simpler than CreateInviteResponse - only returns essential fields
+ * Story 1.13: Added inviteeLanguage field
  */
 @ObjectType()
 export class InviteResponse {
@@ -93,6 +94,9 @@ export class InviteResponse {
 
   @Field()
   inviteeEmail: string;
+
+  @Field({ description: 'ISO 639-1 language code for invite email' })
+  inviteeLanguage: string;
 
   @Field()
   expiresAt: Date;

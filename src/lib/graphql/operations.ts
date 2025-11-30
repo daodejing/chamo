@@ -210,6 +210,7 @@ export const CREATE_INVITE_MUTATION = gql`
     createInvite(input: $input) {
       inviteCode
       inviteeEmail
+      inviteeLanguage
       expiresAt
     }
   }

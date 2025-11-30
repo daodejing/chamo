@@ -1,5 +1,5 @@
 import { Field, InputType } from '@nestjs/graphql';
-import { IsEmail, IsNotEmpty, IsOptional, IsString, ValidateNested } from 'class-validator';
+import { IsEmail, IsNotEmpty, IsOptional, IsString, ValidateNested, IsArray } from 'class-validator';
 import { Type } from 'class-transformer';
 
 @InputType()
@@ -42,4 +42,40 @@ export class TestCreateMessagingFixtureInput {
   @IsOptional()
   @IsString()
   channelName?: string;
+}
+
+/**
+ * Input for creating a family admin fixture (single user with family)
+ */
+@InputType()
+export class TestCreateFamilyAdminFixtureInput {
+  @Field(() => TestUserSetupInput)
+  @ValidateNested()
+  @Type(() => TestUserSetupInput)
+  admin: TestUserSetupInput;
+
+  @Field()
+  @IsNotEmpty()
+  familyName: string;
+}
+
+/**
+ * Input for cleaning up test data
+ */
+@InputType()
+export class TestCleanupInput {
+  @Field(() => [String], { nullable: true })
+  @IsOptional()
+  @IsArray()
+  userIds?: string[];
+
+  @Field(() => [String], { nullable: true })
+  @IsOptional()
+  @IsArray()
+  familyIds?: string[];
+
+  @Field(() => [String], { nullable: true, description: 'Email patterns to match (e.g., test-*@example.com)' })
+  @IsOptional()
+  @IsArray()
+  emailPatterns?: string[];
 }

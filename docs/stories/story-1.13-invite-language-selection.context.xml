@@ -1,0 +1,224 @@
+<story-context id="bmad/bmm/workflows/4-implementation/story-context/template" v="1.0">
+  <metadata>
+    <epicId>1</epicId>
+    <storyId>13</storyId>
+    <title>Invite Language Selection</title>
+    <status>ready-for-dev</status>
+    <generatedAt>2025-11-29</generatedAt>
+    <generator>BMAD Story Context Workflow</generator>
+    <sourceStoryPath>docs/stories/story-1.13-invite-language-selection.md</sourceStoryPath>
+  </metadata>
+
+  <story>
+    <asA>family admin inviting someone who is not yet registered</asA>
+    <iWant>to specify their preferred UI language when creating the invite</iWant>
+    <soThat>they receive the registration invite email in their native language rather than defaulting to English</soThat>
+    <tasks>
+      <task id="1" ac="AC2">Database Schema Update - Add inviteeLanguage column to FamilyInvite</task>
+      <task id="2" ac="AC2,AC6">Backend GraphQL API Updates - CreateInviteInput, InviteResponse, validation</task>
+      <task id="3" ac="AC3,AC4">Backend Email Language Selection Logic - sendRegistrationInviteEmail with language</task>
+      <task id="4" ac="AC5">Backend Email Template Translations - 20+ language support</task>
+      <task id="5" ac="AC1">Frontend Language Selector in Invite Dialog</task>
+      <task id="6" ac="AC6">Frontend GraphQL Operations Update</task>
+      <task id="7" ac="AC1">Frontend Translation Keys</task>
+      <task id="8" ac="AC7">Backend Set User Preference on Registration</task>
+      <task id="9" ac="All">Unit Tests</task>
+      <task id="10" ac="All">Integration Tests</task>
+      <task id="11" ac="AC1,AC3,AC7">E2E Tests</task>
+    </tasks>
+  </story>
+
+  <acceptanceCriteria>
+    <ac id="1" title="Language Selection in Invite UI">
+      <criterion>Email-bound invite dialog shows language selector dropdown</criterion>
+      <criterion>Language selector offers 20+ languages (en, ja, es, fr, de, zh, ko, pt, ru, ar, it, nl, pl, tr, vi, th, id, hi, sv, no)</criterion>
+      <criterion>Default selection is inviter's current UI language</criterion>
+      <criterion>Language selection clearly labeled with help text</criterion>
+    </ac>
+    <ac id="2" title="Backend Store Language Preference">
+      <criterion>FamilyInvite table extended with inviteeLanguage column (VARCHAR, default 'en')</criterion>
+      <criterion>createInvite mutation accepts optional inviteeLanguage parameter</criterion>
+      <criterion>Language code validated against supported languages enum</criterion>
+      <criterion>Prisma migration generated and applied</criterion>
+    </ac>
+    <ac id="3" title="Registration Invite Email Uses Specified Language">
+      <criterion>Backend reads inviteeLanguage from invite record when sending email</criterion>
+      <criterion>Email template rendered in specified language</criterion>
+      <criterion>Email subject line translated</criterion>
+      <criterion>Email body content (greeting, instructions, CTA) translated</criterion>
+    </ac>
+    <ac id="4" title="Registered User Lookup">
+      <criterion>When admin invites already-registered user, use their existing preferredLanguage</criterion>
+      <criterion>No language selector needed for already-registered users (backend handles)</criterion>
+    </ac>
+    <ac id="5" title="Email Templates Support Multiple Languages">
+      <criterion>Registration invite email template supports all 20+ languages</criterion>
+      <criterion>Translations stored in backend (inline or separate files)</criterion>
+      <criterion>Fallback to English if language not available</criterion>
+    </ac>
+    <ac id="6" title="GraphQL API Updates">
+      <criterion>CreateInviteInput includes optional inviteeLanguage: String</criterion>
+      <criterion>InviteResponse includes inviteeLanguage field</criterion>
+      <criterion>Validation rejects invalid language codes</criterion>
+    </ac>
+    <ac id="7" title="Set New User's Language Preference on Registration">
+      <criterion>When unregistered user registers via invite, set their preferredLanguage from invite's inviteeLanguage</criterion>
+      <criterion>User's first login uses their preferred language</criterion>
+      <criterion>Subsequent emails use this preference</criterion>
+      <criterion>Default to 'en' if inviteeLanguage null/missing</criterion>
+    </ac>
+  </acceptanceCriteria>
+
+  <artifacts>
+    <docs>
+      <doc path="docs/tech-spec-epic-1.md" title="Epic 1 Technical Specification" section="User Onboarding">
+        Epic 1 covers user registration, family creation, and invite flows. Story 1.13 extends the invite flow from Story 1.5.
+      </doc>
+      <doc path="docs/solution-architecture.md" title="Solution Architecture" section="Backend Patterns">
+        Defines NestJS GraphQL patterns, Prisma ORM usage, and service layer conventions used in auth.service.ts.
+      </doc>
+      <doc path="docs/stories/1-5-email-bound-invites.md" title="Story 1.5: Email-Bound Invites" section="Full Story">
+        Baseline implementation for email-bound invites. Story 1.13 extends createInvite to accept language parameter.
+      </doc>
+      <doc path="docs/stories/story-5.4.md" title="Story 5.4: Customize Language Settings" section="Full Story">
+        Language infrastructure including TranslationLanguage type (20+ languages) and preferredLanguage user preference.
+      </doc>
+    </docs>
+
+    <code>
+      <file path="apps/backend/prisma/schema.prisma" kind="schema" symbol="FamilyInvite" lines="271-290" reason="Schema to modify: add inviteeLanguage column">
+        FamilyInvite model stores email-bound invites. Need to add inviteeLanguage String @default("en") @db.VarChar(5) field.
+      </file>
+      <file path="apps/backend/src/auth/dto/create-invite.input.ts" kind="dto" symbol="CreateInviteInput" lines="1-15" reason="DTO to modify: add optional inviteeLanguage field">
+        Current DTO only has inviteeEmail. Need to add @Field(() => String, { nullable: true }) inviteeLanguage?: string with IsOptional() and IsIn() validators.
+      </file>
+      <file path="apps/backend/src/auth/types/invite.type.ts" kind="type" symbol="InviteResponse" lines="89-99" reason="Type to modify: add inviteeLanguage field">
+        Response type for createInvite. Need to add @Field() inviteeLanguage: string field.
+      </file>
+      <file path="apps/backend/src/auth/auth.service.ts" kind="service" symbol="createInvite" lines="1262-1337" reason="Service method to modify: accept and store inviteeLanguage">
+        createInvite method creates email-bound invites. Need to accept inviteeLanguage parameter and include in Prisma create.
+      </file>
+      <file path="apps/backend/src/auth/auth.service.ts" kind="service" symbol="joinFamily" lines="347-424" reason="Service method to modify: set user preferredLanguage from invite">
+        joinFamily registers new users via invite. Need to read inviteeLanguage from emailBoundInvite and set on new user's preferences.
+      </file>
+      <file path="apps/backend/src/email/email.service.ts" kind="service" symbol="sendRegistrationInviteEmail" lines="201-246" reason="Service method to modify: accept language parameter">
+        Sends registration invite emails. Need to add language parameter and translate email content based on it.
+      </file>
+      <file path="src/components/family/email-bound-invite-dialog.tsx" kind="component" symbol="EmailBoundInviteDialog" lines="1-238" reason="Component to modify: add language selector dropdown">
+        Frontend invite dialog. Need to add language dropdown (reuse TranslationLanguageSelector pattern), default to current UI language, pass to mutation.
+      </file>
+      <file path="src/components/settings/translation-language-selector.tsx" kind="component" symbol="TranslationLanguageSelector" lines="1-148" reason="Reference component: language selector pattern and getLanguageOptions">
+        Contains TranslationLanguage type and getLanguageOptions function. Reuse for invite language selector.
+      </file>
+      <file path="src/lib/graphql/operations.ts" kind="graphql" symbol="CREATE_INVITE_MUTATION" lines="208-216" reason="Mutation to modify: add inviteeLanguage variable">
+        GraphQL mutation for creating invites. Need to add inviteeLanguage to input variables.
+      </file>
+      <file path="src/lib/translations.ts" kind="translations" symbol="translations" lines="1-100" reason="Translations to modify: add invite language selector labels">
+        Frontend translation file. Need to add keys for language selector label and help text.
+      </file>
+    </code>
+
+    <dependencies>
+      <ecosystem name="node">
+        <package name="@nestjs/graphql" version="^12.0.0" />
+        <package name="@prisma/client" version="^5.0.0" />
+        <package name="class-validator" version="^0.14.0" />
+        <package name="@getbrevo/brevo" version="^2.0.0" />
+        <package name="@apollo/client" version="^3.8.0" />
+        <package name="react" version="^19.0.0" />
+        <package name="next" version="^15.0.0" />
+      </ecosystem>
+    </dependencies>
+  </artifacts>
+
+  <constraints>
+    <constraint type="language-codes">Use ISO 639-1 codes. Supported: en, ja, es, fr, de, zh, ko, pt, ru, ar, it, nl, pl, tr, vi, th, id, hi, sv, no</constraint>
+    <constraint type="validation">Reject invalid language codes with class-validator @IsIn() decorator</constraint>
+    <constraint type="default">Default inviteeLanguage to 'en' if not provided</constraint>
+    <constraint type="registered-user">For already-registered users, use their existing preferredLanguage from profile (ignore passed inviteeLanguage)</constraint>
+    <constraint type="email-fallback">Fallback to English email template if specified language not available</constraint>
+    <constraint type="translations">All frontend text must use translation system (CLAUDE.md requirement)</constraint>
+    <constraint type="prisma-pattern">Follow existing Prisma schema patterns for FamilyInvite model</constraint>
+    <constraint type="nestjs-pattern">Follow existing NestJS GraphQL patterns in auth module</constraint>
+  </constraints>
+
+  <interfaces>
+    <interface name="CreateInviteInput" kind="graphql-input" path="apps/backend/src/auth/dto/create-invite.input.ts">
+      <signature>
+input CreateInviteInput {
+  inviteeEmail: String!
+  inviteeLanguage: String  # NEW: Optional, defaults to 'en', validated against supported languages
+}
+      </signature>
+    </interface>
+    <interface name="InviteResponse" kind="graphql-type" path="apps/backend/src/auth/types/invite.type.ts">
+      <signature>
+type InviteResponse {
+  inviteCode: String!
+  inviteeEmail: String!
+  inviteeLanguage: String!  # NEW: Language code used for this invite
+  expiresAt: DateTime!
+}
+      </signature>
+    </interface>
+    <interface name="createInvite" kind="service-method" path="apps/backend/src/auth/auth.service.ts">
+      <signature>
+async createInvite(
+  userId: string,
+  inviteeEmail: string,
+  inviteeLanguage?: string  // NEW: Optional language code, defaults to 'en'
+): Promise&lt;InviteResponse&gt;
+      </signature>
+    </interface>
+    <interface name="sendRegistrationInviteEmail" kind="service-method" path="apps/backend/src/email/email.service.ts">
+      <signature>
+async sendRegistrationInviteEmail(
+  inviteeEmail: string,
+  familyName: string,
+  inviterName: string,
+  language?: string  // NEW: Optional language code for email content, defaults to 'en'
+): Promise&lt;void&gt;
+      </signature>
+    </interface>
+    <interface name="TranslationLanguage" kind="typescript-type" path="src/components/settings/translation-language-selector.tsx">
+      <signature>
+export type TranslationLanguage =
+  | "en" | "ja" | "es" | "fr" | "de" | "zh" | "ko" | "pt"
+  | "ru" | "ar" | "it" | "nl" | "pl" | "tr" | "vi" | "th"
+  | "id" | "hi" | "sv" | "no";
+      </signature>
+    </interface>
+  </interfaces>
+
+  <tests>
+    <standards>
+      Testing follows Jest for backend (unit + integration) and Playwright for E2E.
+      Backend tests in apps/backend/test/ and apps/backend/src/**/*.spec.ts.
+      E2E tests in tests/e2e/.
+      Mock EmailService for integration tests.
+      Test language validation with valid/invalid codes.
+      Test email content translation function with multiple languages.
+    </standards>
+    <locations>
+      <location>apps/backend/src/**/*.spec.ts</location>
+      <location>apps/backend/test/*.e2e-spec.ts</location>
+      <location>tests/e2e/*.spec.ts</location>
+    </locations>
+    <ideas>
+      <idea ac="AC1">Test language selector renders with 20+ options in invite dialog</idea>
+      <idea ac="AC1">Test default language matches inviter's current UI language</idea>
+      <idea ac="AC2">Test createInvite stores inviteeLanguage in FamilyInvite record</idea>
+      <idea ac="AC2">Test language validation rejects invalid codes</idea>
+      <idea ac="AC2">Test language defaults to 'en' when not provided</idea>
+      <idea ac="AC3">Test sendRegistrationInviteEmail renders content in specified language</idea>
+      <idea ac="AC3">Test email subject line is translated</idea>
+      <idea ac="AC4">Test registered user invite uses their profile preferredLanguage</idea>
+      <idea ac="AC5">Test fallback to English for unsupported language code</idea>
+      <idea ac="AC6">Test GraphQL mutation accepts inviteeLanguage variable</idea>
+      <idea ac="AC6">Test InviteResponse includes inviteeLanguage field</idea>
+      <idea ac="AC7">Test joinFamily sets new user's preferredLanguage from invite</idea>
+      <idea ac="AC7">Test verification email uses user's new preferredLanguage</idea>
+      <idea ac="AC7">Test preferredLanguage defaults to 'en' if invite has no language</idea>
+    </ideas>
+  </tests>
+</story-context>

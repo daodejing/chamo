@@ -15,6 +15,11 @@ import { TranslationThrottlerGuard } from './translation/translation-throttler.g
 import { EmailModule } from './email/email.module';
 import { TestSupportModule } from './test-support/test-support.module';
 
+// Throttler limits - much higher for test environment to avoid rate limiting during E2E tests
+const isTestEnv = process.env.NODE_ENV === 'test';
+const throttlerShortLimit = isTestEnv ? 10000 : 100;
+const throttlerLongLimit = isTestEnv ? 10000 : 100;
+
 const baseImports = [
   GraphQLModule.forRoot<ApolloDriverConfig>({
     driver: ApolloDriver,
@@ -53,12 +58,12 @@ const baseImports = [
   ThrottlerModule.forRoot([
     {
       name: 'short',
-      limit: 100,
+      limit: throttlerShortLimit,
       ttl: 60_000,
     },
     {
       name: 'long',
-      limit: 100,
+      limit: throttlerLongLimit,
       ttl: 86_400_000,
     },
   ]),

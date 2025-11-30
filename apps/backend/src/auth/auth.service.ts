@@ -33,6 +33,11 @@ export class AuthService {
   // In-memory rate limiting cache for email verification resends
   private resendAttempts = new Map<string, { count: number; resetAt: number }>();
 
+  // E2E test support: auto-verify users when ENABLE_TEST_SUPPORT is true
+  private readonly autoVerifyForTests =
+    process.env.ENABLE_TEST_SUPPORT === 'true' &&
+    process.env.NODE_ENV !== 'production';
+
   constructor(
     private prisma: PrismaService,
     private jwtService: JwtService,
@@ -241,29 +246,37 @@ export class AuthService {
           role: Role.MEMBER, // No longer ADMIN by default - will be set when creating family
           publicKey: normalizedPublicKey,
           activeFamilyId: null, // No family yet
-          emailVerified: false, // User starts unverified
+          // E2E test support: auto-verify when ENABLE_TEST_SUPPORT is true
+          emailVerified: this.autoVerifyForTests,
+          ...(this.autoVerifyForTests && { emailVerifiedAt: new Date() }),
         },
       });
 
-      // Store hashed verification token
-      await tx.emailVerificationToken.create({
-        data: {
-          userId: createdUser.id,
-          tokenHash,
-          expiresAt,
-          pendingInviteCode: normalizedPendingInvite,
-        },
-      });
+      // Store hashed verification token (skip if auto-verified for tests)
+      if (!this.autoVerifyForTests) {
+        await tx.emailVerificationToken.create({
+          data: {
+            userId: createdUser.id,
+            tokenHash,
+            expiresAt,
+            pendingInviteCode: normalizedPendingInvite,
+          },
+        });
+      }
 
       return { user: createdUser };
     });
 
-    // Send verification email (fire and forget)
-    await this.emailService.sendVerificationEmail(email, token);
+    // Send verification email (skip if auto-verified for tests)
+    if (!this.autoVerifyForTests) {
+      await this.emailService.sendVerificationEmail(email, token);
+    }
 
     return {
-      message: 'Registration successful. Please check your email to verify your account.',
-      requiresEmailVerification: true,
+      message: this.autoVerifyForTests
+        ? 'Registration successful. Account auto-verified for testing.'
+        : 'Registration successful. Please check your email to verify your account.',
+      requiresEmailVerification: !this.autoVerifyForTests,
       userId: user.id,
     };
   }
@@ -422,6 +435,9 @@ export class AuthService {
     const tokenHash = hashToken(token);
     const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
 
+    // Story 1.13: Get language preference from email-bound invite for new user preferences
+    const inviteLanguage = emailBoundInvite?.inviteeLanguage || null;
+
     const { user } = await this.prisma.$transaction(async (tx) => {
       const createdUser = await tx.user.create({
         data: {
@@ -431,7 +447,13 @@ export class AuthService {
           role: Role.MEMBER,
           publicKey: normalizedPublicKey,
           activeFamilyId: family.id,
-          emailVerified: false, // User starts unverified
+          // E2E test support: auto-verify when ENABLE_TEST_SUPPORT is true
+          emailVerified: this.autoVerifyForTests,
+          ...(this.autoVerifyForTests && { emailVerifiedAt: new Date() }),
+          // Story 1.13: Set preferredLanguage from invite's inviteeLanguage if present
+          ...(inviteLanguage && {
+            preferences: { preferredLanguage: inviteLanguage },
+          }),
         },
       });
 
@@ -443,14 +465,16 @@ export class AuthService {
         },
       });
 
-      // Store hashed verification token
-      await tx.emailVerificationToken.create({
-        data: {
-          userId: createdUser.id,
-          tokenHash,
-          expiresAt,
-        },
-      });
+      // Store hashed verification token (skip if auto-verified for tests)
+      if (!this.autoVerifyForTests) {
+        await tx.emailVerificationToken.create({
+          data: {
+            userId: createdUser.id,
+            tokenHash,
+            expiresAt,
+          },
+        });
+      }
 
       // Story 1.5 AC4, AC5: Mark email-bound invite as redeemed
       if (shouldMarkInviteRedeemed && emailBoundInvite) {
@@ -466,12 +490,16 @@ export class AuthService {
       return { user: createdUser };
     });
 
-    // Send verification email (fire and forget)
-    await this.emailService.sendVerificationEmail(normalizedEmail, token);
+    // Send verification email (skip if auto-verified for tests)
+    if (!this.autoVerifyForTests) {
+      await this.emailService.sendVerificationEmail(normalizedEmail, token);
+    }
 
     return {
-      message: 'Registration successful. Please check your email to verify your account.',
-      requiresEmailVerification: true,
+      message: this.autoVerifyForTests
+        ? 'Registration successful. Account auto-verified for testing.'
+        : 'Registration successful. Please check your email to verify your account.',
+      requiresEmailVerification: !this.autoVerifyForTests,
       userId: user.id,
     };
   }
@@ -1258,27 +1286,34 @@ export class AuthService {
    * Story 1.5: Create email-bound invite
    * Admin specifies invitee email, system generates secure invite code
    * Email is encrypted server-side, invite code is hashed for lookup
+   * Story 1.13: Added inviteeLanguage parameter for email language preference
    */
   async createInvite(
     userId: string,
     inviteeEmail: string,
+    inviteeLanguage?: string,
   ): Promise<InviteResponse> {
-    // Get user's active family
+    // Get user's active family with name and inviter name for email
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
-      select: { activeFamilyId: true },
+      select: { activeFamilyId: true, name: true },
     });
 
     if (!user?.activeFamilyId) {
       throw new BadRequestException('You must have an active family to create invites');
     }
 
-    // Verify user is a member of their active family
+    // Verify user is a member of their active family and get family name
     const membership = await this.prisma.familyMembership.findUnique({
       where: {
         userId_familyId: {
           userId,
           familyId: user.activeFamilyId,
+        },
+      },
+      include: {
+        family: {
+          select: { name: true },
         },
       },
     });
@@ -1316,6 +1351,9 @@ export class AuthService {
     // Set expiration to 14 days from now
     const expiresAt = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000);
 
+    // Story 1.13: Determine language - use passed value or default to 'en'
+    const language = inviteeLanguage || 'en';
+
     // Store in family_invites table
     const familyInvite = await this.prisma.familyInvite.create({
       data: {
@@ -1323,15 +1361,28 @@ export class AuthService {
         codeHash,
         familyId: user.activeFamilyId,
         inviteeEmailEncrypted,
+        inviteeLanguage: language,
         inviterId: userId,
         expiresAt,
       },
     });
 
-    // Return response with invite code, email, and expiration
+    // Story 1.13: Send registration invite email in selected language
+    // Only send if invitee is not already registered
+    if (!inviteeUser && membership.family?.name && user.name) {
+      await this.emailService.sendRegistrationInviteEmail(
+        normalizedEmail,
+        membership.family.name,
+        user.name,
+        language,
+      );
+    }
+
+    // Return response with invite code, email, language, and expiration
     return {
       inviteCode: familyInvite.code,
       inviteeEmail: normalizedEmail,
+      inviteeLanguage: familyInvite.inviteeLanguage,
       expiresAt: familyInvite.expiresAt,
     };
   }

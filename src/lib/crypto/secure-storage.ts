@@ -235,3 +235,8 @@ export async function __dangerous__wipeCryptoStorageForTests(): Promise<void> {
     // Best-effort cleanup; ignore errors (e.g., database never opened)
   }
 }
+
+// Expose storePrivateKey on window for E2E tests (only in non-production)
+if (typeof window !== 'undefined' && process.env.NODE_ENV !== 'production') {
+  (window as Window & { __e2e_storePrivateKey?: typeof storePrivateKey }).__e2e_storePrivateKey = storePrivateKey;
+}

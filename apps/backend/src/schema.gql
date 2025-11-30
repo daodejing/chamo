@@ -41,6 +41,13 @@ type Channel {
   name: String!
 }
 
+type CleanupResult {
+  deletedFamilies: Float!
+  deletedUsers: Float!
+  message: String!
+  success: Boolean!
+}
+
 input CreateEncryptedInviteInput {
   encryptedFamilyKey: String!
   expiresAt: String!
@@ -62,6 +69,9 @@ type CreateFamilyResponse {
 
 input CreateInviteInput {
   inviteeEmail: String!
+
+  """ISO 639-1 language code for invite email (defaults to en)"""
+  inviteeLanguage: String
 }
 
 type CreateInviteResponse {
@@ -104,6 +114,12 @@ type EmailVerificationResponse {
   userId: ID!
 }
 
+type FamilyAdminFixturePayload {
+  admin: AuthResponse!
+  family: FamilyType!
+  inviteCode: String!
+}
+
 type FamilyMembershipType {
   family: FamilyType!
   familyId: String!
@@ -135,6 +151,9 @@ type InviteResponse {
   expiresAt: DateTime!
   inviteCode: String!
   inviteeEmail: String!
+
+  """ISO 639-1 language code for invite email"""
+  inviteeLanguage: String!
 }
 
 """The status of a family invite"""
@@ -240,6 +259,12 @@ type Mutation {
   """Send a test welcome email (for development/testing only)"""
   sendTestWelcomeEmail(email: String!, userName: String! = "Test User"): Boolean!
   switchActiveFamily(input: SwitchFamilyInput!): UserType!
+
+  """Clean up test data by user IDs, family IDs, or email patterns"""
+  testCleanup(input: TestCleanupInput!): CleanupResult!
+
+  """Create a family admin fixture for invite tests"""
+  testCreateFamilyAdminFixture(input: TestCreateFamilyAdminFixtureInput!): FamilyAdminFixturePayload!
   testCreateMessagingFixture(input: TestCreateMessagingFixtureInput!): MessagingFixturePayload!
   updateUserPreferences(input: UpdateUserPreferencesInput!): UserType!
   verifyEmail(token: String!): AuthResponse!
@@ -282,6 +307,18 @@ type Subscription {
 
 input SwitchFamilyInput {
   familyId: ID!
+}
+
+input TestCleanupInput {
+  """Email patterns to match (e.g., test-*@example.com)"""
+  emailPatterns: [String!]
+  familyIds: [String!]
+  userIds: [String!]
+}
+
+input TestCreateFamilyAdminFixtureInput {
+  admin: TestUserSetupInput!
+  familyName: String!
 }
 
 input TestCreateMessagingFixtureInput {

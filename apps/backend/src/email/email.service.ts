@@ -1,5 +1,10 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import * as Brevo from '@getbrevo/brevo';
+import {
+  getInviteEmailTranslation,
+  formatTranslation,
+  InviteEmailTranslation,
+} from './templates/invite-email.translations';
 
 @Injectable()
 export class EmailService implements OnModuleInit {
@@ -197,11 +202,13 @@ export class EmailService implements OnModuleInit {
 
   /**
    * Send registration invitation to unregistered users when an admin adds them
+   * Story 1.13: Added language parameter for localized email content
    */
   async sendRegistrationInviteEmail(
     inviteeEmail: string,
     familyName: string,
     inviterName: string,
+    language: string = 'en',
   ): Promise<void> {
     if (!this.isValidEmail(inviteeEmail)) {
       this.logger.error(
@@ -214,6 +221,10 @@ export class EmailService implements OnModuleInit {
       inviteeEmail,
     )}`;
 
+    // Story 1.13: Get translations for the specified language (with English fallback)
+    const translations = getInviteEmailTranslation(language);
+    const replacements = { familyName, inviterName };
+
     try {
       const sendSmtpEmail = new Brevo.SendSmtpEmail();
       sendSmtpEmail.sender = {
@@ -221,21 +232,23 @@ export class EmailService implements OnModuleInit {
         name: this.emailFromName,
       };
       sendSmtpEmail.to = [{ email: inviteeEmail }];
-      sendSmtpEmail.subject = `Complete registration to join ${familyName} on Chamo`;
+      sendSmtpEmail.subject = formatTranslation(translations.subject, replacements);
       sendSmtpEmail.htmlContent = this.getRegistrationInviteHtml(
         familyName,
         inviterName,
         registerUrl,
+        translations,
       );
       sendSmtpEmail.textContent = this.getRegistrationInviteText(
         familyName,
         inviterName,
         registerUrl,
+        translations,
       );
 
       await this.sendEmailWithRetry(sendSmtpEmail);
       this.logger.debug(
-        `Registration invite email sent to ${inviteeEmail} for family ${familyName}`,
+        `Registration invite email sent to ${inviteeEmail} for family ${familyName} in language ${language}`,
       );
     } catch (error) {
       this.logger.error(
@@ -576,33 +589,41 @@ Don't have an account? You'll be able to create one when you accept the invitati
     familyName: string,
     inviterName: string,
     registerUrl: string,
+    translations: InviteEmailTranslation,
   ): string {
+    const replacements = { familyName, inviterName };
+    const greeting = formatTranslation(translations.greeting, replacements);
+    const intro = formatTranslation(translations.intro, replacements);
+    const cta = formatTranslation(translations.cta, replacements);
+    const note = formatTranslation(translations.note, replacements);
+    const footer = formatTranslation(translations.footer, replacements);
+
     return `
 <!DOCTYPE html>
 <html>
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Register to join ${familyName}</title>
+  <title>${formatTranslation(translations.subject, replacements)}</title>
 </head>
 <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
   <div style="background: linear-gradient(135deg, #B5179E 0%, #5518C1 100%); padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
-    <h1 style="color: white; margin: 0; font-size: 26px;">You're almost there!</h1>
+    <h1 style="color: white; margin: 0; font-size: 26px;">${greeting}</h1>
   </div>
   <div style="background: #fff; padding: 32px; border: 1px solid #eee; border-top: none; border-radius: 0 0 10px 10px;">
-    <h2 style="margin-top: 0;">${inviterName} invited you to ${familyName}</h2>
+    <h2 style="margin-top: 0;">${intro}</h2>
     <p>To join, please create your secure Chamo account. Once you're verified, ${inviterName} can finish your encrypted invite.</p>
     <div style="text-align: center; margin: 30px 0;">
       <a href="${registerUrl}" style="background: linear-gradient(135deg, #B5179E 0%, #5518C1 100%); color: white; padding: 14px 28px; text-decoration: none; border-radius: 6px; font-weight: 600; display: inline-block;">
-        Create your account
+        ${cta}
       </a>
     </div>
     <p style="font-size: 14px; color: #666;">
-      You'll need this same email when accepting the invite so we can keep your encrypted keys in sync.
+      ${note}
     </p>
   </div>
   <div style="text-align: center; margin-top: 20px; color: #999; font-size: 12px;">
-    <p>© ${new Date().getFullYear()} Chamo. Family communication made simple.</p>
+    <p>© ${new Date().getFullYear()} Chamo. ${footer}</p>
   </div>
 </body>
 </html>
@@ -613,16 +634,22 @@ Don't have an account? You'll be able to create one when you accept the invitati
     familyName: string,
     inviterName: string,
     registerUrl: string,
+    translations: InviteEmailTranslation,
   ): string {
-    return `
-${inviterName} invited you to join ${familyName} on Chamo.
+    const replacements = { familyName, inviterName };
+    const intro = formatTranslation(translations.intro, replacements);
+    const cta = formatTranslation(translations.cta, replacements);
+    const footer = formatTranslation(translations.footer, replacements);
 
-Create your account to finish the invitation:
+    return `
+${intro}
+
+${cta}:
 ${registerUrl}
 
 Once you're verified, ${inviterName} can complete your secure invite.
 
-© ${new Date().getFullYear()} Chamo
+© ${new Date().getFullYear()} Chamo - ${footer}
     `.trim();
   }
 

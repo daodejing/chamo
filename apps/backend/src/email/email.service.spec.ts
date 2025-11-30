@@ -363,6 +363,36 @@ describe('EmailService', () => {
       expect(payload.htmlContent).toContain(encodeURIComponent(email));
       expect(payload.textContent).toContain('Create your account');
     });
+
+    // Story 1.13: Test language parameter
+    it('should send registration invite in Japanese when ja language is specified', async () => {
+      const email = 'guest@example.com';
+      await service.sendRegistrationInviteEmail(email, 'Team Nova', 'Ava', 'ja');
+
+      const payload = mockSendTransacEmail.mock.calls[0][0];
+      expect(payload.subject).toContain('Team Nova');
+      expect(payload.subject).toContain('Chamo'); // Japanese subject includes Chamo
+      expect(payload.htmlContent).toContain('もう少しです'); // Japanese greeting
+      expect(payload.htmlContent).toContain('アカウントを作成'); // Japanese CTA
+    });
+
+    it('should default to English when no language is specified', async () => {
+      const email = 'guest@example.com';
+      await service.sendRegistrationInviteEmail(email, 'Team Nova', 'Ava');
+
+      const payload = mockSendTransacEmail.mock.calls[0][0];
+      expect(payload.htmlContent).toContain("You're almost there!");
+      expect(payload.htmlContent).toContain('Create your account');
+    });
+
+    it('should fall back to English for unsupported language codes', async () => {
+      const email = 'guest@example.com';
+      await service.sendRegistrationInviteEmail(email, 'Team Nova', 'Ava', 'xx');
+
+      const payload = mockSendTransacEmail.mock.calls[0][0];
+      expect(payload.htmlContent).toContain("You're almost there!");
+      expect(payload.htmlContent).toContain('Create your account');
+    });
   });
 
   describe('sendInviteeRegistrationNotification', () => {

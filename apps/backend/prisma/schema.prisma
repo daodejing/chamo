@@ -275,6 +275,7 @@ model FamilyInvite {
   familyId               String
   family                 Family    @relation(fields: [familyId], references: [id], onDelete: Cascade)
   inviteeEmailEncrypted  String    @db.Text // AES-256-GCM encrypted email
+  inviteeLanguage        String    @default("en") @db.VarChar(5) // ISO 639-1 language code for invite email
   inviterId              String
   inviter                User      @relation("FamilyInviterInvites", fields: [inviterId], references: [id], onDelete: Cascade)
   createdAt              DateTime  @default(now())

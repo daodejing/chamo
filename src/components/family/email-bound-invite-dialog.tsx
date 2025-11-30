@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useMutation } from '@apollo/client/react';
 import { toast } from 'sonner';
-import { Loader2, UserPlus, Mail, Copy, Check } from 'lucide-react';
+import { Loader2, UserPlus, Mail, Copy, Check, Globe } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -19,6 +19,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { useLanguage } from '@/lib/contexts/language-context';
 import { t } from '@/lib/translations';
 import { CREATE_INVITE_MUTATION } from '@/lib/graphql/operations';
+import { InviteLanguageSelector, type InviteLanguageCode } from '@/components/settings/invite-language-selector';
 
 interface EmailBoundInviteDialogProps {
   open: boolean;
@@ -30,6 +31,7 @@ interface CreateInviteResponse {
   createInvite: {
     inviteCode: string;
     inviteeEmail: string;
+    inviteeLanguage: string;
     expiresAt: string;
   };
 }
@@ -42,6 +44,10 @@ export function EmailBoundInviteDialog({
   const { language } = useLanguage();
 
   const [email, setEmail] = useState('');
+  // Story 1.13: Default to UI language, or English if UI language not in supported list
+  const [inviteeLanguage, setInviteeLanguage] = useState<InviteLanguageCode>(
+    language === 'ja' || language === 'en' ? language : 'en'
+  );
   const [inviteResult, setInviteResult] = useState<CreateInviteResponse['createInvite'] | null>(null);
   const [copied, setCopied] = useState(false);
 
@@ -51,6 +57,7 @@ export function EmailBoundInviteDialog({
 
   const handleClose = () => {
     setEmail('');
+    setInviteeLanguage(language === 'ja' || language === 'en' ? language : 'en');
     setInviteResult(null);
     setCopied(false);
     onOpenChange(false);
@@ -69,6 +76,7 @@ export function EmailBoundInviteDialog({
         variables: {
           input: {
             inviteeEmail: email.trim().toLowerCase(),
+            inviteeLanguage,
           },
         },
       });
@@ -142,6 +150,23 @@ export function EmailBoundInviteDialog({
                   required
                 />
               </div>
+            </div>
+
+            {/* Story 1.13: Language selector for invite email */}
+            <div className="space-y-2">
+              <Label htmlFor="inviteeLanguage" className="flex items-center gap-2">
+                <Globe className="w-4 h-4 text-muted-foreground" />
+                {t('emailInvite.languageLabel', language)}
+              </Label>
+              <InviteLanguageSelector
+                value={inviteeLanguage}
+                onValueChange={setInviteeLanguage}
+                disabled={isCreating}
+                currentUiLanguage={language}
+              />
+              <p className="text-xs text-muted-foreground">
+                {t('emailInvite.languageHelp', language)}
+              </p>
             </div>
 
             <DialogFooter className="gap-2 sm:gap-0">

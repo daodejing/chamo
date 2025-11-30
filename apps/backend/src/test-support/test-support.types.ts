@@ -20,3 +20,36 @@ export class MessagingFixturePayload {
   @Field()
   inviteCode: string;
 }
+
+/**
+ * Payload for family admin fixture - used for invite-related tests
+ */
+@ObjectType()
+export class FamilyAdminFixturePayload {
+  @Field(() => AuthResponse)
+  admin: AuthResponse;
+
+  @Field(() => FamilyType)
+  family: FamilyType;
+
+  @Field()
+  inviteCode: string;
+}
+
+/**
+ * Result of cleanup operation
+ */
+@ObjectType()
+export class CleanupResult {
+  @Field()
+  success: boolean;
+
+  @Field()
+  message: string;
+
+  @Field()
+  deletedUsers: number;
+
+  @Field()
+  deletedFamilies: number;
+}
