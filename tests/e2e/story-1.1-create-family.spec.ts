@@ -1,24 +1,23 @@
 import { test, expect } from '@playwright/test';
-import { E2E_CONFIG } from './config';
 import { translations } from '../../src/lib/translations';
-import { generateInviteCode, generateTestFamilyKey, createFullInviteCode } from './test-helpers';
+import { clearMailHogEmails, waitForMailHogEmail, extractVerificationToken, cleanupTestData } from './fixtures';
 
 /**
  * Epic 1 - User Onboarding & Authentication
  * E2E Tests for Story 1.1: Create Family Account
  *
- * Story 1.1 Tests cover:
- * - AC1: Admin provides family name, email, password, and their name via registration form
- * - AC2: System generates unique invite code with embedded family encryption key (format: `FAMILY-XXXX:BASE64KEY`)
- * - AC3: Admin receives success confirmation with invite code displayed for sharing
- * - AC4: Admin is automatically logged in and redirected to chat screen
- * - AC5: Family record is created in database with generated invite code
- * - AC6: Admin user record is created with role='admin' and encrypted family key stored
+ * Story 1.1 Tests cover the modern registration flow:
+ * - AC1: Admin provides email, password, and their name via registration form
+ * - AC2: Admin verifies email via verification link
+ * - AC3: Admin logs in and is redirected to family-setup
+ * - AC4: Admin creates family with name, system generates invite code with encryption key
+ * - AC5: Admin receives success confirmation with invite code displayed
+ * - AC6: Admin is redirected to chat screen with family created
  *
- * Architecture: NestJS + GraphQL + MySQL + Prisma
- * - GraphQL mutation: `register(input: RegisterInput!): AuthResponse!`
- * - Frontend: Apollo Client via useAuth() hook
- * - UI: Unified login screen with create mode
+ * Architecture: NestJS + GraphQL + PostgreSQL + Prisma
+ * - Registration is separate from family creation (Story 1.10 change)
+ * - Email verification required before login
+ * - Family creation happens on /family-setup page after login
  *
  * NOTE: All UI text assertions use i18n translations (default language: 'en')
  */
@@ -29,156 +28,175 @@ const t = (key: keyof typeof translations.en): string => {
 };
 
 test.describe('Story 1.1: Create Family Account', () => {
-  let testId: string;
-  let createdFamilyIds: string[] = [];
-  let createdUserIds: string[] = [];
-
-  test.beforeEach(async ({ page }) => {
-    // Generate unique test identifier for this test run
-    testId = `e2e-story-1-1-${Date.now()}`;
-    createdFamilyIds = [];
-    createdUserIds = [];
-
-    // Navigate to login page
-    await page.goto('/login');
-    // Wait for the page title to be visible
-    await expect(page.getByText(t('login.title'))).toBeVisible();
-
-    // Switch to create family mode
-    await page.getByText(t('login.switchToCreate')).click();
-    await page.waitForTimeout(300);
-    // Verify we're in create mode
-    await expect(page.locator('[data-slot="card-description"]', { hasText: t('login.createFamily') })).toBeVisible();
+  test.beforeEach(async () => {
+    // Clear MailHog before each test
+    await clearMailHogEmails();
   });
-
-  test.afterEach(async ({ page }) => {
-    // Cleanup: Delete test data created during the test
-    // Note: In a real implementation, you would call GraphQL mutations to delete test data
-    // For now, we rely on database cleanup scripts or manual cleanup
-    // TODO: Implement GraphQL deleteFamily and deleteUser mutations for cleanup
-  });
-
 
   /**
-   * AC1-AC6: Complete registration flow - Create family account end-to-end
-   * Tests the full story: admin creates family, system generates invite code, user is logged in
+   * AC1-AC6: Complete registration + family creation flow
+   * Tests the full story: register → verify email → login → create family
    */
   test('Create family account - full end-to-end flow', async ({ page }) => {
-    // AC1: Fill registration form with all required fields
+    const testId = `e2e-story-1-1-${Date.now()}`;
     const email = `${testId}@example.com`;
     const password = 'TestPassword123!';
     const familyName = `[${testId}] E2E Test Family`;
     const userName = `[${testId}] E2E Admin`;
 
-    await page.locator('#userName').fill(userName);
-    await page.locator('#email').fill(email);
-    await page.locator('#password').fill(password);
-    await page.locator('#familyName').fill(familyName);
+    try {
+      // STEP 1: Navigate to login and switch to create mode
+      await page.goto('/login');
+      await expect(page.getByText(t('login.title'))).toBeVisible();
 
-    // Intercept GraphQL register mutation
-    const registerResponsePromise = page.waitForResponse(
-      response =>
-        response.url().includes(E2E_CONFIG.GRAPHQL_URL) &&
-        response.request().method() === 'POST' &&
-        response.request().postDataJSON()?.operationName === 'Register'
-    );
+      await page.getByText(t('login.switchToCreate')).click();
+      await page.waitForTimeout(300);
 
-    // Submit form
-    await page.locator('button[type="submit"]').click();
+      // AC1: Fill registration form (no familyName - that's on family-setup)
+      await page.locator('#userName').fill(userName);
+      await page.locator('#email').fill(email);
+      await page.locator('#password').fill(password);
 
-    // Wait for GraphQL response
-    const registerResponse = await registerResponsePromise;
-    expect(registerResponse.status()).toBe(200);
+      // Submit registration
+      await page.locator('button[type="submit"]').click();
 
-    const responseData = await registerResponse.json();
-    expect(responseData.data.register).toBeDefined();
-    const { user, family, accessToken } = responseData.data.register;
+      // Should redirect to verification-pending
+      await page.waitForURL('**/verification-pending**', { timeout: 10000 });
 
-    // AC6: Verify admin user was created with correct role
-    expect(user.email).toBe(email);
-    expect(user.name).toBe(userName);
-    expect(user.role).toBe('ADMIN');
-    createdUserIds.push(user.id);
+      // STEP 2: AC2 - Verify email via MailHog
+      const verificationEmail = await waitForMailHogEmail('to', email, 15000);
+      expect(verificationEmail).toBeTruthy();
 
-    // AC5: Verify family record was created
-    expect(family.name).toBe(familyName);
-    expect(family.inviteCode).toBeDefined();
-    createdFamilyIds.push(family.id);
+      const token = extractVerificationToken(verificationEmail);
+      expect(token, 'Verification token should be in email').toBeTruthy();
 
-    // AC2: Verify invite code format (backend returns code only, not key)
-    // Format changed to 16 characters for 128-bit entropy
-    expect(family.inviteCode).toMatch(/^FAMILY-[A-Z0-9]{16}$/);
+      await page.goto(`/verify-email?token=${token}`);
+      await expect(page.getByText(/verified|success/i)).toBeVisible({ timeout: 15000 });
 
-    // AC3: Verify user is logged in (JWT token issued)
-    expect(accessToken).toBeDefined();
-    expect(accessToken.length).toBeGreaterThan(0);
+      // STEP 3: AC3 - Login with verified credentials
+      await page.waitForURL('**/login**', { timeout: 10000 }).catch(async () => {
+        await page.goto('/login');
+      });
 
-    // AC4: Verify redirect occurred (navigation away from login page)
-    await page.waitForTimeout(1500);
-    expect(page.url()).not.toContain('/login');
+      const loginLink = page.getByText(t('login.switchToLogin'));
+      if (await loginLink.isVisible()) {
+        await loginLink.click();
+        await page.waitForTimeout(300);
+      }
+
+      await page.locator('input[name="email"]').fill(email);
+      await page.locator('input[name="password"]').fill(password);
+      await page.locator('button[type="submit"]').click();
+
+      // Should redirect to family-setup (no family yet)
+      await page.waitForURL('**/family-setup', { timeout: 10000 });
+
+      // STEP 4: AC4 - Create family
+      await page.locator('#familyName').fill(familyName);
+      await page.getByRole('button', { name: /create.*family/i }).click();
+
+      // AC5: Verify invite code toast appears with correct format
+      const toastLocator = page.locator('[data-sonner-toast]').filter({ hasText: /FAMILY-/ });
+      await expect(toastLocator).toBeVisible({ timeout: 15000 });
+
+      const toastText = await toastLocator.textContent();
+      // Invite code format: FAMILY-XXXXXXXXXXXXXXXX:BASE64KEY
+      expect(toastText).toMatch(/FAMILY-[A-Z0-9]{16}:[A-Za-z0-9+/=]+/);
+
+      // AC6: Should redirect to chat after family creation
+      await page.waitForURL('**/chat**', { timeout: 15000 });
+      await page.waitForLoadState('networkidle');
+      // Verify we're on chat page - look for message input or family name
+      await expect(page.getByPlaceholder('Type a message...').or(page.locator('input[type="text"]')).first()).toBeVisible({ timeout: 15000 });
+    } finally {
+      // Cleanup test data
+      await cleanupTestData({ emailPatterns: [testId] });
+    }
   });
-
 
   /**
    * Error handling: Duplicate email registration
    * Tests that system prevents duplicate email registrations
    */
   test('Cannot register with duplicate email', async ({ page }) => {
-    const email = `${testId}-duplicate@example.com`;
-    const inviteCode = generateInviteCode();
+    const testId = `e2e-story-1-1-dup-${Date.now()}`;
+    const email = `${testId}@example.com`;
 
-    // Create first user via GraphQL
-    const registerMutation = `
-      mutation Register($input: RegisterInput!) {
-        register(input: $input) {
-          user { id }
-          family { id }
-        }
-      }
-    `;
+    try {
+      // Register first user
+      await page.goto('/login');
+      await page.getByText(t('login.switchToCreate')).click();
+      await page.waitForTimeout(300);
 
-    const firstResponse = await page.request.post(E2E_CONFIG.GRAPHQL_URL, {
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      data: {
-        query: registerMutation,
-        variables: {
-          input: {
-            email,
-            password: 'FirstPassword123!',
-            familyName: `[${testId}] First Family`,
-            name: `[${testId}] First User`,
-            inviteCode,
-          },
-        },
-      },
-    });
+      await page.locator('#userName').fill(`${testId} First`);
+      await page.locator('#email').fill(email);
+      await page.locator('#password').fill('FirstPassword123!');
+      await page.locator('button[type="submit"]').click();
 
-    expect(firstResponse.ok()).toBeTruthy();
-    const firstData = await firstResponse.json();
-    createdUserIds.push(firstData.data.register.user.id);
-    createdFamilyIds.push(firstData.data.register.family.id);
+      // Wait for first registration to complete
+      await page.waitForURL('**/verification-pending**', { timeout: 10000 });
 
-    // Attempt second registration with same email
-    await page.locator('#userName').fill(`[${testId}] Second User`);
-    await page.locator('#email').fill(email);
-    await page.locator('#password').fill('SecondPassword123!');
-    await page.locator('#familyName').fill(`[${testId}] Second Family`);
+      // Try to register again with same email
+      await page.goto('/login');
+      await page.getByText(t('login.switchToCreate')).click();
+      await page.waitForTimeout(300);
 
-    const errorResponsePromise = page.waitForResponse(
-      response =>
-        response.url().includes(E2E_CONFIG.GRAPHQL_URL) &&
-        response.request().postDataJSON()?.operationName === 'Register'
-    );
+      await page.locator('#userName').fill(`${testId} Second`);
+      await page.locator('#email').fill(email);
+      await page.locator('#password').fill('SecondPassword123!');
+      await page.locator('button[type="submit"]').click();
 
-    await page.locator('button[type="submit"]').click();
-    const errorResponse = await errorResponsePromise;
-    const errorData = await errorResponse.json();
+      // Should show error about duplicate email
+      await expect(page.getByText(/already|exists|registered/i)).toBeVisible({ timeout: 10000 });
 
-    // Verify error returned
-    expect(errorData.errors).toBeDefined();
-    expect(errorData.errors.length).toBeGreaterThan(0);
+      // Should NOT navigate away from login page
+      expect(page.url()).toContain('/login');
+    } finally {
+      await cleanupTestData({ emailPatterns: [testId] });
+    }
   });
 
+  /**
+   * Validation: Required fields
+   * Tests that form validation prevents submission without required fields
+   */
+  test('Cannot submit registration without required fields', async ({ page }) => {
+    await page.goto('/login');
+    await page.getByText(t('login.switchToCreate')).click();
+    await page.waitForTimeout(300);
+
+    // Try to submit empty form
+    await page.locator('button[type="submit"]').click();
+
+    // Should show validation errors or stay on page
+    expect(page.url()).toContain('/login');
+
+    // HTML5 validation should prevent submission
+    const emailInput = page.locator('#email');
+    const isEmailInvalid = await emailInput.evaluate((el: HTMLInputElement) => !el.validity.valid);
+    expect(isEmailInvalid).toBe(true);
+  });
+
+  /**
+   * Password strength validation
+   * Tests that weak passwords are rejected
+   */
+  test('Password must meet strength requirements', async ({ page }) => {
+    const testId = `e2e-story-1-1-pwd-${Date.now()}`;
+
+    await page.goto('/login');
+    await page.getByText(t('login.switchToCreate')).click();
+    await page.waitForTimeout(300);
+
+    await page.locator('#userName').fill(`${testId} User`);
+    await page.locator('#email').fill(`${testId}@example.com`);
+    await page.locator('#password').fill('weak'); // Too short/weak
+
+    await page.locator('button[type="submit"]').click();
+
+    // Should show password strength error or stay on page
+    // Either HTML5 validation or custom validation should prevent submission
+    await page.waitForTimeout(500);
+    expect(page.url()).toContain('/login');
+  });
 });

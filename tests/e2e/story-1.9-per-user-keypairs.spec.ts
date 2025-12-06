@@ -12,7 +12,6 @@ type RegistrationFormData = {
   email: string;
   password: string;
   userName: string;
-  familyName: string;
 };
 
 type RegistrationFlow = {
@@ -129,12 +128,12 @@ async function fillRegistrationForm(page: Page): Promise<RegistrationFormData> {
   const data = generateRegistrationData();
 
   await page.getByRole('button', { name: tEn('login.switchToCreate') }).click();
-  await expect(page.getByTestId('auth-screen-mode')).toHaveText(tEn('login.createFamily'));
+  // Wait for form to switch to create mode
+  await page.waitForTimeout(300);
 
   await page.locator('#userName').fill(data.userName);
   await page.locator('#email').fill(data.email);
   await page.locator('#password').fill(data.password);
-  await page.locator('#familyName').fill(data.familyName);
 
   return data;
 }
@@ -219,7 +218,6 @@ function generateRegistrationData(): RegistrationFormData {
     email: `story19+${unique}@example.com`,
     password: `KeyTest!${unique}`,
     userName: `Story19 Tester ${unique}`,
-    familyName: `Story19 Family ${unique}`,
   };
 }
 

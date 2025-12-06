@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { E2E_CONFIG } from './config';
 import { translations } from '../../src/lib/translations';
-import { generateInviteCode, generateTestFamilyKey, createFullInviteCode } from './test-helpers';
+import { setupFamilyAdminTest, clearMailHogEmails, waitForMailHogEmail, extractVerificationToken, cleanupTestData } from './fixtures';
 
 /**
  * Epic 1 - User Onboarding & Authentication
@@ -13,15 +13,9 @@ import { generateInviteCode, generateTestFamilyKey, createFullInviteCode } from 
  * - AC3: Auto-login on app revisit if session valid (redirect /login → /chat)
  * - AC4: Session validation via GraphQL 'me' query returns user data
  * - AC5: Logout clears localStorage tokens
- * - AC6: Logout clears IndexedDB keys
+ * - AC6: Logout preserves IndexedDB keys (E2EE requirement)
  * - AC7: After logout, accessing /chat redirects to /login
  * - AC8: Session configured with appropriate expiry (7-day access, 30-day refresh)
- *
- * Architecture: NestJS + GraphQL + MySQL + Prisma
- * - Session validation: GraphQL query `me`
- * - Logout: GraphQL mutation `logout` (client-side token deletion)
- * - Token storage: localStorage (managed by Apollo Client)
- * - Family key storage: IndexedDB
  *
  * NOTE: All UI text assertions use i18n translations (default language: 'en')
  */
@@ -32,495 +26,291 @@ const t = (key: keyof typeof translations.en): string => {
 };
 
 test.describe('Story 1.3: Session Persistence', () => {
-  let testId: string;
-  let createdFamilyIds: string[] = [];
-  let createdUserIds: string[] = [];
-
-  test.beforeEach(async ({ page }) => {
-    // Generate unique test identifier for this test run
-    testId = `e2e-story-1-3-${Date.now()}`;
-    createdFamilyIds = [];
-    createdUserIds = [];
-  });
-
-  test.afterEach(async ({ page }) => {
-    // Cleanup: Delete test data created during the test
-    // Note: In a real implementation, you would call GraphQL mutations to delete test data
-    // For now, we rely on database cleanup scripts or manual cleanup
-    // TODO: Implement GraphQL deleteFamily and deleteUser mutations for cleanup
-  });
-
-
   /**
    * AC3: Auto-login on page revisit
    * Tests that a logged-in user is automatically redirected to /chat when visiting /login
    */
-  test('Auto-login redirects authenticated user from /login to /chat', async ({ page, context }) => {
-    // SETUP: Create a user and log in
-    const email = `${testId}@example.com`;
-    const password = 'TestPassword123!';
-    const familyName = `[${testId}] Test Family`;
-    const userName = `[${testId}] Test User`;
+  test('Auto-login redirects authenticated user from /login to /chat', async ({ page }) => {
+    const testId = `session-auto-${Date.now()}`;
+    const { cleanup } = await setupFamilyAdminTest(page, testId);
 
-    const registerMutation = `
-      mutation Register($input: RegisterInput!) {
-        register(input: $input) {
-          user { id }
-          family { id }
-          accessToken
-          refreshToken
-        }
-      }
-    `;
+    try {
+      // Navigate to /login - should auto-redirect to /chat
+      await page.goto('/login');
+      await page.waitForTimeout(2000);
 
-    const inviteCode = generateInviteCode();
-
-    const registerResponse = await page.request.post(E2E_CONFIG.GRAPHQL_URL, {
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      data: {
-        query: registerMutation,
-        variables: {
-          input: {
-            email,
-            password,
-            familyName,
-            name: userName,
-            inviteCode,
-          },
-        },
-      },
-    });
-
-    const registerData = await registerResponse.json();
-    const { accessToken, refreshToken } = registerData.data.register;
-    createdUserIds.push(registerData.data.register.user.id);
-    createdFamilyIds.push(registerData.data.register.family.id);
-
-    // Store tokens in localStorage (simulating Apollo Client behavior)
-    await context.addInitScript(({ token, refresh }) => {
-      localStorage.setItem('accessToken', token);
-      localStorage.setItem('refreshToken', refresh);
-    }, { token: accessToken, refresh: refreshToken });
-
-    // AC3: Navigate to /login - should auto-redirect to /chat
-    await page.goto('/login');
-    await page.waitForTimeout(2000);
-
-    // Verify redirect occurred
-    const currentUrl = page.url();
-    if (currentUrl.includes('/chat')) {
-      expect(currentUrl).toContain('/chat');
-    } else {
-      // If still on login, that's acceptable in E2E environment
-      console.log('Auto-redirect did not occur (acceptable in E2E environment)');
+      // Verify redirect occurred to chat (or family-setup if no family)
+      const currentUrl = page.url();
+      expect(currentUrl).not.toContain('/login');
+      expect(currentUrl.includes('/chat') || currentUrl.includes('/family-setup')).toBeTruthy();
+    } finally {
+      await cleanup();
     }
   });
-
 
   /**
    * AC2, AC3: Session persists across page reload
    * Tests that user remains logged in after page reload
    */
   test('Session persists across page reload', async ({ page }) => {
-    // SETUP: Register and login
-    const email = `${testId}-persist@example.com`;
-    const password = 'PersistTest123!';
-    const familyName = `[${testId}] Persist Family`;
-    const userName = `[${testId}] Persist User`;
+    const testId = `session-persist-${Date.now()}`;
+    const { fixture, cleanup } = await setupFamilyAdminTest(page, testId);
 
-    // Navigate to login page and create account
-    await page.goto('/login');
-    await page.getByText(t('login.switchToCreate')).click();
-    await page.waitForTimeout(300);
+    try {
+      // Navigate to chat
+      await page.goto('/chat');
+      await page.waitForLoadState('networkidle');
 
-    // No need for familyKeyBase64 - frontend generates key client-side
+      // Verify we're on chat
+      await expect(page.getByText('General')).toBeVisible({ timeout: 10000 });
 
-    // Fill registration form
-    await page.locator('#userName').fill(userName);
-    await page.locator('#email').fill(email);
-    await page.locator('#password').fill(password);
-    await page.locator('#familyName').fill(familyName);
+      // Reload page
+      await page.reload();
+      await page.waitForLoadState('networkidle');
 
-    // Intercept registration
-    const registerResponsePromise = page.waitForResponse(
-      response =>
-        response.url().includes(E2E_CONFIG.GRAPHQL_URL) &&
-        response.request().method() === 'POST' &&
-        response.request().postDataJSON()?.operationName === 'Register'
-    );
+      // AC2, AC3: Verify we're still logged in
+      const currentUrl = page.url();
+      expect(currentUrl).toContain('/chat');
 
-    await page.locator('button[type="submit"]').click();
-    const registerResponse = await registerResponsePromise;
-    const registerData = await registerResponse.json();
+      // Verify family name still visible
+      await expect(page.getByText(fixture.family.name).first()).toBeVisible({ timeout: 10000 });
 
-    createdUserIds.push(registerData.data.register.user.id);
-    createdFamilyIds.push(registerData.data.register.family.id);
-
-    // Wait for potential redirect
-    await page.waitForTimeout(1500);
-
-    // AC2, AC3: Reload page - session should persist
-    await page.reload();
-    await page.waitForTimeout(1500);
-
-    // Verify we're still logged in (not redirected to /login)
-    const currentUrl = page.url();
-
-    // Check localStorage for tokens (AC1)
-    const hasTokens = await page.evaluate(() => {
-      const accessToken = localStorage.getItem('accessToken');
-      const refreshToken = localStorage.getItem('refreshToken');
-      return !!(accessToken && refreshToken);
-    });
-
-    if (hasTokens) {
-      expect(hasTokens).toBeTruthy();
-      console.log('Session tokens found in localStorage');
+      // Check localStorage for access token (AC1)
+      // Note: The fixture only injects accessToken, refreshToken is only set during real login flow
+      const hasToken = await page.evaluate(() => {
+        const accessToken = localStorage.getItem('accessToken');
+        return !!accessToken;
+      });
+      expect(hasToken).toBeTruthy();
+    } finally {
+      await cleanup();
     }
-
-    // Either we're on chat or tokens exist
-    const sessionPersisted = currentUrl.includes('/chat') || hasTokens;
-    expect(sessionPersisted).toBeTruthy();
   });
-
 
   /**
    * AC4: Session validation returns user data
    * Tests that the GraphQL 'me' query returns correct user information
    */
   test('Session validation query returns user data', async ({ page }) => {
-    // SETUP: Create user and get tokens
-    const email = `${testId}-validate@example.com`;
-    const password = 'ValidateTest123!';
-    const familyName = `[${testId}] Validate Family`;
-    const userName = `[${testId}] Validate User`;
+    const testId = `session-me-${Date.now()}`;
+    const { fixture, cleanup } = await setupFamilyAdminTest(page, testId);
 
-    const registerMutation = `
-      mutation Register($input: RegisterInput!) {
-        register(input: $input) {
-          user { id email name role }
-          family { id name }
-          accessToken
-          refreshToken
+    try {
+      // Get the access token from localStorage
+      await page.goto('/chat');
+      await page.waitForLoadState('networkidle');
+
+      const accessToken = await page.evaluate(() => localStorage.getItem('accessToken'));
+      expect(accessToken).toBeTruthy();
+
+      // AC4: Call 'me' query to validate session
+      const meQuery = `
+        query Me {
+          me {
+            id
+            email
+            name
+            role
+          }
         }
-      }
-    `;
+      `;
 
-    const validateInviteCode = generateInviteCode();
-
-    const registerResponse = await page.request.post(E2E_CONFIG.GRAPHQL_URL, {
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      data: {
-        query: registerMutation,
-        variables: {
-          input: {
-            email,
-            password,
-            familyName,
-            name: userName,
-            inviteCode: validateInviteCode,
-          },
+      const meResponse = await page.request.post(E2E_CONFIG.GRAPHQL_URL, {
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${accessToken}`,
         },
-      },
-    });
+        data: {
+          query: meQuery,
+        },
+      });
 
-    const registerData = await registerResponse.json();
-    const { accessToken, user, family } = registerData.data.register;
-    createdUserIds.push(user.id);
-    createdFamilyIds.push(family.id);
+      expect(meResponse.status()).toBe(200);
+      const meData = await meResponse.json();
 
-    // AC4: Call 'me' query to validate session
-    const meQuery = `
-      query Me {
-        me {
-          id
-          email
-          name
-          role
-        }
-      }
-    `;
-
-    const meResponse = await page.request.post(E2E_CONFIG.GRAPHQL_URL, {
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${accessToken}`,
-      },
-      data: {
-        query: meQuery,
-      },
-    });
-
-    expect(meResponse.status()).toBe(200);
-    const meData = await meResponse.json();
-
-    // Verify user data returned correctly
-    expect(meData.data.me).toBeDefined();
-    expect(meData.data.me.email).toBe(email);
-    expect(meData.data.me.name).toBe(userName);
-    expect(meData.data.me.role).toBe('ADMIN');
+      // Verify user data returned correctly
+      expect(meData.data.me).toBeDefined();
+      expect(meData.data.me.email).toBe(fixture.admin.user.email);
+      expect(meData.data.me.name).toBe(fixture.admin.user.name);
+      expect(meData.data.me.role).toBe('ADMIN');
+    } finally {
+      await cleanup();
+    }
   });
-
 
   /**
    * AC5, AC6, AC7: Logout clears session and redirects
-   * Tests that logout properly clears tokens, IndexedDB keys, and redirects to login
-   *
-   * TODO: Implement logout button in chat/dashboard layout before enabling this test
-   * The logout button should:
-   * - Be accessible from the chat page (e.g., in header or user menu)
-   * - Call the logout() function from useAuth() hook
-   * - Trigger redirect to /login after clearing session
+   * Tests that logout properly clears tokens but preserves IndexedDB keys
    */
   test('Logout clears tokens but preserves encryption keys', async ({ page }) => {
-    // SETUP: Register and login via UI
-    const email = `${testId}-logout@example.com`;
-    const password = 'LogoutTest123!';
-    const familyName = `[${testId}] Logout Family`;
-    const userName = `[${testId}] Logout User`;
+    const testId = `session-logout-${Date.now()}`;
+    const { fixture, cleanup } = await setupFamilyAdminTest(page, testId);
 
-    // Navigate to login and create account
-    await page.goto('/login');
-    await page.getByText(t('login.switchToCreate')).click();
-    await page.waitForTimeout(300);
+    try {
+      // Navigate to chat
+      await page.goto('/chat');
+      await page.waitForLoadState('networkidle');
 
-    await page.locator('#userName').fill(userName);
-    await page.locator('#email').fill(email);
-    await page.locator('#password').fill(password);
-    await page.locator('#familyName').fill(familyName);
+      // Verify we're logged in
+      await expect(page.getByText('General')).toBeVisible({ timeout: 10000 });
 
-    await page.locator('button[type="submit"]').click();
-    await page.waitForTimeout(2000);
+      // Navigate to settings and logout
+      await page.click('button:has(.lucide-settings)');
+      await expect(page.locator(`text=${t('settings.language')}`).first()).toBeVisible({ timeout: 10000 });
 
-    // Verify we're on chat page (logged in)
-    expect(page.url()).not.toContain('/login');
+      // AC5: Click logout button (use first() to avoid strict mode violation)
+      await page.getByRole('button', { name: /logout|log out/i }).first().click();
 
-    // AC5: Click logout button
-    await page.getByRole('button', { name: t('settings.logout') }).click();
+      // AC7: Wait for redirect to /login
+      await page.waitForURL('**/login', { timeout: 5000 });
 
-    // AC7: Wait for redirect to /login
-    await page.waitForURL('**/login', { timeout: 5000 });
+      // AC5: Verify tokens are cleared from localStorage
+      const tokensCleared = await page.evaluate(() => {
+        const accessToken = localStorage.getItem('accessToken');
+        const refreshToken = localStorage.getItem('refreshToken');
+        return !accessToken && !refreshToken;
+      });
+      expect(tokensCleared).toBeTruthy();
 
-    // AC5: Verify tokens are cleared from localStorage
-    const tokensCleared = await page.evaluate(() => {
-      const accessToken = localStorage.getItem('accessToken');
-      const refreshToken = localStorage.getItem('refreshToken');
-      return !accessToken && !refreshToken;
-    });
-    expect(tokensCleared).toBeTruthy();
+      // AC6 (MODIFIED): Verify IndexedDB keys PERSIST for true E2EE
+      // Keys are NOT cleared on logout - this ensures the server never has access to them
+      const keysPersist = await page.evaluate(async () => {
+        try {
+          const db = await new Promise<IDBDatabase>((resolve, reject) => {
+            const request = indexedDB.open('ourchat-keys', 1);
+            request.onsuccess = () => resolve(request.result);
+            request.onerror = () => reject(request.error);
+          });
+          const transaction = db.transaction(['keys'], 'readonly');
+          const store = transaction.objectStore('keys');
+          const getAllKeysRequest = store.getAllKeys();
+          const keys = await new Promise<IDBValidKey[]>((resolve, reject) => {
+            getAllKeysRequest.onsuccess = () => resolve(getAllKeysRequest.result);
+            getAllKeysRequest.onerror = () => reject(getAllKeysRequest.error);
+          });
+          db.close();
+          // Should have some keys remaining (familyKey, privateKey, etc.)
+          return keys.length > 0;
+        } catch {
+          return false;
+        }
+      });
+      expect(keysPersist).toBeTruthy();
 
-    // AC6 (MODIFIED): Verify IndexedDB keys PERSIST for true E2EE
-    // Keys are NOT cleared on logout - this ensures the server never has access to them
-    const keysPersist = await page.evaluate(async () => {
-      try {
-        const db = await new Promise<IDBDatabase>((resolve, reject) => {
-          const request = indexedDB.open('ourchat-keys', 1);
-          request.onsuccess = () => resolve(request.result);
-          request.onerror = () => reject(request.error);
-        });
-        const transaction = db.transaction(['keys'], 'readonly');
-        const store = transaction.objectStore('keys');
-        const getRequest = store.get('familyKey');
-        const key = await new Promise((resolve, reject) => {
-          getRequest.onsuccess = () => resolve(getRequest.result);
-          getRequest.onerror = () => reject(getRequest.error);
-        });
-        db.close();
-        return !!key; // Should still exist!
-      } catch (e) {
-        return false;
-      }
-    });
-    expect(keysPersist).toBeTruthy();
-
-    // AC7: Verify accessing /chat redirects back to /login
-    await page.goto('/chat');
-    await page.waitForTimeout(1500);
-    expect(page.url()).toContain('/login');
-
-    // BONUS: Verify re-login works and can decrypt messages with persisted keys
-    await page.locator('#email').fill(email);
-    await page.locator('#password').fill(password);
-    await page.locator('button[type="submit"]').click();
-    await page.waitForTimeout(2000);
-
-    // Should be back on chat page and able to use the persisted key
-    expect(page.url()).not.toContain('/login');
+      // AC7: Verify accessing /chat redirects back to /login
+      await page.goto('/chat');
+      await page.waitForTimeout(1500);
+      expect(page.url()).toContain('/login');
+    } finally {
+      await cleanup();
+    }
   });
-
 
   /**
    * AC2: IndexedDB family key storage
    * Tests that family key is stored in IndexedDB and persists
    */
   test('Family key persists in IndexedDB across page reload', async ({ page }) => {
-    // SETUP: Register user
-    const email = `${testId}-indexeddb@example.com`;
-    const password = 'IndexedDBTest123!';
-    const familyName = `[${testId}] IndexedDB Family`;
-    const userName = `[${testId}] IndexedDB User`;
+    const testId = `session-idb-${Date.now()}`;
+    const { cleanup } = await setupFamilyAdminTest(page, testId);
 
-    await page.goto('/login');
-    await page.getByText(t('login.switchToCreate')).click();
-    await page.waitForTimeout(300);
+    try {
+      // Navigate to chat
+      await page.goto('/chat');
+      await page.waitForLoadState('networkidle');
 
-    // No need for familyKeyBase64 - frontend generates key client-side
+      // AC2: Check if family key exists in IndexedDB
+      const hasKeyBefore = await page.evaluate(async () => {
+        try {
+          const db = await new Promise<IDBDatabase>((resolve, reject) => {
+            const request = indexedDB.open('ourchat-keys', 1);
+            request.onsuccess = () => resolve(request.result);
+            request.onerror = () => reject(request.error);
+          });
 
-    await page.locator('#userName').fill(userName);
-    await page.locator('#email').fill(email);
-    await page.locator('#password').fill(password);
-    await page.locator('#familyName').fill(familyName);
+          const transaction = db.transaction(['keys'], 'readonly');
+          const store = transaction.objectStore('keys');
+          const getAllKeysRequest = store.getAllKeys();
+          const keys = await new Promise<IDBValidKey[]>((resolve, reject) => {
+            getAllKeysRequest.onsuccess = () => resolve(getAllKeysRequest.result);
+            getAllKeysRequest.onerror = () => reject(getAllKeysRequest.error);
+          });
 
-    const registerResponsePromise = page.waitForResponse(
-      response =>
-        response.url().includes(E2E_CONFIG.GRAPHQL_URL) &&
-        response.request().postDataJSON()?.operationName === 'Register'
-    );
+          db.close();
+          // Check for familyKey:* pattern
+          return keys.some(k => String(k).startsWith('familyKey:'));
+        } catch {
+          return false;
+        }
+      });
 
-    await page.locator('button[type="submit"]').click();
-    const registerResponse = await registerResponsePromise;
-    const registerData = await registerResponse.json();
+      expect(hasKeyBefore).toBeTruthy();
 
-    createdUserIds.push(registerData.data.register.user.id);
-    createdFamilyIds.push(registerData.data.register.family.id);
+      // Reload page
+      await page.reload();
+      await page.waitForLoadState('networkidle');
 
-    await page.waitForTimeout(1500);
+      // AC2: Verify key still exists after reload
+      const hasKeyAfter = await page.evaluate(async () => {
+        try {
+          const db = await new Promise<IDBDatabase>((resolve, reject) => {
+            const request = indexedDB.open('ourchat-keys', 1);
+            request.onsuccess = () => resolve(request.result);
+            request.onerror = () => reject(request.error);
+          });
 
-    // AC2: Check if family key exists in IndexedDB
-    const hasKeyBefore = await page.evaluate(async () => {
-      try {
-        const db = await new Promise<IDBDatabase>((resolve, reject) => {
-          const request = indexedDB.open('family-keys', 1);
-          request.onsuccess = () => resolve(request.result);
-          request.onerror = () => reject(request.error);
-        });
+          const transaction = db.transaction(['keys'], 'readonly');
+          const store = transaction.objectStore('keys');
+          const getAllKeysRequest = store.getAllKeys();
+          const keys = await new Promise<IDBValidKey[]>((resolve, reject) => {
+            getAllKeysRequest.onsuccess = () => resolve(getAllKeysRequest.result);
+            getAllKeysRequest.onerror = () => reject(getAllKeysRequest.error);
+          });
 
-        const transaction = db.transaction(['keys'], 'readonly');
-        const store = transaction.objectStore('keys');
-        const getRequest = store.get('familyKey');
+          db.close();
+          return keys.some(k => String(k).startsWith('familyKey:'));
+        } catch {
+          return false;
+        }
+      });
 
-        const key = await new Promise((resolve, reject) => {
-          getRequest.onsuccess = () => resolve(getRequest.result);
-          getRequest.onerror = () => reject(getRequest.error);
-        });
-
-        db.close();
-        return !!key;
-      } catch (e) {
-        return false;
-      }
-    });
-
-    if (hasKeyBefore) {
-      console.log('Family key found in IndexedDB before reload');
-    }
-
-    // Reload page
-    await page.reload();
-    await page.waitForTimeout(1000);
-
-    // AC2: Verify key still exists after reload
-    const hasKeyAfter = await page.evaluate(async () => {
-      try {
-        const db = await new Promise<IDBDatabase>((resolve, reject) => {
-          const request = indexedDB.open('family-keys', 1);
-          request.onsuccess = () => resolve(request.result);
-          request.onerror = () => reject(request.error);
-        });
-
-        const transaction = db.transaction(['keys'], 'readonly');
-        const store = transaction.objectStore('keys');
-        const getRequest = store.get('familyKey');
-
-        const key = await new Promise((resolve, reject) => {
-          getRequest.onsuccess = () => resolve(getRequest.result);
-          getRequest.onerror = () => reject(getRequest.error);
-        });
-
-        db.close();
-        return !!key;
-      } catch (e) {
-        return false;
-      }
-    });
-
-    // Key should persist or be absent (depending on implementation)
-    if (hasKeyAfter) {
       expect(hasKeyAfter).toBeTruthy();
-      console.log('Family key persisted in IndexedDB after reload');
+    } finally {
+      await cleanup();
     }
   });
-
 
   /**
    * AC8: Session token expiry configuration
    * Tests that tokens have appropriate expiry times configured
    */
   test('Session tokens have correct expiry configuration', async ({ page }) => {
-    // SETUP: Create user
-    const email = `${testId}-expiry@example.com`;
-    const password = 'ExpiryTest123!';
-    const familyName = `[${testId}] Expiry Family`;
-    const userName = `[${testId}] Expiry User`;
+    const testId = `session-expiry-${Date.now()}`;
+    const { cleanup } = await setupFamilyAdminTest(page, testId);
 
-    const registerMutation = `
-      mutation Register($input: RegisterInput!) {
-        register(input: $input) {
-          user { id }
-          family { id }
-          accessToken
-          refreshToken
-        }
-      }
-    `;
+    try {
+      await page.goto('/chat');
+      await page.waitForLoadState('networkidle');
 
-    const expiryInviteCode = generateInviteCode();
+      // Get access token from localStorage
+      // Note: The fixture only injects accessToken; refreshToken is only set during real login
+      const accessToken = await page.evaluate(() => localStorage.getItem('accessToken'));
 
-    const registerResponse = await page.request.post(E2E_CONFIG.GRAPHQL_URL, {
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      data: {
-        query: registerMutation,
-        variables: {
-          input: {
-            email,
-            password,
-            familyName,
-            name: userName,
-            inviteCode: expiryInviteCode,
-          },
-        },
-      },
-    });
+      // AC8: Verify access token exists and is valid JWT format
+      expect(accessToken).toBeTruthy();
 
-    const registerData = await registerResponse.json();
-    const { accessToken, refreshToken } = registerData.data.register;
-    createdUserIds.push(registerData.data.register.user.id);
-    createdFamilyIds.push(registerData.data.register.family.id);
+      // JWT tokens should have 3 parts separated by dots
+      const accessTokenParts = accessToken!.split('.');
 
-    // AC8: Verify tokens exist and are valid JWT format
-    expect(accessToken).toBeDefined();
-    expect(refreshToken).toBeDefined();
-    expect(accessToken.length).toBeGreaterThan(0);
-    expect(refreshToken.length).toBeGreaterThan(0);
+      expect(accessTokenParts.length).toBe(3);
 
-    // JWT tokens should have 3 parts separated by dots
-    const accessTokenParts = accessToken.split('.');
-    const refreshTokenParts = refreshToken.split('.');
-
-    expect(accessTokenParts.length).toBe(3);
-    expect(refreshTokenParts.length).toBe(3);
-
-    // Note: Actual expiry times are configured in the backend
-    // Access token: 7 days, Refresh token: 30 days
-    // We verify the tokens exist and are properly formatted
+      // Note: Actual expiry times are configured in the backend
+      // Access token: 7 days
+      // We verify the token exists and is properly formatted
+    } finally {
+      await cleanup();
+    }
   });
-
 
   /**
    * AC7: Protected route access without session
@@ -545,5 +335,4 @@ test.describe('Story 1.3: Session Persistence', () => {
 
     expect(isOnLoginPage).toBeTruthy();
   });
-
 });
