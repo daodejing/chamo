@@ -24,7 +24,7 @@ const t = (key: keyof typeof translations.en): string => {
 };
 
 test.describe('E2EE Key Sharing via Invite Codes', () => {
-  test('Admin and member both receive encryption key transparently', async ({ page }) => {
+  test('@smoke Admin and member both receive encryption key transparently', async ({ page }) => {
     const testId = `e2ee-key-${Date.now()}`;
 
     // Clear MailHog before test

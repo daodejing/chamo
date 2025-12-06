@@ -165,12 +165,12 @@ jobs:
           path: apps/backend/coverage/
           retention-days: 7
 
-  # E2E Smoke Tests (subset of critical tests for quick CI feedback)
-  # Full E2E suite runs on schedule - see nightly workflow
+  # E2E Smoke Tests (critical tests only for quick CI feedback)
+  # Full E2E suite runs nightly - see ci-nightly.yml
   e2e-tests:
-    name: E2E Tests
+    name: E2E Smoke Tests
     runs-on: ubuntu-latest
-    timeout-minutes: 45  # Full suite with 86 tests, 1 worker, retries
+    timeout-minutes: 15  # Smoke tests only (~7 tests, ~5-10 min)
 
     steps:
       - name: Checkout code
@@ -200,8 +200,8 @@ jobs:
       # See playwright.config.ts - it uses --profile test (port 4001) with health check
       # No manual docker-compose or wait steps needed here
 
-      - name: Run E2E tests
-        run: pnpm test:e2e
+      - name: Run E2E smoke tests
+        run: pnpm test:e2e --grep @smoke
         env:
           NODE_ENV: test
           CI: true

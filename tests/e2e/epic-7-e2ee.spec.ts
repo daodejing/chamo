@@ -18,7 +18,7 @@ test.describe('Epic 7: E2EE Infrastructure', () => {
    * AC3: Decryption happens only on recipient devices
    * AC4: No manual key management required
    */
-  test('US-7.1: Message encryption works end-to-end', async ({ page }) => {
+  test('@smoke US-7.1: Message encryption works end-to-end', async ({ page }) => {
     // Click test button
     await page.click('[data-testid="test-message-encryption"]');
 

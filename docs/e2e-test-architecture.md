@@ -452,3 +452,66 @@ In `playwright.config.ts`:
 2. TypeScript compilation in watch mode takes too long
 
 **Fix:** Let Playwright handle startup. Remove any manual `docker compose up` steps from CI workflow.
+
+---
+
+## Smoke Test Strategy
+
+E2E tests are organized into two tiers for optimal CI performance:
+
+### Test Tiers
+
+| Tier | Trigger | Tests | Timeout | Purpose |
+|------|---------|-------|---------|---------|
+| **Smoke** | Every push/PR | ~3 tests | 15 min | Quick feedback on critical paths |
+| **Full Suite** | Nightly (3 AM UTC) | ~86 tests | 60 min | Comprehensive coverage |
+
+### Smoke Tests (`@smoke` tag)
+
+Smoke tests cover the most critical user journeys:
+
+1. **E2EE & Key Sharing**
+   - `e2ee-key-sharing.spec.ts`: Full registration + family creation + key sharing flow
+   - `epic-7-e2ee.spec.ts`: Message encryption (US-7.1)
+
+2. **Messaging**
+   - `messaging.spec.ts`: Send message (AC2)
+
+> **Note:** Additional smoke tests for story-1.1, 1.2, 1.3 are pending - they need updates
+> to use the modern registration flow (where family creation is separate from registration).
+
+### Running Tests
+
+```bash
+# Run smoke tests only (CI default)
+pnpm test:e2e --grep @smoke
+
+# Run full suite (nightly)
+pnpm test:e2e
+
+# Run smoke tests locally
+pnpm exec playwright test --grep @smoke
+```
+
+### Adding Smoke Tag
+
+To mark a test as smoke, add `@smoke` to the test name:
+
+```typescript
+test('@smoke Critical user journey', async ({ page }) => {
+  // ...
+});
+```
+
+### CI Workflows
+
+- **ci.yml** (on push/PR): Runs `pnpm test:e2e --grep @smoke`
+- **ci-nightly.yml** (cron: 0 3 * * *): Runs full `pnpm test:e2e`
+
+### Criteria for Smoke Tests
+
+A test should be tagged `@smoke` if it:
+- Tests a critical user journey (registration, login, core feature)
+- Would indicate a major regression if it fails
+- Is stable and doesn't flake
+- Completes in under 2 minutes

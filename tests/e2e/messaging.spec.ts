@@ -52,7 +52,7 @@ test.describe('Story 2.1: Send Messages in Different Channels', () => {
    * AC2: Type message and send
    * Tests the message input and send functionality
    */
-  test('AC2: User can type and send message', async ({ page }) => {
+  test('@smoke AC2: User can type and send message', async ({ page }) => {
     const testId = `msg-ac2-${Date.now()}`;
     const { fixture, cleanup } = await setupFamilyAdminTest(page, testId);
 
