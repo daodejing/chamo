@@ -404,3 +404,50 @@ open http://localhost:8025
 ### Auth State Collision in Multi-User Tests
 **Cause:** Using `context.newPage()` shares cookies
 **Fix:** Use `browser.newContext()` for separate auth states
+
+---
+
+## CI/CD Integration
+
+### How E2E Tests Run in GitHub Actions
+
+**IMPORTANT:** The CI workflow does NOT manually start docker-compose. Playwright handles everything via its `webServer` configuration.
+
+```yaml
+# .github/workflows/ci.yml - E2E Tests job
+- name: Install Playwright browsers
+  run: pnpm exec playwright install --with-deps firefox
+
+# Playwright's webServer config handles docker-compose startup automatically
+# See playwright.config.ts - uses --profile test (port 4001) with health check
+
+- name: Run E2E tests
+  run: pnpm test:e2e
+  env:
+    CI: true
+```
+
+### Why This Approach?
+
+| Approach | Problem |
+|----------|---------|
+| Manual docker-compose in CI | Conflicts with Playwright's webServer, wrong ports, duplicate startup |
+| Playwright webServer | Built-in health checks, proper timeout handling, automatic teardown |
+
+### Key Configuration
+
+In `playwright.config.ts`:
+- `reuseExistingServer: !process.env.CI` - CI always starts fresh containers
+- Backend uses `--profile test` (port 4001, not 4000)
+- 120 second timeout for docker startup
+- `globalTeardown` handles cleanup
+
+### Common CI Failure: Backend Timeout
+
+**Symptom:** "Wait for services to be ready" times out with exit code 124
+
+**Root Causes:**
+1. CI workflow manually starts wrong docker profile (port 4000 instead of 4001)
+2. TypeScript compilation in watch mode takes too long
+
+**Fix:** Let Playwright handle startup. Remove any manual `docker compose up` steps from CI workflow.

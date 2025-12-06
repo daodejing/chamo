@@ -193,18 +193,11 @@ jobs:
         run: pnpm codegen
 
       - name: Install Playwright browsers
-        run: pnpm exec playwright install --with-deps chromium
+        run: pnpm exec playwright install --with-deps firefox
 
-      - name: Start services with Docker Compose
-        run: docker compose -f apps/backend/docker-compose.yml up -d
-
-      - name: Wait for services to be ready
-        run: |
-          echo "Waiting for backend to be ready..."
-          echo "Checking docker containers..."
-          docker ps -a
-          timeout 120 bash -c 'until curl -f http://localhost:4000/health > /dev/null 2>&1; do echo "Waiting..."; docker logs ourchat_backend --tail 5 2>/dev/null || true; sleep 5; done'
-          echo "Backend is ready!"
+      # NOTE: Playwright's webServer config handles docker-compose startup automatically
+      # See playwright.config.ts - it uses --profile test (port 4001) with health check
+      # No manual docker-compose or wait steps needed here
 
       - name: Run E2E tests
         run: pnpm test:e2e
@@ -230,9 +223,8 @@ jobs:
           path: test-results/
           retention-days: 7
 
-      - name: Cleanup services
-        if: always()
-        run: docker compose -f apps/backend/docker-compose.yml down -v
+      # NOTE: Playwright's globalTeardown handles cleanup automatically
+      # See tests/e2e/global-teardown.ts
 
   # Build Validation
   build-check:
