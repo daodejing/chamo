@@ -239,10 +239,11 @@ describe('Email-Bound Invite Flow (Integration)', () => {
         })
       );
 
-      // Verify email was sent
+      // Verify email was sent (with language parameter from Story 1.13)
       expect(emailServiceMock.sendVerificationEmail).toHaveBeenCalledWith(
         inviteeEmail,
-        expect.any(String)
+        expect.any(String),
+        expect.any(String) // language code
       );
     });
   });
