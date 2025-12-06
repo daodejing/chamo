@@ -83,6 +83,9 @@ type CreateInviteResponse {
 input CreatePendingInviteInput {
   familyId: String!
   inviteeEmail: String!
+
+  """ISO 639-1 language code for the invite email (e.g., "en", "ja")"""
+  inviteeLanguage: String
 }
 
 """

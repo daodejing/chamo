@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { E2E_CONFIG } from './config';
 import { translations } from '../../src/lib/translations';
+import { clearMailHogEmails, waitForMailHogEmail, extractVerificationToken } from './fixtures';
 
 const t = (key: keyof typeof translations.en): string => {
   return translations.en[key];
@@ -97,10 +98,13 @@ test.describe('Story 1.1: Create Family Account', () => {
   });
 
   /**
-   * AC3 & AC4: Successful registration (API validates, skips UI redirect check)
-   * Note: /chat page implementation is outside Story 1.1 scope
+   * AC3 & AC4: Successful registration (API validates, verification email sent)
+   * Tests that registration succeeds and verification email is sent
    */
   test('AC3 & AC4: Successful registration completes without errors', async ({ page }) => {
+    // Clear MailHog before test
+    await clearMailHogEmails();
+
     // Switch to create mode
     const createLink = page.getByText(t('login.switchToCreate'));
     await createLink.click();
@@ -118,53 +122,101 @@ test.describe('Story 1.1: Create Family Account', () => {
     const submitButton = page.locator('button[type="submit"]');
     await submitButton.click();
 
-    // Wait for form to submit (button becomes disabled or loading state)
-    await page.waitForTimeout(2000);
+    // Wait for redirect to verification-pending page (may include query params)
+    await page.waitForURL('**/verification-pending**', { timeout: 10000 });
 
     // Verify no error messages appeared
     const errorElements = page.locator('[role="alert"]:has-text("error"), .text-red-500:has-text("error"), .text-destructive:has-text("error")');
     const errorCount = await errorElements.count();
     expect(errorCount).toBe(0);
 
-    // AC4: Should attempt redirect (even if /chat doesn't exist yet, redirect attempt validates AC4)
-    // We verify the form submission succeeded by checking the URL changed or waiting for navigation
-    await page.waitForTimeout(1000);
+    // AC3: Verify verification email was sent via MailHog
+    const verificationEmail = await waitForMailHogEmail('to', email, 15000);
+    expect(verificationEmail).toBeTruthy();
+    expect(verificationEmail.Content.Headers.Subject[0]).toContain('Verify');
   });
 
   /**
    * AC3: Admin receives success confirmation with invite code displayed for sharing
-   * Tests that invite code with family key appears in toast after registration
+   * Tests that invite code with family key appears in toast after family creation
    *
    * CORRECT E2EE BEHAVIOR:
    * - Backend returns only the code portion (FAMILY-XXXXXXXX) without the key
    * - Frontend combines code with key from IndexedDB for display
    * - Toast should show: FAMILY-XXXXXXXX:BASE64KEY format
+   *
+   * Full flow: register → verify email → login → create family → check toast
    */
-  test('AC3: Invite code with family key appears in toast after registration', async ({ page }) => {
-    // Page starts in 'login' mode, switch to 'create' mode
-    const createLink = page.getByText(t('login.switchToCreate'));
-    await createLink.click();
-    await page.waitForTimeout(300);
+  test('AC3: Invite code with family key appears in toast after family creation', async ({ page }) => {
+    // Clear MailHog before test
+    await clearMailHogEmails();
 
-    // Fill form with valid unique data
     const timestamp = Date.now();
     const email = `test-toast-${timestamp}@example.com`;
+    const password = 'TestPassword123!';
+
+    // STEP 1: Register
+    await page.getByText(t('login.switchToCreate')).click();
+    await page.waitForTimeout(300);
 
     await page.locator('input[name="email"]').fill(email);
-    await page.locator('input[name="password"]').fill('TestPassword123!');
+    await page.locator('input[name="password"]').fill(password);
     await page.locator('input[name="userName"]').fill('Toast Test User');
 
-    // Submit form
     await page.locator('button[type="submit"]').click();
 
-    // Wait for toast to appear after successful registration
-    const toastElement = await page.waitForSelector('[data-sonner-toast]', {
-      timeout: 3000,
-      state: 'visible'
+    // Wait for redirect to verification-pending page (may include query params)
+    await page.waitForURL('**/verification-pending**', { timeout: 10000 });
+
+    // STEP 2: Get verification email and extract token
+    const verificationEmail = await waitForMailHogEmail('to', email, 15000);
+    expect(verificationEmail).toBeTruthy();
+    const token = extractVerificationToken(verificationEmail);
+    expect(token, 'Verification token should be in email').toBeTruthy();
+
+    // STEP 3: Verify email
+    await page.goto(`/verify-email?token=${token}`);
+
+    // Wait for verification success message
+    await expect(page.getByText(/verified|success/i)).toBeVisible({ timeout: 15000 });
+
+    // Wait for auto-redirect to login page OR navigate manually
+    await page.waitForURL('**/login**', { timeout: 10000 }).catch(async () => {
+      // If auto-redirect doesn't happen, navigate manually
+      await page.goto('/login');
     });
 
+    // STEP 4: Login with verified credentials
+
+    // Make sure we're in login mode
+    const loginLink = page.getByText(t('login.switchToLogin'));
+    if (await loginLink.isVisible()) {
+      await loginLink.click();
+      await page.waitForTimeout(300);
+    }
+
+    await page.locator('input[name="email"]').fill(email);
+    await page.locator('input[name="password"]').fill(password);
+    await page.locator('button[type="submit"]').click();
+
+    // Should be redirected to family-setup (no family yet)
+    await page.waitForURL('**/family-setup', { timeout: 10000 });
+
+    // Wait for any login toast to clear before creating family
+    await page.waitForTimeout(2000);
+
+    // STEP 5: Create family
+    const familyName = `Test Family ${timestamp}`;
+    await page.locator('#familyName').fill(familyName);
+    await page.getByRole('button', { name: /create.*family/i }).click();
+
+    // STEP 6: Wait for toast with invite code (must contain FAMILY- pattern)
+    // Use a function to wait for the correct toast containing the invite code
+    const toastLocator = page.locator('[data-sonner-toast]');
+    await expect(toastLocator.filter({ hasText: /FAMILY-/ })).toBeVisible({ timeout: 15000 });
+
     // Get the toast text content
-    const toastText = await toastElement.textContent();
+    const toastText = await toastLocator.filter({ hasText: /FAMILY-/ }).textContent();
 
     // Extract and validate invite code format (CODE:KEY)
     // Expected format: FAMILY-XXXXXXXXXXXXXXXX:BASE64KEY (16 char code + key combined by frontend)
@@ -180,12 +232,6 @@ test.describe('Story 1.1: Create Family Account', () => {
     expect(code).toMatch(/^FAMILY-[A-Z0-9]{16}$/);
     expect(key).toBeTruthy();
     expect(key.length).toBeGreaterThan(20); // Base64 key should be substantial
-
-    // Verify the toast contains user-friendly text
-    expect(toastText).toContain('FAMILY-');
-
-    // Unblock navigation now that we've captured the toast
-    await page.unroute('**/chat');
   });
 
   /**

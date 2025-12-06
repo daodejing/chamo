@@ -33,15 +33,29 @@ export default defineConfig({
     },
   ],
 
-  // Start dev server on unique port 3003 for E2E tests
-  // Uses E2E_TEST env variable to trigger custom distDir in next.config.js
-  // Points to test backend on port 4001 (start with: docker-compose --profile test up -d)
-  webServer: {
-    command: 'E2E_TEST=true NEXT_PUBLIC_GRAPHQL_HTTP_URL=http://localhost:4001/graphql NEXT_PUBLIC_GRAPHQL_WS_URL=ws://localhost:4001/graphql pnpm next dev --port 3003',
-    url: 'http://localhost:3003',
-    reuseExistingServer: !process.env.CI, // Reuse if already running (local dev only)
-    timeout: 120000, // 2 minutes for first-time compilation
-    stdout: 'ignore',
-    stderr: 'pipe',
-  },
+  // Web servers for E2E tests - both backend and frontend
+  // Backend starts docker-compose with test profile (port 4001 + MailHog)
+  // Frontend starts Next.js dev server on port 3003
+  webServer: [
+    {
+      // Backend services (docker-compose with test profile)
+      // Includes: backend (4001), postgres (5433), MailHog (8025/1025)
+      command: 'docker-compose --profile test up',
+      url: 'http://localhost:4001/health',
+      reuseExistingServer: !process.env.CI,
+      timeout: 120000, // 2 min for docker startup
+      cwd: './apps/backend',
+      stdout: 'ignore',
+      stderr: 'pipe',
+    },
+    {
+      // Frontend dev server on port 3003
+      command: 'E2E_TEST=true NEXT_PUBLIC_GRAPHQL_HTTP_URL=http://localhost:4001/graphql NEXT_PUBLIC_GRAPHQL_WS_URL=ws://localhost:4001/graphql pnpm next dev --port 3003',
+      url: 'http://localhost:3003',
+      reuseExistingServer: !process.env.CI,
+      timeout: 120000, // 2 min for first-time compilation
+      stdout: 'ignore',
+      stderr: 'pipe',
+    },
+  ],
 });

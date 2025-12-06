@@ -28,6 +28,12 @@ import {
 import { encryptFamilyKeyForRecipient } from '@/lib/e2ee/invite-encryption';
 import { getFamilyKeyBase64, generateInviteCode } from '@/lib/e2ee/key-management';
 import { isInviteeFlowActive, clearInviteeFlowFlag } from '@/lib/invite/invitee-flow';
+import { InviteLanguageSelector, type InviteLanguageCode } from '@/components/settings/invite-language-selector';
+
+interface MemberInvite {
+  email: string;
+  language: InviteLanguageCode;
+}
 
 export default function FamilySetupPage() {
   const router = useRouter();
@@ -42,9 +48,14 @@ export default function FamilySetupPage() {
   const [isJoining, setIsJoining] = useState(false);
   const [showInviteeNotice, setShowInviteeNotice] = useState(false);
 
+  // Default language for invites based on UI language
+  const defaultInviteLanguage: InviteLanguageCode = language === 'ja' || language === 'en' ? language : 'en';
+
   // Create family state
   const [familyName, setFamilyName] = useState('');
-  const [memberEmails, setMemberEmails] = useState<string[]>(['']);
+  const [memberInvites, setMemberInvites] = useState<MemberInvite[]>([
+    { email: '', language: defaultInviteLanguage }
+  ]);
   const [inviteStatuses, setInviteStatuses] = useState<Record<string, { status: 'pending' | 'sending' | 'sent' | 'error', message?: string }>>({});
 
   // Join family state
@@ -56,20 +67,26 @@ export default function FamilySetupPage() {
     }
   }, []);
 
-  // Helper functions for member email management
-  const addMemberEmailField = () => {
-    setMemberEmails([...memberEmails, '']);
+  // Helper functions for member invite management
+  const addMemberInviteField = () => {
+    setMemberInvites([...memberInvites, { email: '', language: defaultInviteLanguage }]);
   };
 
-  const removeMemberEmailField = (index: number) => {
-    const newEmails = memberEmails.filter((_, i) => i !== index);
-    setMemberEmails(newEmails.length > 0 ? newEmails : ['']);
+  const removeMemberInviteField = (index: number) => {
+    const newInvites = memberInvites.filter((_, i) => i !== index);
+    setMemberInvites(newInvites.length > 0 ? newInvites : [{ email: '', language: defaultInviteLanguage }]);
   };
 
   const updateMemberEmail = (index: number, value: string) => {
-    const newEmails = [...memberEmails];
-    newEmails[index] = value;
-    setMemberEmails(newEmails);
+    const newInvites = [...memberInvites];
+    newInvites[index] = { ...newInvites[index], email: value };
+    setMemberInvites(newInvites);
+  };
+
+  const updateMemberLanguage = (index: number, value: InviteLanguageCode) => {
+    const newInvites = [...memberInvites];
+    newInvites[index] = { ...newInvites[index], language: value };
+    setMemberInvites(newInvites);
   };
 
   const sendInvitesToMembers = async (familyId: string) => {
@@ -80,22 +97,22 @@ export default function FamilySetupPage() {
 
     const inviterId = user.id;
 
-    const validEmails = memberEmails.filter(email => email.trim() && email.includes('@'));
-    if (validEmails.length === 0) return;
+    const validInvites = memberInvites.filter(invite => invite.email.trim() && invite.email.includes('@'));
+    if (validInvites.length === 0) return;
 
     // Filter out the current user's email
     const currentUserEmail = user?.email?.toLowerCase();
-    const filteredEmails = validEmails.filter(email =>
-      email.trim().toLowerCase() !== currentUserEmail
+    const filteredInvites = validInvites.filter(invite =>
+      invite.email.trim().toLowerCase() !== currentUserEmail
     );
 
-    if (filteredEmails.length === 0) {
+    if (filteredInvites.length === 0) {
       toast.info(t('familySetup.cannotInviteSelf', language));
       return;
     }
 
-    for (const email of filteredEmails) {
-      const trimmedEmail = email.trim();
+    for (const invite of filteredInvites) {
+      const trimmedEmail = invite.email.trim();
       setInviteStatuses(prev => ({ ...prev, [trimmedEmail]: { status: 'sending' } }));
 
       try {
@@ -121,7 +138,7 @@ export default function FamilySetupPage() {
             publicKey,
             inviterId
           );
-          const inviteCode = generateInviteCode();
+          const inviteCodeGenerated = generateInviteCode();
           const expiresAt = new Date();
           expiresAt.setDate(expiresAt.getDate() + 7);
 
@@ -132,7 +149,7 @@ export default function FamilySetupPage() {
                 inviteeEmail: normalizedEmail,
                 encryptedFamilyKey: encryptedKey,
                 nonce,
-                inviteCode,
+                inviteCode: inviteCodeGenerated,
                 expiresAt: expiresAt.toISOString(),
               },
             },
@@ -155,6 +172,7 @@ export default function FamilySetupPage() {
               input: {
                 familyId,
                 inviteeEmail: normalizedEmail,
+                inviteeLanguage: invite.language,
               },
             },
           });
@@ -201,17 +219,25 @@ export default function FamilySetupPage() {
       clearInviteeFlowFlag();
       setShowInviteeNotice(false);
 
+      // Show invite code with encryption key for sharing (AC3: Admin receives invite code)
+      if (result?.inviteCodeWithKey) {
+        toast(result.inviteCodeWithKey, {
+          duration: 30000, // Keep visible for 30 seconds for copying
+          className: 'invite-code-toast',
+        });
+      }
+
       // Send invites to all specified members
       if (result?.family?.id) {
         await sendInvitesToMembers(result.family.id);
       }
 
       // Show summary of sent invites if any
-      const validEmails = memberEmails.filter(email => email.trim() && email.includes('@'));
-      if (validEmails.length > 0) {
+      const validInvites = memberInvites.filter(invite => invite.email.trim() && invite.email.includes('@'));
+      if (validInvites.length > 0) {
         toast.success(
           t('familySetup.invitesSummary', language, {
-            count: validEmails.length,
+            count: validInvites.length,
           }),
         );
       }
@@ -219,7 +245,7 @@ export default function FamilySetupPage() {
       // Redirect to chat after a brief delay to show invite statuses
       setTimeout(() => {
         router.push('/chat');
-      }, 2000);
+      }, 3000);
     } catch (error) {
       console.error('Create family error:', error);
       toast.error(t('toast.familyCreationFailed', language));
@@ -326,7 +352,7 @@ export default function FamilySetupPage() {
                     />
                   </div>
 
-                  {/* Member Email Inputs */}
+                  {/* Member Email Inputs with Language Selector */}
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
                       <Label>{t('familySetup.inviteMembersLabel', language)}</Label>
@@ -334,57 +360,72 @@ export default function FamilySetupPage() {
                         {t('familySetup.optional', language)}
                       </span>
                     </div>
-                    <div className="space-y-2">
-                      {memberEmails.map((email, index) => (
-                        <div key={index} className="flex gap-2">
-                          <div className="flex-1 relative">
-                            <Input
-                              type="email"
-                              placeholder={t('familySetup.memberEmailPlaceholder', language)}
-                              value={email}
-                              onChange={(e) => updateMemberEmail(index, e.target.value)}
-                              disabled={isCreating}
-                              className="rounded-xl pr-8"
-                            />
-                            {inviteStatuses[email.trim()] && (
-                              <div className="absolute right-2 top-1/2 -translate-y-1/2">
-                                {inviteStatuses[email.trim()].status === 'sending' && (
-                                  <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
-                                )}
-                                {inviteStatuses[email.trim()].status === 'sent' && (
-                                  <CheckCircle2 className="w-4 h-4 text-green-500" />
-                                )}
-                                {inviteStatuses[email.trim()].status === 'error' && (
-                                  <AlertCircle className="w-4 h-4 text-red-500" />
-                                )}
-                              </div>
+                    <div className="space-y-3">
+                      {memberInvites.map((invite, index) => (
+                        <div key={index} className="space-y-2 p-3 rounded-xl bg-muted/50">
+                          <div className="flex gap-2">
+                            <div className="flex-1 relative">
+                              <Input
+                                type="email"
+                                placeholder={t('familySetup.memberEmailPlaceholder', language)}
+                                value={invite.email}
+                                onChange={(e) => updateMemberEmail(index, e.target.value)}
+                                disabled={isCreating}
+                                className="rounded-xl pr-8"
+                              />
+                              {inviteStatuses[invite.email.trim()] && (
+                                <div className="absolute right-2 top-1/2 -translate-y-1/2">
+                                  {inviteStatuses[invite.email.trim()].status === 'sending' && (
+                                    <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
+                                  )}
+                                  {inviteStatuses[invite.email.trim()].status === 'sent' && (
+                                    <CheckCircle2 className="w-4 h-4 text-green-500" />
+                                  )}
+                                  {inviteStatuses[invite.email.trim()].status === 'error' && (
+                                    <AlertCircle className="w-4 h-4 text-red-500" />
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                            {memberInvites.length > 1 && (
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => removeMemberInviteField(index)}
+                                disabled={isCreating}
+                                className="rounded-xl"
+                              >
+                                <X className="w-4 h-4" />
+                              </Button>
                             )}
                           </div>
-                          {memberEmails.length > 1 && (
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => removeMemberEmailField(index)}
-                              disabled={isCreating}
-                              className="rounded-xl"
-                            >
-                              <X className="w-4 h-4" />
-                            </Button>
+                          <div className="flex items-center gap-2">
+                            <Label className="text-xs text-muted-foreground shrink-0">
+                              {t('emailInvite.languageLabel', language)}:
+                            </Label>
+                            <div className="flex-1">
+                              <InviteLanguageSelector
+                                value={invite.language}
+                                onValueChange={(value) => updateMemberLanguage(index, value)}
+                                disabled={isCreating}
+                                currentUiLanguage={language}
+                              />
+                            </div>
+                          </div>
+                          {inviteStatuses[invite.email.trim()]?.message && (
+                            <p className="text-xs text-muted-foreground">
+                              {inviteStatuses[invite.email.trim()].message}
+                            </p>
                           )}
                         </div>
                       ))}
-                      {inviteStatuses[memberEmails[memberEmails.length - 1]?.trim()] && (
-                        <p className="text-xs text-muted-foreground">
-                          {inviteStatuses[memberEmails[memberEmails.length - 1]?.trim()].message}
-                        </p>
-                      )}
                     </div>
                     <Button
                       type="button"
                       variant="outline"
                       size="sm"
-                      onClick={addMemberEmailField}
+                      onClick={addMemberInviteField}
                       disabled={isCreating}
                       className="w-full rounded-xl"
                     >

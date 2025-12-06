@@ -71,9 +71,7 @@ const baseImports = [
   EmailModule,
 ];
 
-const shouldEnableTestSupport =
-  process.env.ENABLE_TEST_SUPPORT === 'true' ||
-  process.env.NODE_ENV !== 'production';
+const shouldEnableTestSupport = process.env.NODE_ENV !== 'production';
 
 @Module({
   imports: [

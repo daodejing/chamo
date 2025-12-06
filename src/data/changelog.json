@@ -2,7 +2,7 @@
   "versions": [
     {
       "version": "1.0.0",
-      "date": "2025-11-29",
+      "date": "2025-11-30",
       "changes": {
         "features": [
           "Allow resending registration invites with rate limiting (invite)",
@@ -10,6 +10,7 @@
           "Implement sticky header and fix scroll behavior (Story 5.5) (ui)"
         ],
         "fixes": [
+          "Resolve Firefox E2E test failures with proper key management (e2e)",
           "Skip deployment for test-only changes (cd)",
           "Add missing mocks for email verification e2e test (test)",
           "Resolve CI test failures (ci)"

@@ -18,6 +18,7 @@ import { Label } from '@/components/ui/label';
 import { useAuth } from '@/lib/contexts/auth-context';
 import { useLanguage } from '@/lib/contexts/language-context';
 import { t } from '@/lib/translations';
+import { InviteLanguageSelector, InviteLanguageCode } from '@/components/settings/invite-language-selector';
 import {
   GetUserPublicKeyDocument,
   CreateEncryptedInviteDocument,
@@ -45,6 +46,7 @@ export function InviteMemberDialog({
   const [email, setEmail] = useState('');
   const [isChecking, setIsChecking] = useState(false);
   const [userNotRegistered, setUserNotRegistered] = useState(false);
+  const [inviteLanguage, setInviteLanguage] = useState<InviteLanguageCode>('en');
 
   const [getUserPublicKey] = useLazyQuery(GetUserPublicKeyDocument);
   const [createEncryptedInvite, { loading: isCreatingInvite }] = useMutation(
@@ -57,6 +59,7 @@ export function InviteMemberDialog({
   const handleClose = () => {
     setEmail('');
     setUserNotRegistered(false);
+    setInviteLanguage('en');
     onOpenChange(false);
   };
 
@@ -77,6 +80,7 @@ export function InviteMemberDialog({
           input: {
             familyId,
             inviteeEmail: email.trim().toLowerCase(),
+            inviteeLanguage: inviteLanguage,
           },
         },
       });
@@ -225,6 +229,20 @@ export function InviteMemberDialog({
                   </p>
                   <p className="text-xs text-yellow-700 dark:text-yellow-300 mt-1">
                     {t('inviteDialog.userNotRegisteredHint', language)}
+                  </p>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs text-yellow-800 dark:text-yellow-200">
+                    {t('emailInvite.languageLabel', language)}
+                  </Label>
+                  <InviteLanguageSelector
+                    value={inviteLanguage}
+                    onValueChange={setInviteLanguage}
+                    disabled={isCreatingPendingInvite}
+                    currentUiLanguage={language}
+                  />
+                  <p className="text-xs text-yellow-700 dark:text-yellow-300">
+                    {t('emailInvite.languageHelp', language)}
                   </p>
                 </div>
                 <Button

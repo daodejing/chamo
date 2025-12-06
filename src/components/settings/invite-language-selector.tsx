@@ -71,7 +71,7 @@ export function InviteLanguageSelector({
       onValueChange={(val) => onValueChange(val as InviteLanguageCode)}
       disabled={disabled}
     >
-      <SelectTrigger className="rounded-xl">
+      <SelectTrigger className="rounded-xl bg-background">
         <SelectValue />
       </SelectTrigger>
       <SelectContent>

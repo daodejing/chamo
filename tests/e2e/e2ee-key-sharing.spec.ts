@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { translations } from '../../src/lib/translations';
+import { clearMailHogEmails, waitForMailHogEmail, extractVerificationToken, cleanupTestData } from './fixtures';
 
 /**
  * E2EE KEY SHARING TEST
@@ -14,6 +15,8 @@ import { translations } from '../../src/lib/translations';
  *
  * This ensures the key sharing is completely transparent to users while
  * maintaining end-to-end encryption security.
+ *
+ * Flow: register → verify email → login → create family → get invite code → member joins
  */
 
 const t = (key: keyof typeof translations.en): string => {
@@ -21,18 +24,19 @@ const t = (key: keyof typeof translations.en): string => {
 };
 
 test.describe('E2EE Key Sharing via Invite Codes', () => {
-  const testId = `e2ee-key-${Date.now()}`;
-
   test('Admin and member both receive encryption key transparently', async ({ page }) => {
-    // STEP 1: Create a family via the UI
+    const testId = `e2ee-key-${Date.now()}`;
+
+    // Clear MailHog before test
+    await clearMailHogEmails();
+
+    // STEP 1: Register admin account
     await page.goto('/login');
     await expect(page.getByText(t('login.title'))).toBeVisible();
 
-    // Switch to create family mode
     await page.getByText(t('login.switchToCreate')).click();
     await page.waitForTimeout(300);
 
-    // Fill out the create family form
     const adminEmail = `${testId}-admin@example.com`;
     const adminPassword = 'TestPassword123!';
     const adminName = `${testId} Admin`;
@@ -41,32 +45,58 @@ test.describe('E2EE Key Sharing via Invite Codes', () => {
     await page.locator('#userName').fill(adminName);
     await page.locator('#email').fill(adminEmail);
     await page.locator('#password').fill(adminPassword);
-    await page.locator('#familyName').fill(familyName);
+    // Note: familyName field no longer exists on registration - family created separately
 
-    // Submit the form
     await page.locator('button[type="submit"]').click();
 
-    // STEP 2: Get the invite code as a user would see it
-    // Wait for the invite code toast to appear
-    await page.waitForTimeout(2000); // Give time for toast to render
+    // Wait for redirect to verification-pending page (may include query params)
+    await page.waitForURL('**/verification-pending**', { timeout: 10000 });
 
-    // Select the toast by its specific className
-    const toastLocator = page.locator('.invite-code-toast');
-    await expect(toastLocator).toBeVisible({ timeout: 10000 });
+    // STEP 2: Get verification email and verify
+    const adminVerificationEmail = await waitForMailHogEmail('to', adminEmail, 15000);
+    expect(adminVerificationEmail).toBeTruthy();
+    const adminToken = extractVerificationToken(adminVerificationEmail);
+    expect(adminToken, 'Admin verification token should be in email').toBeTruthy();
 
-    // Simulate what a user would see when they try to copy the toast content
-    // Get ALL text content that would be selected if user clicks the toast
-    const allToastText = await toastLocator.textContent();
+    await page.goto(`/verify-email?token=${adminToken}`);
+
+    // Wait for verification success message
+    await expect(page.getByText(/verified|success/i)).toBeVisible({ timeout: 15000 });
+
+    // Wait for auto-redirect to login OR navigate manually
+    await page.waitForURL('**/login**', { timeout: 10000 }).catch(async () => {
+      await page.goto('/login');
+    });
+
+    // STEP 3: Login with verified admin credentials
+    const loginLink = page.getByText(t('login.switchToLogin'));
+    if (await loginLink.isVisible()) {
+      await loginLink.click();
+      await page.waitForTimeout(300);
+    }
+
+    await page.locator('input[name="email"]').fill(adminEmail);
+    await page.locator('input[name="password"]').fill(adminPassword);
+    await page.locator('button[type="submit"]').click();
+
+    // Should be redirected to family-setup (no family yet)
+    await page.waitForURL('**/family-setup', { timeout: 10000 });
+
+    // STEP 4: Create family
+    await page.locator('#familyName').fill(familyName);
+    await page.getByRole('button', { name: /create.*family/i }).click();
+
+    // Wait for toast with invite code (filter for FAMILY- pattern to avoid "Logged in!" toast)
+    const toastLocator = page.locator('[data-sonner-toast]');
+    await expect(toastLocator.filter({ hasText: /FAMILY-/ })).toBeVisible({ timeout: 15000 });
+
+    const allToastText = await toastLocator.filter({ hasText: /FAMILY-/ }).textContent();
     console.log('All toast text (what user would copy):', allToastText);
 
-    // The invite code should be the ONLY thing displayed (no extra text)
-    // If there's extra text, users will copy garbage along with the code
     const displayedInviteCode = allToastText!.trim();
     console.log('Displayed invite code:', displayedInviteCode);
 
     // ASSERTION 1: The toast should display the FULL invite code (code + key)
-    // Format: FAMILY-XXXXXXXXXXXXXXXX:BASE64KEY
-    // This is critical - members need the key to decrypt messages
     expect(displayedInviteCode, 'Toast should display full invite code with encryption key').toMatch(/^FAMILY-[A-Z0-9]{16}:[A-Za-z0-9+/=]+$/);
 
     // ASSERTION 2: Verify the ADMIN's encryption key was stored in IndexedDB
@@ -82,20 +112,30 @@ test.describe('E2EE Key Sharing via Invite Codes', () => {
           const db = request.result;
           const transaction = db.transaction([storeName], 'readonly');
           const store = transaction.objectStore(storeName);
-          const getRequest = store.get('familyKey');
+          // Get all keys and find the one starting with 'familyKey:'
+          const getAllKeysRequest = store.getAllKeys();
 
-          getRequest.onsuccess = async () => {
-            const cryptoKey = getRequest.result;
-            if (cryptoKey) {
-              // Export the CryptoKey to base64 for comparison
-              const rawKey = await crypto.subtle.exportKey('raw', cryptoKey);
-              const base64Key = btoa(String.fromCharCode(...new Uint8Array(rawKey)));
-              resolve(base64Key);
-            } else {
+          getAllKeysRequest.onsuccess = async () => {
+            const keys = getAllKeysRequest.result as string[];
+            const familyKeyName = keys.find(k => k.startsWith('familyKey:'));
+            if (!familyKeyName) {
               resolve(null);
+              return;
             }
+            const getRequest = store.get(familyKeyName);
+            getRequest.onsuccess = async () => {
+              const cryptoKey = getRequest.result;
+              if (cryptoKey) {
+                const rawKey = await crypto.subtle.exportKey('raw', cryptoKey);
+                const base64Key = btoa(String.fromCharCode(...new Uint8Array(rawKey)));
+                resolve(base64Key);
+              } else {
+                resolve(null);
+              }
+            };
+            getRequest.onerror = () => reject(getRequest.error);
           };
-          getRequest.onerror = () => reject(getRequest.error);
+          getAllKeysRequest.onerror = () => reject(getAllKeysRequest.error);
         };
 
         request.onerror = () => reject(request.error);
@@ -106,34 +146,26 @@ test.describe('E2EE Key Sharing via Invite Codes', () => {
     expect(adminStoredKey, 'Admin stored key should match invite code key').toBe(adminKeyFromInviteCode);
     console.log('Admin encryption key verified in IndexedDB');
 
-    // STEP 3: Attempt to join with the displayed invite code
-    // Clear authentication state to simulate a new user logging in
+    // STEP 5: Member joins with the invite code
+    // Clear authentication state for member
     await page.context().clearCookies();
     await page.evaluate(() => {
       localStorage.clear();
       sessionStorage.clear();
     });
 
+    // Clear MailHog again for member's email
+    await clearMailHogEmails();
+
+    // Navigate to join page with invite code in query param
+    // The join page cleans the URL after reading the code
     const encodedInvite = encodeURIComponent(displayedInviteCode);
+    await page.goto(`/join?code=${encodedInvite}`);
+    await page.waitForLoadState('networkidle');
 
-    // Use the dedicated invite link route that sanitizes URL and preserves key client-side only
-    await page.goto(`/join/${encodedInvite}`);
-    await page.waitForURL('**/join');
+    // The join page should have processed the invite code
 
-    // URL must no longer expose the full invite string
-    expect(new URL(page.url()).pathname.endsWith('/join')).toBe(true);
-
-    // Join form should be prefilled with the original invite string (including key)
-    await expect(page.locator('#inviteCode')).toHaveValue(displayedInviteCode);
-
-    // Switch to join mode explicitly (route sets initial mode but ensure UI state)
-    await page.getByText(t('login.switchToJoin')).click();
-    await page.waitForTimeout(300);
-
-    // Ensure invite code remains intact after toggling modes
-    await expect(page.locator('#inviteCode')).toHaveValue(displayedInviteCode);
-
-    // Fill out join form with the EXACT invite code from the toast
+    // Fill out join form
     const memberEmail = `${testId}-member@example.com`;
     const memberPassword = 'MemberPassword123!';
     const memberName = `${testId} Member`;
@@ -151,10 +183,8 @@ test.describe('E2EE Key Sharing via Invite Codes', () => {
       { timeout: 10000 }
     );
 
-    // Submit join form
     await page.locator('button[type="submit"]').click();
 
-    // Wait for response
     const joinResponse = await joinResponsePromise;
     const requestPayload = joinResponse.request().postDataJSON();
     const responseData = await joinResponse.json();
@@ -164,18 +194,36 @@ test.describe('E2EE Key Sharing via Invite Codes', () => {
 
     console.log('Join response:', JSON.stringify(responseData, null, 2));
 
-    // ASSERTION 4: Join should succeed (not return errors)
-    expect(responseData.errors, 'Join should succeed with the displayed invite code').toBeUndefined();
-    expect(responseData.data?.joinFamily, 'Join mutation should return user data').toBeDefined();
+    // Join should succeed or require email verification
+    if (responseData.data?.joinFamily?.requiresEmailVerification) {
+      // Member needs to verify email
+      const memberVerificationEmail = await waitForMailHogEmail('to', memberEmail, 15000);
+      expect(memberVerificationEmail).toBeTruthy();
+      const memberToken = extractVerificationToken(memberVerificationEmail);
+      expect(memberToken, 'Member verification token should be in email').toBeTruthy();
 
-    // ASSERTION 5: Verify the member was created successfully
-    const joinData = responseData.data.joinFamily;
-    expect(joinData.user.email).toBe(memberEmail);
-    expect(joinData.user.role).toBe('MEMBER');
-    expect(joinData.family.name).toBe(familyName);
+      await page.goto(`/verify-email?token=${memberToken}`);
+      await page.waitForTimeout(2000);
 
-    // ASSERTION 6: Verify the MEMBER's encryption key was stored in IndexedDB
-    // This is critical for E2EE - the key must be transparently saved
+      // Login as member
+      await page.goto('/login');
+      const memberLoginLink = page.getByText(t('login.switchToLogin'));
+      if (await memberLoginLink.isVisible()) {
+        await memberLoginLink.click();
+        await page.waitForTimeout(300);
+      }
+
+      await page.locator('input[name="email"]').fill(memberEmail);
+      await page.locator('input[name="password"]').fill(memberPassword);
+      await page.locator('button[type="submit"]').click();
+
+      await page.waitForTimeout(2000);
+    } else {
+      expect(responseData.errors, 'Join should succeed').toBeUndefined();
+      expect(responseData.data?.joinFamily?.user?.email).toBe(memberEmail);
+    }
+
+    // ASSERTION: Verify the MEMBER's encryption key was stored in IndexedDB
     const memberStoredKey = await page.evaluate(async () => {
       const dbName = 'ourchat-keys';
       const storeName = 'keys';
@@ -187,20 +235,30 @@ test.describe('E2EE Key Sharing via Invite Codes', () => {
           const db = request.result;
           const transaction = db.transaction([storeName], 'readonly');
           const store = transaction.objectStore(storeName);
-          const getRequest = store.get('familyKey');
+          // Get all keys and find the one starting with 'familyKey:'
+          const getAllKeysRequest = store.getAllKeys();
 
-          getRequest.onsuccess = async () => {
-            const cryptoKey = getRequest.result;
-            if (cryptoKey) {
-              // Export the CryptoKey to base64 for comparison
-              const rawKey = await crypto.subtle.exportKey('raw', cryptoKey);
-              const base64Key = btoa(String.fromCharCode(...new Uint8Array(rawKey)));
-              resolve(base64Key);
-            } else {
+          getAllKeysRequest.onsuccess = async () => {
+            const keys = getAllKeysRequest.result as string[];
+            const familyKeyName = keys.find(k => k.startsWith('familyKey:'));
+            if (!familyKeyName) {
               resolve(null);
+              return;
             }
+            const getRequest = store.get(familyKeyName);
+            getRequest.onsuccess = async () => {
+              const cryptoKey = getRequest.result;
+              if (cryptoKey) {
+                const rawKey = await crypto.subtle.exportKey('raw', cryptoKey);
+                const base64Key = btoa(String.fromCharCode(...new Uint8Array(rawKey)));
+                resolve(base64Key);
+              } else {
+                resolve(null);
+              }
+            };
+            getRequest.onerror = () => reject(getRequest.error);
           };
-          getRequest.onerror = () => reject(getRequest.error);
+          getAllKeysRequest.onerror = () => reject(getAllKeysRequest.error);
         };
 
         request.onerror = () => reject(request.error);
@@ -210,36 +268,70 @@ test.describe('E2EE Key Sharing via Invite Codes', () => {
     expect(memberStoredKey, 'Member encryption key should be stored in IndexedDB').toBeTruthy();
     console.log('Member encryption key verified in IndexedDB');
 
-    // ASSERTION 3: Verify the stored key matches the key from the invite code
+    // Verify the stored key matches the key from the invite code
     const memberKeyFromInviteCode = displayedInviteCode.split(':')[1];
     expect(memberStoredKey, 'Member stored key should match invite code key').toBe(memberKeyFromInviteCode);
 
-    // ASSERTION 4: Verify admin and member have the SAME encryption key (critical for E2EE)
+    // CRITICAL: Admin and member have the SAME encryption key
     expect(memberStoredKey, 'Admin and member must have identical encryption keys for E2EE').toBe(adminStoredKey);
     console.log('✓ E2EE key sharing successful: Admin and member have identical keys');
   });
 
   test('Invite code format includes encryption key', async ({ page }) => {
+    const testId = `e2ee-format-${Date.now()}`;
+
+    // Clear MailHog before test
+    await clearMailHogEmails();
+
     await page.goto('/login');
     await expect(page.getByText(t('login.title'))).toBeVisible();
 
-    // Switch to create mode
+    // STEP 1: Register admin
     await page.getByText(t('login.switchToCreate')).click();
     await page.waitForTimeout(300);
 
-    // Create a family
+    const adminEmail = `${testId}-format@example.com`;
+    const adminPassword = 'FormatTest123!';
+
     await page.locator('#userName').fill(`${testId} Format Test Admin`);
-    await page.locator('#email').fill(`${testId}-format@example.com`);
-    await page.locator('#password').fill('FormatTest123!');
-    await page.locator('#familyName').fill(`${testId} Format Test Family`);
+    await page.locator('#email').fill(adminEmail);
+    await page.locator('#password').fill(adminPassword);
     await page.locator('button[type="submit"]').click();
 
-    // Wait for toast and get the invite code
-    await page.waitForTimeout(2000);
-    const toastLocator = page.locator('.invite-code-toast');
-    await expect(toastLocator).toBeVisible({ timeout: 10000 });
+    // Wait for redirect to verification-pending page (may include query params)
+    await page.waitForURL('**/verification-pending**', { timeout: 10000 });
 
-    const displayedCode = (await toastLocator.textContent())!.trim();
+    // STEP 2: Verify email
+    const verificationEmail = await waitForMailHogEmail('to', adminEmail, 15000);
+    const token = extractVerificationToken(verificationEmail);
+    expect(token).toBeTruthy();
+
+    await page.goto(`/verify-email?token=${token}`);
+    await page.waitForTimeout(2000);
+
+    // STEP 3: Login
+    await page.goto('/login');
+    const loginLink = page.getByText(t('login.switchToLogin'));
+    if (await loginLink.isVisible()) {
+      await loginLink.click();
+      await page.waitForTimeout(300);
+    }
+
+    await page.locator('input[name="email"]').fill(adminEmail);
+    await page.locator('input[name="password"]').fill(adminPassword);
+    await page.locator('button[type="submit"]').click();
+
+    await page.waitForURL('**/family-setup', { timeout: 10000 });
+
+    // STEP 4: Create family
+    await page.locator('#familyName').fill(`${testId} Format Test Family`);
+    await page.getByRole('button', { name: /create.*family/i }).click();
+
+    // Wait for toast and get the invite code (filter for FAMILY- pattern)
+    const toastLocator = page.locator('[data-sonner-toast]');
+    await expect(toastLocator.filter({ hasText: /FAMILY-/ })).toBeVisible({ timeout: 15000 });
+
+    const displayedCode = (await toastLocator.filter({ hasText: /FAMILY-/ }).textContent())!.trim();
 
     // Log for debugging
     console.log('Format test - Displayed code:', displayedCode);

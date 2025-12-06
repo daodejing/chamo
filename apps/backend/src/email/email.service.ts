@@ -1,28 +1,33 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import * as Brevo from '@getbrevo/brevo';
+import * as nodemailer from 'nodemailer';
+import type { Transporter } from 'nodemailer';
 import {
   getInviteEmailTranslation,
   formatTranslation,
   InviteEmailTranslation,
 } from './templates/invite-email.translations';
+import {
+  getVerificationEmailTranslation,
+  VerificationEmailTranslation,
+} from './templates/verification-email.translations';
 
 @Injectable()
 export class EmailService implements OnModuleInit {
   private readonly logger = new Logger(EmailService.name);
-  private apiInstance: Brevo.TransactionalEmailsApi;
+  private apiInstance: Brevo.TransactionalEmailsApi | null = null;
+  private smtpTransporter: Transporter | null = null;
+  private readonly useSmtp: boolean;
   private readonly emailFrom: string;
   private readonly emailFromName: string;
   private readonly emailVerificationUrl: string;
   private readonly appBaseUrl: string;
 
   constructor() {
-    // Validate required environment variables
-    const brevoApiKey = process.env.BREVO_API_KEY;
-    if (!brevoApiKey) {
-      throw new Error(
-        'BREVO_API_KEY is required. Please add it to your .env file. See docs/BREVO_SETUP.md for setup instructions.',
-      );
-    }
+    // Check if SMTP is configured (for test environments with MailHog)
+    const smtpHost = process.env.SMTP_HOST;
+    const smtpPort = process.env.SMTP_PORT;
+    this.useSmtp = Boolean(smtpHost && smtpPort);
 
     const emailFrom = process.env.EMAIL_FROM;
     if (!emailFrom) {
@@ -46,12 +51,28 @@ export class EmailService implements OnModuleInit {
       emailVerificationUrl.replace(/\/verify-email.*$/, '') ||
       'http://localhost:3002';
 
-    // Initialize Brevo API client
-    this.apiInstance = new Brevo.TransactionalEmailsApi();
-    this.apiInstance.setApiKey(
-      Brevo.TransactionalEmailsApiApiKeys.apiKey,
-      brevoApiKey,
-    );
+    if (this.useSmtp) {
+      // Use nodemailer with SMTP (for MailHog in tests)
+      this.smtpTransporter = nodemailer.createTransport({
+        host: smtpHost,
+        port: parseInt(smtpPort!, 10),
+        secure: false, // MailHog doesn't use TLS
+      });
+    } else {
+      // Use Brevo API for production
+      const brevoApiKey = process.env.BREVO_API_KEY;
+      if (!brevoApiKey) {
+        throw new Error(
+          'BREVO_API_KEY is required. Please add it to your .env file. See docs/BREVO_SETUP.md for setup instructions.',
+        );
+      }
+
+      this.apiInstance = new Brevo.TransactionalEmailsApi();
+      this.apiInstance.setApiKey(
+        Brevo.TransactionalEmailsApiApiKeys.apiKey,
+        brevoApiKey,
+      );
+    }
   }
 
   onModuleInit() {
@@ -59,6 +80,9 @@ export class EmailService implements OnModuleInit {
     this.logger.log(`Email sender: ${this.emailFromName} <${this.emailFrom}>`);
     this.logger.log(
       `Verification URL: ${this.emailVerificationUrl.replace(/\?.*$/, '')}`,
+    );
+    this.logger.log(
+      `Transport: ${this.useSmtp ? `SMTP (${process.env.SMTP_HOST}:${process.env.SMTP_PORT})` : 'Brevo API'}`,
     );
   }
 
@@ -74,10 +98,12 @@ export class EmailService implements OnModuleInit {
   /**
    * Send verification email with token
    * Fires and forgets - logs errors but doesn't throw
+   * @param language - Optional language code for localized email (defaults to 'en')
    */
   async sendVerificationEmail(
     email: string,
     token: string,
+    language: string = 'en',
   ): Promise<void> {
     if (!this.isValidEmail(email)) {
       this.logger.error(
@@ -86,7 +112,8 @@ export class EmailService implements OnModuleInit {
       return;
     }
 
-    const verificationLink = `${this.emailVerificationUrl}?token=${token}`;
+    const verificationLink = `${this.emailVerificationUrl}?token=${token}&lang=${encodeURIComponent(language)}`;
+    const translations = getVerificationEmailTranslation(language);
 
     try {
       const sendSmtpEmail = new Brevo.SendSmtpEmail();
@@ -95,17 +122,19 @@ export class EmailService implements OnModuleInit {
         name: this.emailFromName,
       };
       sendSmtpEmail.to = [{ email }];
-      sendSmtpEmail.subject = 'Verify your email - Chamo';
+      sendSmtpEmail.subject = translations.subject;
       sendSmtpEmail.htmlContent = this.getVerificationEmailHtml(
         verificationLink,
+        translations,
       );
       sendSmtpEmail.textContent = this.getVerificationEmailText(
         verificationLink,
+        translations,
       );
 
       await this.sendEmailWithRetry(sendSmtpEmail);
       this.logger.debug(
-        `Verification email sent successfully to ${email} (token: ${token.substring(0, 8)}...)`,
+        `Verification email sent successfully to ${email} in language ${language} (token: ${token.substring(0, 8)}...)`,
       );
     } catch (error) {
       this.logger.error(
@@ -219,7 +248,7 @@ export class EmailService implements OnModuleInit {
 
     const registerUrl = `${this.getAppBaseUrl()}/login?mode=create&lockMode=invitee&email=${encodeURIComponent(
       inviteeEmail,
-    )}`;
+    )}&lang=${encodeURIComponent(language)}`;
 
     // Story 1.13: Get translations for the specified language (with English fallback)
     const translations = getInviteEmailTranslation(language);
@@ -309,15 +338,30 @@ export class EmailService implements OnModuleInit {
 
   /**
    * Send email with retry logic (1 retry on network failure)
+   * Supports both SMTP (for MailHog in tests) and Brevo API (for production)
    */
   private async sendEmailWithRetry(
     sendSmtpEmail: Brevo.SendSmtpEmail,
     retryCount = 0,
   ): Promise<void> {
     try {
-      await this.apiInstance.sendTransacEmail(sendSmtpEmail);
+      if (this.useSmtp && this.smtpTransporter) {
+        // Use nodemailer for SMTP (MailHog in tests)
+        await this.smtpTransporter.sendMail({
+          from: `"${sendSmtpEmail.sender?.name}" <${sendSmtpEmail.sender?.email}>`,
+          to: sendSmtpEmail.to?.map((t) => t.email).join(', '),
+          subject: sendSmtpEmail.subject,
+          html: sendSmtpEmail.htmlContent,
+          text: sendSmtpEmail.textContent,
+        });
+      } else if (this.apiInstance) {
+        // Use Brevo API for production
+        await this.apiInstance.sendTransacEmail(sendSmtpEmail);
+      } else {
+        throw new Error('No email transport configured');
+      }
     } catch (error) {
-      // Check for rate limit error (429)
+      // Check for rate limit error (429) - Brevo specific
       if (error.response?.status === 429) {
         this.logger.error(
           'Brevo rate limit exceeded (300 emails/day on free tier). Consider upgrading to a paid plan.',
@@ -325,7 +369,7 @@ export class EmailService implements OnModuleInit {
         throw error;
       }
 
-      // Check for invalid API key (401)
+      // Check for invalid API key (401) - Brevo specific
       if (error.response?.status === 401) {
         this.logger.error(
           'Invalid Brevo API key. Please check your BREVO_API_KEY environment variable.',
@@ -370,70 +414,76 @@ export class EmailService implements OnModuleInit {
   // Email Templates
   // =============================================================================
 
-  private getVerificationEmailHtml(verificationLink: string): string {
+  private getVerificationEmailHtml(
+    verificationLink: string,
+    translations: VerificationEmailTranslation,
+  ): string {
     return `
 <!DOCTYPE html>
 <html>
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Verify your email - Chamo</title>
+  <title>${translations.subject}</title>
 </head>
 <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
   <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
-    <h1 style="color: white; margin: 0; font-size: 28px;">Chamo</h1>
+    <h1 style="color: white; margin: 0; font-size: 28px;">${translations.title}</h1>
   </div>
 
   <div style="background: #ffffff; padding: 40px; border: 1px solid #e0e0e0; border-top: none; border-radius: 0 0 10px 10px;">
-    <h2 style="color: #333; margin-top: 0;">Verify your email address</h2>
+    <h2 style="color: #333; margin-top: 0;">${translations.greeting}</h2>
 
-    <p>Thank you for signing up for Chamo! To complete your registration, please verify your email address by clicking the button below:</p>
+    <p>${translations.instruction}</p>
 
     <div style="text-align: center; margin: 30px 0;">
       <a href="${verificationLink}"
          style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 14px 28px; text-decoration: none; border-radius: 6px; font-weight: 600; display: inline-block;">
-        Verify Email Address
+        ${translations.buttonText}
       </a>
     </div>
 
-    <p>Or copy and paste this link into your browser:</p>
+    <p>${translations.linkIntro}</p>
     <p style="background: #f5f5f5; padding: 12px; border-radius: 4px; word-break: break-all; font-size: 14px; color: #666;">
       ${verificationLink}
     </p>
 
     <div style="margin-top: 30px; padding: 15px; background: #fff3cd; border-left: 4px solid #ffc107; border-radius: 4px;">
       <p style="margin: 0; font-size: 14px; color: #856404;">
-        ⏰ <strong>This link expires in 24 hours</strong>
+        ⏰ <strong>${translations.expirationWarning}</strong>
       </p>
     </div>
 
     <p style="margin-top: 30px; font-size: 14px; color: #666;">
-      If you didn't create an account with Chamo, you can safely ignore this email.
+      ${translations.ignoreNote}
     </p>
   </div>
 
   <div style="text-align: center; margin-top: 20px; color: #999; font-size: 12px;">
-    <p>© ${new Date().getFullYear()} Chamo. Family communication made simple.</p>
+    <p>© ${new Date().getFullYear()} Chamo. ${translations.footer}</p>
   </div>
 </body>
 </html>
     `.trim();
   }
 
-  private getVerificationEmailText(verificationLink: string): string {
+  private getVerificationEmailText(
+    verificationLink: string,
+    translations: VerificationEmailTranslation,
+  ): string {
     return `
-Verify your email address - Chamo
+${translations.greeting} - ${translations.title}
 
-Thank you for signing up for Chamo! To complete your registration, please verify your email address by visiting the link below:
+${translations.instruction}
 
 ${verificationLink}
 
-⏰ This link expires in 24 hours.
+⏰ ${translations.expirationWarning}
 
-If you didn't create an account with Chamo, you can safely ignore this email.
+${translations.ignoreNote}
 
 ---
-© ${new Date().getFullYear()} Chamo. Family communication made simple.
+© ${new Date().getFullYear()} Chamo. ${translations.footer}
     `.trim();
   }
 
@@ -594,6 +644,7 @@ Don't have an account? You'll be able to create one when you accept the invitati
     const replacements = { familyName, inviterName };
     const greeting = formatTranslation(translations.greeting, replacements);
     const intro = formatTranslation(translations.intro, replacements);
+    const body = formatTranslation(translations.body, replacements);
     const cta = formatTranslation(translations.cta, replacements);
     const note = formatTranslation(translations.note, replacements);
     const footer = formatTranslation(translations.footer, replacements);
@@ -612,7 +663,7 @@ Don't have an account? You'll be able to create one when you accept the invitati
   </div>
   <div style="background: #fff; padding: 32px; border: 1px solid #eee; border-top: none; border-radius: 0 0 10px 10px;">
     <h2 style="margin-top: 0;">${intro}</h2>
-    <p>To join, please create your secure Chamo account. Once you're verified, ${inviterName} can finish your encrypted invite.</p>
+    <p>${body}</p>
     <div style="text-align: center; margin: 30px 0;">
       <a href="${registerUrl}" style="background: linear-gradient(135deg, #B5179E 0%, #5518C1 100%); color: white; padding: 14px 28px; text-decoration: none; border-radius: 6px; font-weight: 600; display: inline-block;">
         ${cta}
@@ -638,16 +689,17 @@ Don't have an account? You'll be able to create one when you accept the invitati
   ): string {
     const replacements = { familyName, inviterName };
     const intro = formatTranslation(translations.intro, replacements);
+    const body = formatTranslation(translations.body, replacements);
     const cta = formatTranslation(translations.cta, replacements);
     const footer = formatTranslation(translations.footer, replacements);
 
     return `
 ${intro}
 
+${body}
+
 ${cta}:
 ${registerUrl}
-
-Once you're verified, ${inviterName} can complete your secure invite.
 
 © ${new Date().getFullYear()} Chamo - ${footer}
     `.trim();

@@ -4,6 +4,7 @@ import {
   ConflictException,
   ForbiddenException,
   BadRequestException,
+  Logger,
 } from '@nestjs/common';
 import { Buffer } from 'buffer';
 import { JwtService } from '@nestjs/jwt';
@@ -30,13 +31,10 @@ type FamilySummary = {
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
+
   // In-memory rate limiting cache for email verification resends
   private resendAttempts = new Map<string, { count: number; resetAt: number }>();
-
-  // E2E test support: auto-verify users when ENABLE_TEST_SUPPORT is true
-  private readonly autoVerifyForTests =
-    process.env.ENABLE_TEST_SUPPORT === 'true' &&
-    process.env.NODE_ENV !== 'production';
 
   constructor(
     private prisma: PrismaService,
@@ -217,17 +215,34 @@ export class AuthService {
     pendingInviteCode?: string | null,
   ): Promise<EmailVerificationResponse> {
     const normalizedPublicKey = this.validatePublicKey(publicKey);
+    const normalizedEmail = this.normalizeEmail(email);
     const normalizedPendingInvite =
       pendingInviteCode && pendingInviteCode.trim().length > 0
         ? pendingInviteCode.trim()
         : null;
 
     const existingUser = await this.prisma.user.findUnique({
-      where: { email },
+      where: { email: normalizedEmail },
     });
 
     if (existingUser) {
       throw new ConflictException('Email already registered');
+    }
+
+    // Look up pending invite to get language preference
+    let inviteLanguage: string | null = null;
+    const pendingInvite = await this.prisma.invite.findFirst({
+      where: {
+        inviteeEmail: normalizedEmail,
+        status: 'PENDING_REGISTRATION',
+      },
+      select: { inviteeLanguage: true },
+    });
+    if (pendingInvite?.inviteeLanguage) {
+      inviteLanguage = pendingInvite.inviteeLanguage;
+      this.logger.debug(
+        `Found pending invite for ${normalizedEmail} with language: ${inviteLanguage}`,
+      );
     }
 
     const passwordHash = await bcrypt.hash(password, 10);
@@ -240,43 +255,42 @@ export class AuthService {
     const { user } = await this.prisma.$transaction(async (tx) => {
       const createdUser = await tx.user.create({
         data: {
-          email,
+          email: normalizedEmail,
           name,
           passwordHash,
           role: Role.MEMBER, // No longer ADMIN by default - will be set when creating family
           publicKey: normalizedPublicKey,
           activeFamilyId: null, // No family yet
-          // E2E test support: auto-verify when ENABLE_TEST_SUPPORT is true
-          emailVerified: this.autoVerifyForTests,
-          ...(this.autoVerifyForTests && { emailVerifiedAt: new Date() }),
+          emailVerified: false,
+          // Set preferredLanguage from invite's inviteeLanguage if present
+          ...(inviteLanguage && {
+            preferences: { preferredLanguage: inviteLanguage },
+          }),
         },
       });
 
-      // Store hashed verification token (skip if auto-verified for tests)
-      if (!this.autoVerifyForTests) {
-        await tx.emailVerificationToken.create({
-          data: {
-            userId: createdUser.id,
-            tokenHash,
-            expiresAt,
-            pendingInviteCode: normalizedPendingInvite,
-          },
-        });
-      }
+      await tx.emailVerificationToken.create({
+        data: {
+          userId: createdUser.id,
+          tokenHash,
+          expiresAt,
+          pendingInviteCode: normalizedPendingInvite,
+        },
+      });
 
       return { user: createdUser };
     });
 
-    // Send verification email (skip if auto-verified for tests)
-    if (!this.autoVerifyForTests) {
-      await this.emailService.sendVerificationEmail(email, token);
-    }
+    // Send verification email in the invitee's preferred language
+    await this.emailService.sendVerificationEmail(
+      normalizedEmail,
+      token,
+      inviteLanguage || 'en',
+    );
 
     return {
-      message: this.autoVerifyForTests
-        ? 'Registration successful. Account auto-verified for testing.'
-        : 'Registration successful. Please check your email to verify your account.',
-      requiresEmailVerification: !this.autoVerifyForTests,
+      message: 'Registration successful. Please check your email to verify your account.',
+      requiresEmailVerification: true,
       userId: user.id,
     };
   }
@@ -447,9 +461,7 @@ export class AuthService {
           role: Role.MEMBER,
           publicKey: normalizedPublicKey,
           activeFamilyId: family.id,
-          // E2E test support: auto-verify when ENABLE_TEST_SUPPORT is true
-          emailVerified: this.autoVerifyForTests,
-          ...(this.autoVerifyForTests && { emailVerifiedAt: new Date() }),
+          emailVerified: false,
           // Story 1.13: Set preferredLanguage from invite's inviteeLanguage if present
           ...(inviteLanguage && {
             preferences: { preferredLanguage: inviteLanguage },
@@ -465,16 +477,13 @@ export class AuthService {
         },
       });
 
-      // Store hashed verification token (skip if auto-verified for tests)
-      if (!this.autoVerifyForTests) {
-        await tx.emailVerificationToken.create({
-          data: {
-            userId: createdUser.id,
-            tokenHash,
-            expiresAt,
-          },
-        });
-      }
+      await tx.emailVerificationToken.create({
+        data: {
+          userId: createdUser.id,
+          tokenHash,
+          expiresAt,
+        },
+      });
 
       // Story 1.5 AC4, AC5: Mark email-bound invite as redeemed
       if (shouldMarkInviteRedeemed && emailBoundInvite) {
@@ -490,16 +499,16 @@ export class AuthService {
       return { user: createdUser };
     });
 
-    // Send verification email (skip if auto-verified for tests)
-    if (!this.autoVerifyForTests) {
-      await this.emailService.sendVerificationEmail(normalizedEmail, token);
-    }
+    // Pass inviteLanguage to send localized verification email
+    await this.emailService.sendVerificationEmail(
+      normalizedEmail,
+      token,
+      inviteLanguage || 'en',
+    );
 
     return {
-      message: this.autoVerifyForTests
-        ? 'Registration successful. Account auto-verified for testing.'
-        : 'Registration successful. Please check your email to verify your account.',
-      requiresEmailVerification: !this.autoVerifyForTests,
+      message: 'Registration successful. Please check your email to verify your account.',
+      requiresEmailVerification: true,
       userId: user.id,
     };
   }
@@ -807,6 +816,10 @@ export class AuthService {
     inviteeName?: string | null,
   ) {
     const normalizedEmail = this.normalizeEmail(inviteeEmail);
+    this.logger.debug(
+      `[notifyInvitersInviteeRegistered] Looking for pending invites for email: ${normalizedEmail}`,
+    );
+
     const pendingInvites = await this.prisma.invite.findMany({
       where: {
         inviteeEmail: normalizedEmail,
@@ -826,6 +839,10 @@ export class AuthService {
       },
     });
 
+    this.logger.debug(
+      `[notifyInvitersInviteeRegistered] Found ${pendingInvites.length} pending invites for ${normalizedEmail}`,
+    );
+
     if (!pendingInvites.length) {
       return;
     }
@@ -833,13 +850,16 @@ export class AuthService {
     await Promise.all(
       pendingInvites
         .filter((invite) => invite.inviter?.email)
-        .map((invite) =>
-          this.emailService.sendInviteeRegistrationNotification(
+        .map((invite) => {
+          this.logger.debug(
+            `[notifyInvitersInviteeRegistered] Sending notification to inviter ${invite.inviter!.email} about ${inviteeEmail} for family ${invite.family.name}`,
+          );
+          return this.emailService.sendInviteeRegistrationNotification(
             invite.inviter!.email!,
             inviteeEmail,
             invite.family.name,
-          ),
-        ),
+          );
+        }),
     );
   }
 
@@ -1065,7 +1085,9 @@ export class AuthService {
     inviterId: string,
     familyId: string,
     inviteeEmail: string,
+    inviteeLanguage?: string,
   ) {
+    const language = inviteeLanguage || 'en';
     // Verify inviter is a member of the family
     const membership = await this.prisma.familyMembership.findUnique({
       where: {
@@ -1141,7 +1163,7 @@ export class AuthService {
         );
       }
 
-      // Update existing invite: reset expiry, increment resend count
+      // Update existing invite: reset expiry, increment resend count, update language if provided
       invite = await this.prisma.invite.update({
         where: { id: existingInvite.id },
         data: {
@@ -1150,6 +1172,7 @@ export class AuthService {
             ? existingInvite.resendCount + 1
             : 1, // Reset count if outside the hour window
           lastResendAt: new Date(),
+          inviteeLanguage: language,
         },
       });
       isResend = true;
@@ -1164,6 +1187,7 @@ export class AuthService {
           inviterId,
           inviteeEmail: normalizedEmail,
           inviteCode,
+          inviteeLanguage: language,
           status: 'PENDING_REGISTRATION',
           expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days
         },
@@ -1188,6 +1212,7 @@ export class AuthService {
         normalizedEmail,
         membership.family.name,
         membership.user.name,
+        language,
       );
     }
 

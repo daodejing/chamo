@@ -50,8 +50,10 @@ describe('EmailService', () => {
       expect(service).toBeDefined();
     });
 
-    it('should throw error when BREVO_API_KEY is missing', async () => {
+    it('should throw error when BREVO_API_KEY is missing and SMTP is not configured', async () => {
       delete process.env.BREVO_API_KEY;
+      delete process.env.SMTP_HOST;
+      delete process.env.SMTP_PORT;
 
       await expect(async () => {
         const module: TestingModule = await Test.createTestingModule({
@@ -59,6 +61,19 @@ describe('EmailService', () => {
         }).compile();
         service = module.get<EmailService>(EmailService);
       }).rejects.toThrow('BREVO_API_KEY is required');
+    });
+
+    it('should not require BREVO_API_KEY when SMTP is configured', async () => {
+      delete process.env.BREVO_API_KEY;
+      process.env.SMTP_HOST = 'localhost';
+      process.env.SMTP_PORT = '1025';
+
+      const module: TestingModule = await Test.createTestingModule({
+        providers: [EmailService],
+      }).compile();
+
+      service = module.get<EmailService>(EmailService);
+      expect(service).toBeDefined();
     });
 
     it('should throw error when EMAIL_FROM is missing', async () => {

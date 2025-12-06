@@ -1,14 +1,30 @@
 'use client';
 
-import { Suspense, useState } from 'react';
+import { Suspense, useState, useEffect } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useMutation } from '@apollo/client/react';
 import { ResendVerificationEmailDocument } from '@/lib/graphql/generated/graphql';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { MessageCircle, Mail, CheckCircle, AlertCircle, Info } from 'lucide-react';
+import { useLanguage } from '@/lib/contexts/language-context';
+import { t, Language } from '@/lib/translations';
 
 function VerificationPendingContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
+  const { language, setLanguage } = useLanguage();
   const email = searchParams.get('email') || '';
+  const langParam = searchParams.get('lang');
+  const [languageInitialized, setLanguageInitialized] = useState(false);
+
+  // Set language from URL param (for invitees arriving from registration)
+  useEffect(() => {
+    if (langParam === 'ja' || langParam === 'en') {
+      setLanguage(langParam as Language);
+    }
+    setLanguageInitialized(true);
+  }, [langParam, setLanguage]);
 
   const [resendMutation, { loading }] = useMutation(ResendVerificationEmailDocument);
   const [message, setMessage] = useState<string>('');
@@ -16,7 +32,7 @@ function VerificationPendingContent() {
 
   const handleResend = async () => {
     if (!email) {
-      setError('Email address is missing');
+      setError(t('verification.emailMissing', language));
       return;
     }
 
@@ -29,129 +45,90 @@ function VerificationPendingContent() {
       });
 
       if (data?.resendVerificationEmail?.success) {
-        setMessage(data.resendVerificationEmail.message);
+        setMessage(t('verification.resendSuccess', language));
       }
     } catch (err: unknown) {
       const error = err as Error;
       if (error.message?.includes('Too many resend attempts')) {
-        setError('Too many resend attempts. Please try again in 15 minutes.');
+        setError(t('verification.tooManyAttempts', language));
       } else {
-        setError('Failed to resend verification email. Please try again.');
+        setError(t('verification.resendError', language));
       }
     }
   };
 
+  // Wait for language to be initialized before rendering
+  if (!languageInitialized) {
+    return null;
+  }
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4 py-12 sm:px-6 lg:px-8">
-      <div className="w-full max-w-md space-y-8">
-        <div>
-          <h2 className="mt-6 text-center text-3xl font-bold tracking-tight text-gray-900">
-            Check your email
-          </h2>
-          <p className="mt-2 text-center text-sm text-gray-600">
-            We&apos;ve sent a verification email to
-          </p>
-          <p className="mt-1 text-center text-base font-medium text-gray-900">
-            {email}
-          </p>
-        </div>
-
-        <div className="rounded-md bg-blue-50 p-4">
-          <div className="flex">
-            <div className="flex-shrink-0">
-              <svg
-                className="h-5 w-5 text-blue-400"
-                xmlns="http://www.w3.org/2000/svg"
-                viewBox="0 0 20 20"
-                fill="currentColor"
-                aria-hidden="true"
-              >
-                <path
-                  fillRule="evenodd"
-                  d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a.75.75 0 000 1.5h.253a.25.25 0 01.244.304l-.459 2.066A1.75 1.75 0 0010.747 15H11a.75.75 0 000-1.5h-.253a.25.25 0 01-.244-.304l.459-2.066A1.75 1.75 0 009.253 9H9z"
-                  clipRule="evenodd"
-                />
-              </svg>
-            </div>
-            <div className="ml-3 flex-1">
-              <p className="text-sm text-blue-700">
-                Click the verification link in the email to activate your account. The link will expire in 24 hours.
-              </p>
+    <div className="min-h-screen flex items-center justify-center bg-background p-4">
+      <Card className="w-full max-w-md shadow-xl rounded-[20px]">
+        <CardHeader className="text-center space-y-4">
+          <div className="flex justify-center">
+            <div className="w-16 h-16 bg-gradient-to-br from-[#B5179E] to-[#5518C1] rounded-[20px] flex items-center justify-center shadow-lg">
+              <MessageCircle className="w-8 h-8 text-white" />
             </div>
           </div>
-        </div>
-
-        {message && (
-          <div className="rounded-md bg-green-50 p-4">
-            <div className="flex">
-              <div className="flex-shrink-0">
-                <svg
-                  className="h-5 w-5 text-green-400"
-                  xmlns="http://www.w3.org/2000/svg"
-                  viewBox="0 0 20 20"
-                  fill="currentColor"
-                  aria-hidden="true"
-                >
-                  <path
-                    fillRule="evenodd"
-                    d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z"
-                    clipRule="evenodd"
-                  />
-                </svg>
-              </div>
-              <div className="ml-3">
-                <p className="text-sm font-medium text-green-800">{message}</p>
-              </div>
-            </div>
+          <div>
+            <CardTitle>{t('verification.title', language)}</CardTitle>
+            <CardDescription className="mt-2">
+              {t('verification.sentTo', language)}
+            </CardDescription>
+            <p className="mt-1 font-medium text-foreground">{email}</p>
           </div>
-        )}
-
-        {error && (
-          <div className="rounded-md bg-red-50 p-4">
-            <div className="flex">
-              <div className="flex-shrink-0">
-                <svg
-                  className="h-5 w-5 text-red-400"
-                  xmlns="http://www.w3.org/2000/svg"
-                  viewBox="0 0 20 20"
-                  fill="currentColor"
-                  aria-hidden="true"
-                >
-                  <path
-                    fillRule="evenodd"
-                    d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.28 7.22a.75.75 0 00-1.06 1.06L8.94 10l-1.72 1.72a.75.75 0 101.06 1.06L10 11.06l1.72 1.72a.75.75 0 101.06-1.06L11.06 10l1.72-1.72a.75.75 0 00-1.06-1.06L10 8.94 8.28 7.22z"
-                    clipRule="evenodd"
-                  />
-                </svg>
-              </div>
-              <div className="ml-3">
-                <p className="text-sm font-medium text-red-800">{error}</p>
-              </div>
-            </div>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {/* Info box */}
+          <div className="rounded-xl bg-blue-50 dark:bg-blue-950/30 p-4 flex gap-3">
+            <Info className="h-5 w-5 text-blue-500 flex-shrink-0 mt-0.5" />
+            <p className="text-sm text-blue-700 dark:text-blue-300">
+              {t('verification.instructions', language)}
+            </p>
           </div>
-        )}
 
-        <div className="space-y-4">
-          <button
+          {/* Success message */}
+          {message && (
+            <div className="rounded-xl bg-green-50 dark:bg-green-950/30 p-4 flex gap-3">
+              <CheckCircle className="h-5 w-5 text-green-500 flex-shrink-0 mt-0.5" />
+              <p className="text-sm font-medium text-green-700 dark:text-green-300">{message}</p>
+            </div>
+          )}
+
+          {/* Error message */}
+          {error && (
+            <div className="rounded-xl bg-red-50 dark:bg-red-950/30 p-4 flex gap-3">
+              <AlertCircle className="h-5 w-5 text-red-500 flex-shrink-0 mt-0.5" />
+              <p className="text-sm font-medium text-red-700 dark:text-red-300">{error}</p>
+            </div>
+          )}
+
+          {/* Resend button */}
+          <Button
             onClick={handleResend}
             disabled={loading}
-            className="flex w-full justify-center rounded-md border border-transparent bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+            className="w-full bg-gradient-to-r from-[#B5179E] to-[#8B38BA] hover:from-[#9c1487] hover:to-[#7a2fa5] text-white rounded-[20px] h-12 shadow-lg"
           >
-            {loading ? 'Sending...' : 'Resend verification email'}
-          </button>
+            <Mail className="w-4 h-4 mr-2" />
+            {loading ? t('verification.sending', language) : t('verification.resendButton', language)}
+          </Button>
 
-          <button
+          {/* Back to login button */}
+          <Button
             onClick={() => router.push('/login')}
-            className="flex w-full justify-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+            variant="outline"
+            className="w-full rounded-[20px] h-12 border-2 hover:bg-muted"
           >
-            Back to login
-          </button>
-        </div>
+            {t('verification.backToLogin', language)}
+          </Button>
 
-        <div className="text-center text-sm text-gray-600">
-          <p>Didn&apos;t receive the email? Check your spam folder.</p>
-        </div>
-      </div>
+          {/* Help text */}
+          <p className="text-center text-sm text-muted-foreground">
+            {t('verification.checkSpam', language)}
+          </p>
+        </CardContent>
+      </Card>
     </div>
   );
 }

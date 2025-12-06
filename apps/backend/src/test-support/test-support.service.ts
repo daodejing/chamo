@@ -11,9 +11,7 @@ import { Channel as ChannelType } from '../channels/types/channel.type';
 @Injectable()
 export class TestSupportService {
   private readonly logger = new Logger(TestSupportService.name);
-  private readonly isEnabled =
-    process.env.ENABLE_TEST_SUPPORT === 'true' ||
-    process.env.NODE_ENV !== 'production';
+  private readonly isEnabled = process.env.NODE_ENV !== 'production';
 
   constructor(
     private readonly prisma: PrismaService,

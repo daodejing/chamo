@@ -254,6 +254,7 @@ describe('AuthService - Encrypted Invite Flow', () => {
         inviteeEmail,
         'Aurora Family',
         'Admin Jane',
+        'en', // default language
       );
     });
   });

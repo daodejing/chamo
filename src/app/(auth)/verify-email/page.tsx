@@ -7,11 +7,27 @@ import { VerifyEmailDocument } from '@/lib/graphql/generated/graphql';
 import { initializeFamilyKey } from '@/lib/e2ee/key-management';
 import { clearPendingFamilySecrets, getPendingFamilySecrets } from '@/lib/contexts/auth-context';
 import { storePersistentPendingInviteCode } from '@/lib/invite/pending-invite';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { MessageCircle, CheckCircle, AlertCircle, Loader2 } from 'lucide-react';
+import { useLanguage } from '@/lib/contexts/language-context';
+import { t, Language } from '@/lib/translations';
 
 function VerifyEmailContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
+  const { language, setLanguage } = useLanguage();
   const token = searchParams.get('token') || '';
+  const langParam = searchParams.get('lang');
+  const [languageInitialized, setLanguageInitialized] = useState(false);
+
+  // Set language from URL param (for invitees arriving from verification email)
+  useEffect(() => {
+    if (langParam === 'ja' || langParam === 'en') {
+      setLanguage(langParam as Language);
+    }
+    setLanguageInitialized(true);
+  }, [langParam, setLanguage]);
 
   const [verifyMutation, { loading }] = useMutation(VerifyEmailDocument);
   const [error, setError] = useState<string>('');
@@ -21,7 +37,7 @@ function VerifyEmailContent() {
 
   useEffect(() => {
     if (!token) {
-      setError('Verification token is missing');
+      setError(t('verification.tokenMissing', language));
       return;
     }
 
@@ -71,120 +87,122 @@ function VerifyEmailContent() {
         const error = err as Error;
         console.error('[VERIFY] Verification error:', error);
         if (error.message?.includes('already been used')) {
-          setError('This verification link has already been used. Please log in.');
+          setError(t('verification.alreadyUsed', language));
         } else if (error.message?.includes('expired')) {
-          setError('This verification link has expired. Please request a new one.');
+          setError(t('verification.expired', language));
         } else {
-          setError('Invalid or expired verification token.');
+          setError(t('verification.invalid', language));
         }
         clearPendingFamilySecrets();
       }
     };
 
     verify();
-  }, [token, verifyMutation, router]);
+  }, [token, verifyMutation, router, language]);
 
+  // Wait for language to be initialized before rendering
+  if (!languageInitialized) {
+    return null;
+  }
+
+  // Loading state
   if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-gray-50">
-        <div className="text-center">
-          <div className="mb-4 inline-block h-12 w-12 animate-spin rounded-full border-4 border-solid border-indigo-600 border-r-transparent"></div>
-          <p className="text-lg text-gray-900">Verifying your email...</p>
-        </div>
+      <div className="min-h-screen flex items-center justify-center bg-background p-4">
+        <Card className="w-full max-w-md shadow-xl rounded-[20px]">
+          <CardHeader className="text-center space-y-4">
+            <div className="flex justify-center">
+              <div className="w-16 h-16 bg-gradient-to-br from-[#B5179E] to-[#5518C1] rounded-[20px] flex items-center justify-center shadow-lg">
+                <MessageCircle className="w-8 h-8 text-white" />
+              </div>
+            </div>
+            <div className="flex flex-col items-center gap-4">
+              <Loader2 className="h-8 w-8 animate-spin text-[#B5179E]" />
+              <CardTitle>{t('verification.verifying', language)}</CardTitle>
+            </div>
+          </CardHeader>
+        </Card>
       </div>
     );
   }
 
+  // Success state
   if (success) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4 py-12 sm:px-6 lg:px-8">
-        <div className="w-full max-w-md space-y-8">
-          <div>
-            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-green-100">
-              <svg
-                className="h-10 w-10 text-green-600"
-                xmlns="http://www.w3.org/2000/svg"
-                fill="none"
-                viewBox="0 0 24 24"
-                strokeWidth={1.5}
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                />
-              </svg>
+      <div className="min-h-screen flex items-center justify-center bg-background p-4">
+        <Card className="w-full max-w-md shadow-xl rounded-[20px]">
+          <CardHeader className="text-center space-y-4">
+            <div className="flex justify-center">
+              <div className="w-16 h-16 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center">
+                <CheckCircle className="w-10 h-10 text-green-600 dark:text-green-400" />
+              </div>
             </div>
-            <h2 className="mt-6 text-center text-3xl font-bold tracking-tight text-gray-900">
-              Email verified!
-            </h2>
-            <p className="mt-2 text-center text-sm text-gray-600">
-              Your account is active. Taking you back to the login screen so you can sign in.
-            </p>
+            <div>
+              <CardTitle>{t('verification.success', language)}</CardTitle>
+              <CardDescription className="mt-2">
+                {t('verification.successMessage', language)}
+              </CardDescription>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-4">
             {inviteCode && (
-              <p className="mt-4 rounded-md bg-slate-50 p-3 text-center text-sm text-slate-700">
-                Save this invite code for new family members: <span className="font-mono">{inviteCode}</span>
-              </p>
+              <div className="rounded-xl bg-muted p-4 text-center">
+                <p className="text-sm text-muted-foreground mb-1">
+                  {t('verification.saveInviteCode', language)}
+                </p>
+                <p className="font-mono text-sm font-medium">{inviteCode}</p>
+              </div>
             )}
-          </div>
 
-          <button
-            onClick={() => router.replace('/login')}
-            className="flex w-full justify-center rounded-md border border-transparent bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
-          >
-            Continue to login
-          </button>
-        </div>
+            <Button
+              onClick={() => router.replace('/login')}
+              className="w-full bg-gradient-to-r from-[#B5179E] to-[#8B38BA] hover:from-[#9c1487] hover:to-[#7a2fa5] text-white rounded-[20px] h-12 shadow-lg"
+            >
+              {t('verification.continueToLogin', language)}
+            </Button>
+          </CardContent>
+        </Card>
       </div>
     );
   }
 
+  // Error state
   if (error) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4 py-12 sm:px-6 lg:px-8">
-        <div className="w-full max-w-md space-y-8">
-          <div>
-            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-red-100">
-              <svg
-                className="h-10 w-10 text-red-600"
-                xmlns="http://www.w3.org/2000/svg"
-                fill="none"
-                viewBox="0 0 24 24"
-                strokeWidth={1.5}
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z"
-                />
-              </svg>
-            </div>
-            <h2 className="mt-6 text-center text-3xl font-bold tracking-tight text-gray-900">
-              Verification failed
-            </h2>
-            <p className="mt-2 text-center text-sm text-gray-600">{error}</p>
-          </div>
+    const isExpired = error.includes('expired') || error === t('verification.expired', language);
 
-          <div className="space-y-4">
-            {error.includes('expired') && (
-              <button
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background p-4">
+        <Card className="w-full max-w-md shadow-xl rounded-[20px]">
+          <CardHeader className="text-center space-y-4">
+            <div className="flex justify-center">
+              <div className="w-16 h-16 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center">
+                <AlertCircle className="w-10 h-10 text-red-600 dark:text-red-400" />
+              </div>
+            </div>
+            <div>
+              <CardTitle>{t('verification.failed', language)}</CardTitle>
+              <CardDescription className="mt-2">{error}</CardDescription>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {isExpired && (
+              <Button
                 onClick={() => router.push('/verification-pending')}
-                className="flex w-full justify-center rounded-md border border-transparent bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+                className="w-full bg-gradient-to-r from-[#B5179E] to-[#8B38BA] hover:from-[#9c1487] hover:to-[#7a2fa5] text-white rounded-[20px] h-12 shadow-lg"
               >
-                Request new verification email
-              </button>
+                {t('verification.requestNew', language)}
+              </Button>
             )}
 
-            <button
+            <Button
               onClick={() => router.push('/login')}
-              className="flex w-full justify-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+              variant="outline"
+              className="w-full rounded-[20px] h-12 border-2 hover:bg-muted"
             >
-              Back to login
-            </button>
-          </div>
-        </div>
+              {t('verification.backToLogin', language)}
+            </Button>
+          </CardContent>
+        </Card>
       </div>
     );
   }

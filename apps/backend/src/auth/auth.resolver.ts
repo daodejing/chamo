@@ -220,6 +220,7 @@ export class AuthResolver {
       user.id,
       input.familyId,
       input.inviteeEmail,
+      input.inviteeLanguage,
     );
   }
 

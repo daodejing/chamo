@@ -55,7 +55,6 @@ services:
       INVITE_SECRET: "${INVITE_SECRET:-0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef}"
       CORS_ALLOWED_ORIGINS: "http://localhost:3000,http://localhost:3002"
       NODE_ENV: "development"
-      ENABLE_TEST_SUPPORT: "true"
     volumes:
       - ../../:/app
     command: sh -c "cd /app/apps/backend && pnpm prisma generate && pnpm prisma migrate deploy && pnpm start:dev"
@@ -70,6 +69,19 @@ services:
       timeout: 5s
       retries: 5
       start_period: 30s
+
+  # MailHog for E2E email testing - captures all emails sent during tests
+  mailhog:
+    image: mailhog/mailhog:latest
+    container_name: ourchat_mailhog
+    restart: unless-stopped
+    ports:
+      - "8025:8025"   # Web UI
+      - "1025:1025"   # SMTP
+    networks:
+      - ourchat_network
+    profiles:
+      - test
 
   # Test backend for E2E tests - uses test database on port 4001
   backend-test:
@@ -88,13 +100,21 @@ services:
       INVITE_SECRET: "${INVITE_SECRET:-0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef}"
       CORS_ALLOWED_ORIGINS: "http://localhost:3003"
       NODE_ENV: "test"
-      ENABLE_TEST_SUPPORT: "true"
+      # MailHog SMTP configuration for E2E tests
+      SMTP_HOST: "mailhog"
+      SMTP_PORT: "1025"
+      EMAIL_FROM: "test@chamo.app"
+      EMAIL_FROM_NAME: "Chamo Test"
+      EMAIL_VERIFICATION_URL: "http://localhost:3003/verify-email"
+      APP_BASE_URL: "http://localhost:3003"
     volumes:
       - ../../:/app
     command: sh -c "cd /app/apps/backend && pnpm prisma generate && pnpm prisma migrate deploy && pnpm start:dev"
     depends_on:
       postgres-test:
         condition: service_healthy
+      mailhog:
+        condition: service_started
     networks:
       - ourchat_network
     healthcheck:

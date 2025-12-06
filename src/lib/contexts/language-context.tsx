@@ -10,14 +10,34 @@ interface LanguageContextType {
 
 const LanguageContext = createContext<LanguageContextType | undefined>(undefined);
 
+/**
+ * Check if a string is a valid Language type
+ */
+function isValidLanguage(lang: string | null): lang is Language {
+  return lang === 'en' || lang === 'ja';
+}
+
 export function LanguageProvider({ children }: { children: ReactNode }) {
   // Default to English, but check localStorage for saved preference
   const [language, setLanguageState] = useState<Language>('en');
 
-  // Load saved language preference on mount
+  // Load language preference on mount
+  // Priority: URL param (for invitees) > localStorage > default (en)
   useEffect(() => {
-    const savedLanguage = localStorage.getItem('appLanguage') as Language;
-    if (savedLanguage && (savedLanguage === 'en' || savedLanguage === 'ja')) {
+    // Check URL parameter first (for invitees arriving from email links)
+    const urlParams = new URLSearchParams(window.location.search);
+    const urlLang = urlParams.get('lang');
+
+    if (isValidLanguage(urlLang)) {
+      setLanguageState(urlLang);
+      // Save to localStorage so it persists after navigation
+      localStorage.setItem('appLanguage', urlLang);
+      return;
+    }
+
+    // Fall back to localStorage
+    const savedLanguage = localStorage.getItem('appLanguage');
+    if (isValidLanguage(savedLanguage)) {
       setLanguageState(savedLanguage);
     }
   }, []);

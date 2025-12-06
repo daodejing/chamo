@@ -95,7 +95,7 @@ export function UnifiedLoginScreen({
         const loginResult = await login({ email, password });
         if (loginResult?.requiresVerification) {
           toast.info(t('toast.verifyEmailRequired', language));
-          router.push(`/verification-pending?email=${encodeURIComponent(loginResult.email)}`);
+          router.push(`/verification-pending?email=${encodeURIComponent(loginResult.email)}&lang=${language}`);
           return;
         }
         toast.success(t('toast.loginSuccess', language));
@@ -115,7 +115,7 @@ export function UnifiedLoginScreen({
 
         if (result?.requiresVerification) {
           // Redirect to verification pending page
-          router.push(`/verification-pending?email=${encodeURIComponent(result.email)}`);
+          router.push(`/verification-pending?email=${encodeURIComponent(result.email)}&lang=${language}`);
           return; // Don't call onSuccess(), user needs to verify email first
         }
       } else if (authMode === 'join') {
@@ -128,7 +128,7 @@ export function UnifiedLoginScreen({
 
         if (result?.requiresVerification) {
           // Redirect to verification pending page
-          router.push(`/verification-pending?email=${encodeURIComponent(result.email)}`);
+          router.push(`/verification-pending?email=${encodeURIComponent(result.email)}&lang=${language}`);
           return; // Don't call onSuccess(), user needs to verify email first
         }
       }

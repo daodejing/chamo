@@ -297,6 +297,7 @@ model Invite {
   inviterId          String
   inviter            User         @relation("InviterInvites", fields: [inviterId], references: [id], onDelete: Cascade)
   inviteeEmail       String
+  inviteeLanguage    String       @default("en") @db.VarChar(5) // ISO 639-1 language code for invite email
   encryptedFamilyKey String?      @db.Text // Family key encrypted with invitee's public key (null for PENDING_REGISTRATION)
   nonce              String?      @db.Text // Cryptographic nonce for nacl.box (null for PENDING_REGISTRATION)
   inviteCode         String       @unique // Unique code for acceptance (e.g., INV-XXXX-YYYY)

@@ -10,6 +10,145 @@ import nacl from 'tweetnacl';
 import { E2E_CONFIG } from './config';
 
 // ============================================================================
+// MailHog Types and Helpers
+// ============================================================================
+
+/**
+ * MailHog message structure (simplified)
+ */
+export interface MailHogMessage {
+  ID: string;
+  From: { Relays: null; Mailbox: string; Domain: string; Params: string };
+  To: Array<{ Relays: null; Mailbox: string; Domain: string; Params: string }>;
+  Content: {
+    Headers: {
+      Subject: string[];
+      From: string[];
+      To: string[];
+      'Content-Type': string[];
+    };
+    Body: string;
+    Size: number;
+    MIME: null;
+  };
+  Created: string;
+  Raw: { From: string; To: string[]; Data: string; Helo: string };
+}
+
+export interface MailHogSearchResponse {
+  total: number;
+  count: number;
+  start: number;
+  items: MailHogMessage[];
+}
+
+/**
+ * Search MailHog for emails matching criteria
+ * @param kind - Search type: 'from', 'to', or 'containing' (subject/body)
+ * @param query - Search query string
+ */
+export async function searchMailHogEmails(
+  kind: 'from' | 'to' | 'containing',
+  query: string,
+): Promise<MailHogMessage[]> {
+  const response = await fetch(
+    `${E2E_CONFIG.MAILHOG_API_URL}/search?kind=${kind}&query=${encodeURIComponent(query)}`,
+  );
+
+  if (!response.ok) {
+    throw new Error(`MailHog search failed: ${response.status} ${response.statusText}`);
+  }
+
+  const data: MailHogSearchResponse = await response.json();
+  return data.items;
+}
+
+/**
+ * Get all emails from MailHog
+ */
+export async function getAllMailHogEmails(): Promise<MailHogMessage[]> {
+  const response = await fetch(`${E2E_CONFIG.MAILHOG_API_URL}/messages`);
+
+  if (!response.ok) {
+    throw new Error(`MailHog get messages failed: ${response.status} ${response.statusText}`);
+  }
+
+  const data: MailHogSearchResponse = await response.json();
+  return data.items;
+}
+
+/**
+ * Delete all emails from MailHog (useful for test isolation)
+ */
+export async function clearMailHogEmails(): Promise<void> {
+  const response = await fetch(`${E2E_CONFIG.MAILHOG_API_URL.replace('/v2', '/v1')}/messages`, {
+    method: 'DELETE',
+  });
+
+  if (!response.ok) {
+    throw new Error(`MailHog clear failed: ${response.status} ${response.statusText}`);
+  }
+}
+
+/**
+ * Wait for an email to arrive in MailHog matching criteria
+ * Polls every 500ms until timeout
+ */
+export async function waitForMailHogEmail(
+  kind: 'from' | 'to' | 'containing',
+  query: string,
+  timeoutMs: number = 10000,
+): Promise<MailHogMessage> {
+  const startTime = Date.now();
+
+  while (Date.now() - startTime < timeoutMs) {
+    const emails = await searchMailHogEmails(kind, query);
+    if (emails.length > 0) {
+      return emails[0];
+    }
+    await new Promise((resolve) => setTimeout(resolve, 500));
+  }
+
+  throw new Error(`Timeout waiting for email matching ${kind}="${query}" after ${timeoutMs}ms`);
+}
+
+/**
+ * Decode quoted-printable encoded string
+ * Handles =XX hex codes and soft line breaks (=\n)
+ */
+function decodeQuotedPrintable(str: string): string {
+  // Remove soft line breaks (= at end of line)
+  let decoded = str.replace(/=\r?\n/g, '');
+  // Decode =XX hex sequences
+  decoded = decoded.replace(/=([0-9A-Fa-f]{2})/g, (_, hex) => {
+    return String.fromCharCode(parseInt(hex, 16));
+  });
+  return decoded;
+}
+
+/**
+ * Extract verification token from email body
+ */
+export function extractVerificationToken(email: MailHogMessage): string | null {
+  const body = email.Content.Body;
+  // Decode quoted-printable encoding first
+  const decodedBody = decodeQuotedPrintable(body);
+  const match = decodedBody.match(/[?&]token=([^&\s"'<>]+)/);
+  return match ? match[1] : null;
+}
+
+/**
+ * Extract invite code from email body
+ */
+export function extractInviteCode(email: MailHogMessage): string | null {
+  const body = email.Content.Body;
+  // Decode quoted-printable encoding first
+  const decodedBody = decodeQuotedPrintable(body);
+  const match = decodedBody.match(/[?&]code=([^&\s"'<>]+)/);
+  return match ? match[1] : null;
+}
+
+// ============================================================================
 // Crypto Helpers
 // ============================================================================
 
@@ -238,7 +377,14 @@ export async function storeUserPrivateKey(
 }
 
 /**
- * Inject family encryption key into IndexedDB
+ * Inject family encryption key into IndexedDB as a CryptoKey object.
+ * This mimics how the app stores the family key in production.
+ *
+ * The app uses:
+ * - Database: 'ourchat-keys'
+ * - Store: 'keys'
+ * - Key name: 'familyKey:{familyId}' (note the prefix format!)
+ * - Value: CryptoKey object (AES-GCM)
  */
 export async function injectFamilyKey(
   page: Page,
@@ -247,28 +393,44 @@ export async function injectFamilyKey(
 ): Promise<void> {
   await page.evaluate(
     async ({ familyId, base64Key }) => {
+      // Decode base64 to raw bytes
+      const binaryString = atob(base64Key);
+      const bytes = new Uint8Array(binaryString.length);
+      for (let i = 0; i < binaryString.length; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+      }
+
+      // Import as CryptoKey for AES-GCM encryption
+      const cryptoKey = await crypto.subtle.importKey(
+        'raw',
+        bytes,
+        { name: 'AES-GCM', length: 256 },
+        true, // extractable
+        ['encrypt', 'decrypt'],
+      );
+
+      // Store in the correct IndexedDB location
       return new Promise<void>((resolve, reject) => {
-        const request = indexedDB.open('ourchat-family-keys', 1);
+        const request = indexedDB.open('ourchat-keys', 1);
 
         request.onerror = () => reject(request.error);
 
         request.onupgradeneeded = (event) => {
           const db = (event.target as IDBOpenDBRequest).result;
-          if (!db.objectStoreNames.contains('familyKeys')) {
-            db.createObjectStore('familyKeys', { keyPath: 'familyId' });
+          if (!db.objectStoreNames.contains('keys')) {
+            db.createObjectStore('keys');
           }
         };
 
         request.onsuccess = (event) => {
           const db = (event.target as IDBOpenDBRequest).result;
-          const transaction = db.transaction(['familyKeys'], 'readwrite');
-          const store = transaction.objectStore('familyKeys');
+          const transaction = db.transaction(['keys'], 'readwrite');
+          const store = transaction.objectStore('keys');
 
-          const putRequest = store.put({
-            familyId,
-            base64Key,
-            createdAt: new Date().toISOString(),
-          });
+          // Store with 'familyKey:{familyId}' format - this is what the app expects
+          // See src/lib/e2ee/key-management.ts buildKeyStorageName()
+          const keyName = `familyKey:${familyId}`;
+          const putRequest = store.put(cryptoKey, keyName);
 
           putRequest.onsuccess = () => resolve();
           putRequest.onerror = () => reject(putRequest.error);
