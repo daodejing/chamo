@@ -23,8 +23,9 @@ Playwright automatically starts both backend and frontend via `webServer` array 
 ```typescript
 webServer: [
   {
-    // Backend services (docker-compose with test profile)
-    command: 'docker-compose --profile test up',
+    // Backend services (docker compose with test profile)
+    // Use "docker compose" (v2) not "docker-compose" (v1) for CI compatibility
+    command: 'docker compose --profile test up',
     url: 'http://localhost:4001/health',
     reuseExistingServer: !process.env.CI,
     timeout: 120000,

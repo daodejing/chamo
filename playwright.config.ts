@@ -38,9 +38,10 @@ export default defineConfig({
   // Frontend starts Next.js dev server on port 3003
   webServer: [
     {
-      // Backend services (docker-compose with test profile)
+      // Backend services (docker compose with test profile)
       // Includes: backend (4001), postgres (5433), MailHog (8025/1025)
-      command: 'docker-compose --profile test up',
+      // Use "docker compose" (v2) not "docker-compose" (v1) for CI compatibility
+      command: 'docker compose --profile test up',
       url: 'http://localhost:4001/health',
       reuseExistingServer: !process.env.CI,
       timeout: 120000, // 2 min for docker startup
