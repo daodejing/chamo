@@ -13,19 +13,19 @@ Located in `.claude/skills/`. Read SKILL.md for usage.
 ## Testing Commands
 
 ### E2E Tests (Playwright)
-E2E tests use an isolated test environment:
+
+**Full architecture documentation:** See `docs/e2e-test-architecture.md`
+
+E2E tests use an isolated test environment (services auto-start via Playwright):
 - Test frontend: port 3003
 - Test backend: port 4001 (uses test database on port 5433)
 - MailHog: port 8025 (Web UI) / port 1025 (SMTP) - captures all emails for testing
 
 ```bash
-# Start test backend (required before running E2E tests)
-cd apps/backend && docker-compose --profile test up -d
-
-# Run all E2E tests
+# Run all E2E tests (auto-starts backend + frontend)
 pnpm exec playwright test
 
-# Run specific E2E test file
+# Run specific test file
 pnpm exec playwright test tests/e2e/invite-language-selection.spec.ts
 
 # Run with visible browser
@@ -34,8 +34,8 @@ pnpm exec playwright test --headed
 # Run with UI mode for debugging
 pnpm exec playwright test --ui
 
-# Stop test backend when done
-cd apps/backend && docker-compose --profile test down
+# View captured emails during debugging
+open http://localhost:8025
 ```
 
 ### Backend Unit Tests
@@ -49,10 +49,65 @@ pnpm test:unit
 ```
 
 ## E2E Test Fixtures
-E2E tests use the fixture-based setup pattern (see `tests/e2e/fixtures.ts`):
-- Test data is created via the `test-support` GraphQL API
-- Auth tokens and keys are injected into the browser
-- Test data is cleaned up after each test via `testCleanup` mutation
+
+### Decision Framework: Fixtures vs MailHog
+
+| Approach | When to Use | Example Tests |
+|----------|-------------|---------------|
+| **Fixtures** | Test needs authenticated user (not testing auth) | Messaging, settings, invites |
+| **MailHog** | Test specifically tests email/verification flow | Registration, email verification, E2EE key sharing |
+
+**Rule:** If auth is just a prerequisite → Fixtures. If testing email delivery → MailHog.
+
+### Fixture-Based Setup (Recommended for Most Tests)
+
+```typescript
+import { setupFamilyAdminTest } from './fixtures';
+
+test('Feature test', async ({ page }) => {
+  const testId = `feature-${Date.now()}`;
+  const { fixture, cleanup } = await setupFamilyAdminTest(page, testId);
+
+  try {
+    await page.goto('/feature-page');
+    // ... test assertions ...
+  } finally {
+    await cleanup();  // Always cleanup
+  }
+});
+```
+
+The `setupFamilyAdminTest()` function:
+- Creates user and family via `test-support` GraphQL API
+- Generates real NaCl keypairs for E2EE
+- Injects auth token and keys into browser storage
+- Returns fixture data and cleanup function
+
+### Multi-User Testing
+
+Use `browser.newContext()` (not `context.newPage()`) to isolate auth state:
+
+```typescript
+test('Admin and member', async ({ page, browser }) => {
+  const { fixture, cleanup } = await setupFamilyAdminTest(page, testId);
+
+  try {
+    // Admin actions on `page`...
+
+    // CRITICAL: Separate context for member
+    const memberContext = await browser.newContext();
+    const memberPage = await memberContext.newPage();
+
+    try {
+      // Member actions on `memberPage`...
+    } finally {
+      await memberContext.close();
+    }
+  } finally {
+    await cleanup();
+  }
+});
+```
 
 ### Key E2E Testing Patterns
 
@@ -94,3 +149,22 @@ const code = extractInviteCode(email);
 ```
 
 **MailHog Web UI**: Visit http://localhost:8025 to view captured emails during test debugging.
+
+### Common Pitfalls (Verified Fixes)
+
+**Toast Collisions**: Multiple toasts may appear simultaneously. Filter by expected content:
+```typescript
+// WRONG: May capture wrong toast (e.g., "Logged in!")
+const toast = page.locator('[data-sonner-toast]');
+
+// CORRECT: Filter by expected content
+const inviteToast = page.locator('[data-sonner-toast]').filter({ hasText: /FAMILY-/ });
+```
+
+**Strict Mode Violations**: Use `exact: true` or `.first()` when multiple elements match:
+```typescript
+await page.getByRole('button', { name: 'Done', exact: true }).click();
+await page.getByText(fixture.family.name).first();
+```
+
+**IndexedDB Key Format**: Family keys are stored as `familyKey:{familyId}`, not `familyKey`. Use `getAllKeys()` to find them.
