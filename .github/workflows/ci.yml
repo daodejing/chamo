@@ -165,11 +165,12 @@ jobs:
           path: apps/backend/coverage/
           retention-days: 7
 
-  # E2E Tests
+  # E2E Smoke Tests (subset of critical tests for quick CI feedback)
+  # Full E2E suite runs on schedule - see nightly workflow
   e2e-tests:
     name: E2E Tests
     runs-on: ubuntu-latest
-    timeout-minutes: 25  # Includes: docker startup (~2min) + Next.js compile (~2min) + tests (~15min with retries)
+    timeout-minutes: 45  # Full suite with 86 tests, 1 worker, retries
 
     steps:
       - name: Checkout code
