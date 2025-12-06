@@ -115,15 +115,31 @@ export async function waitForMailHogEmail(
 /**
  * Decode quoted-printable encoded string
  * Handles =XX hex codes and soft line breaks (=\n)
+ * Properly decodes UTF-8 multi-byte characters (like Japanese)
  */
-function decodeQuotedPrintable(str: string): string {
+export function decodeQuotedPrintable(str: string): string {
   // Remove soft line breaks (= at end of line)
   let decoded = str.replace(/=\r?\n/g, '');
-  // Decode =XX hex sequences
-  decoded = decoded.replace(/=([0-9A-Fa-f]{2})/g, (_, hex) => {
-    return String.fromCharCode(parseInt(hex, 16));
-  });
-  return decoded;
+
+  // Collect all bytes (both encoded =XX and literal characters)
+  const bytes: number[] = [];
+  let i = 0;
+  while (i < decoded.length) {
+    if (decoded[i] === '=' && i + 2 < decoded.length) {
+      const hex = decoded.substring(i + 1, i + 3);
+      if (/^[0-9A-Fa-f]{2}$/.test(hex)) {
+        bytes.push(parseInt(hex, 16));
+        i += 3;
+        continue;
+      }
+    }
+    // Literal character - get its UTF-8 bytes
+    bytes.push(decoded.charCodeAt(i));
+    i++;
+  }
+
+  // Decode bytes as UTF-8
+  return new TextDecoder('utf-8').decode(new Uint8Array(bytes));
 }
 
 /**

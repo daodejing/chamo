@@ -46,7 +46,9 @@ export function InviteMemberDialog({
   const [email, setEmail] = useState('');
   const [isChecking, setIsChecking] = useState(false);
   const [userNotRegistered, setUserNotRegistered] = useState(false);
-  const [inviteLanguage, setInviteLanguage] = useState<InviteLanguageCode>('en');
+  const [inviteLanguage, setInviteLanguage] = useState<InviteLanguageCode>(
+    language === 'ja' || language === 'en' ? language : 'en'
+  );
 
   const [getUserPublicKey] = useLazyQuery(GetUserPublicKeyDocument);
   const [createEncryptedInvite, { loading: isCreatingInvite }] = useMutation(

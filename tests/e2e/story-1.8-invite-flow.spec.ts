@@ -25,8 +25,10 @@ import {
   generateRealKeypair,
   injectFamilyKey,
   MailHogMessage,
+  decodeQuotedPrintable,
 } from './fixtures';
 import { E2E_CONFIG } from './config';
+import { inviteEmailTranslations } from '../../apps/backend/src/email/templates/invite-email.translations';
 
 /**
  * Generate a unique test email
@@ -41,13 +43,15 @@ function generateTestEmail(prefix: string): string {
  */
 function extractRegistrationLink(email: MailHogMessage): string | null {
   const body = email.Content.Body;
+  // Decode quoted-printable encoding first (emails often use QP encoding)
+  const decodedBody = decodeQuotedPrintable(body);
   // Look for the registration URL pattern
-  const match = body.match(/https?:\/\/[^\s"'<>]+\/login\?[^\s"'<>]+/);
+  const match = decodedBody.match(/https?:\/\/[^\s"'<>]+\/login\?[^\s"'<>]+/);
   if (match) {
     return match[0];
   }
   // Also try to find just the path
-  const pathMatch = body.match(/\/login\?mode=create[^\s"'<>]*/);
+  const pathMatch = decodedBody.match(/\/login\?mode=create[^\s"'<>]*/);
   return pathMatch ? pathMatch[0] : null;
 }
 
@@ -423,6 +427,9 @@ test.describe('Story 1.8: Family Invite Flow', () => {
 
       // Invitee completes registration
       await inviteePage.goto(registrationLink!);
+      await inviteePage.waitForLoadState('networkidle');
+      // Wait for create mode to be applied from URL params
+      await expect(inviteePage.locator('input[name="userName"]')).toBeVisible({ timeout: 10000 });
       await inviteePage.fill('input[name="userName"]', inviteeName);
       await inviteePage.fill('input[name="password"]', inviteePassword);
       await inviteePage.click('button[type="submit"]');
@@ -522,16 +529,22 @@ test.describe('Story 1.8: Family Invite Flow', () => {
       // STEP 2: Verify registration email is in Japanese
       // ============================================================
       const registrationEmail = await waitForMailHogEmail('to', inviteeEmail, 15000);
-      const emailBody = registrationEmail.Content.Body;
+      const rawEmailBody = registrationEmail.Content.Body;
 
-      // Check for Japanese characters or Japanese-specific content
-      // Common Japanese phrases that might appear in the email
-      const hasJapanese = /[\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FAF]/.test(emailBody);
+      // Decode quoted-printable encoding (emails use QP encoding for non-ASCII)
+      const emailBody = decodeQuotedPrintable(rawEmailBody);
+
+      // Check for Japanese translation strings from the actual translations source
+      const jaTranslations = inviteEmailTranslations['ja'];
+      const hasJapaneseGreeting = emailBody.includes(jaTranslations.greeting);
+      const hasJapaneseCta = emailBody.includes(jaTranslations.cta);
       // Also check for lang=ja in the URL
       const hasJaLang = /lang=ja/.test(emailBody);
 
-      expect(hasJapanese || hasJaLang).toBeTruthy();
-      console.log('Registration email contains Japanese content or lang=ja parameter');
+      // Email content MUST be in Japanese (not just the URL parameter)
+      expect(hasJapaneseGreeting || hasJapaneseCta).toBeTruthy();
+      // URL must also include lang=ja for the registration page
+      expect(hasJaLang).toBeTruthy();
 
       // ============================================================
       // STEP 3: Verify registration page displays in Japanese
