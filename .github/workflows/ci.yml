@@ -169,7 +169,7 @@ jobs:
   e2e-tests:
     name: E2E Tests
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 25  # Includes: docker startup (~2min) + Next.js compile (~2min) + tests (~15min with retries)
 
     steps:
       - name: Checkout code
