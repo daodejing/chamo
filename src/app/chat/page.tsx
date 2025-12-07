@@ -191,14 +191,14 @@ export default function ChatPage() {
     DeregisterSelfMutationVariables
   >(DEREGISTER_SELF_MUTATION);
 
-  // Query family members for Settings panel
+  // Query family members (needed for header member count and Settings panel)
   const { data: familyMembersData, refetch: refetchFamilyMembers } = useQuery<
     GetFamilyMembersQuery,
     GetFamilyMembersQueryVariables
   >(GET_FAMILY_MEMBERS_QUERY, {
     variables: { familyId: family?.id || '' },
-    skip: !family?.id || !isSettingsOpen,
-    fetchPolicy: 'network-only',
+    skip: !family?.id,
+    fetchPolicy: 'cache-and-network',
   });
 
   // Subscribe to real-time updates
@@ -976,7 +976,8 @@ export default function ChatPage() {
   // Get family info
   const familyName = settingsFamilyName || family?.name || 'Loading...';
   const familyAvatar = settingsFamilyAvatar || family?.avatar || '';
-  const familyMemberCount = settingsFamilyMembers.length || 0;
+  // Use GraphQL data directly for member count (settingsFamilyMembers only syncs when settings is open)
+  const familyMemberCount = familyMembersData?.getFamilyMembers?.length ?? 0;
 
   if (authLoading || (loading && !currentChannelId)) {
     return (
