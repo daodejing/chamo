@@ -14,9 +14,12 @@ import {
   GetPendingInvitesDocument,
   GetUserPublicKeyDocument,
   CreateEncryptedInviteDocument,
+  type GetPendingInvitesQuery,
 } from '@/lib/graphql/generated/graphql';
 import { encryptFamilyKeyForRecipient } from '@/lib/e2ee/invite-encryption';
 import { getFamilyKeyBase64, generateInviteCode } from '@/lib/e2ee/key-management';
+
+type PendingInvite = GetPendingInvitesQuery['getPendingInvites'][number];
 
 interface PendingInvitationsSectionProps {
   familyId: string;
@@ -124,7 +127,7 @@ export function PendingInvitationsSection({ familyId, autoCompleteEmail }: Pendi
       return;
     }
     const match = pendingInvites.find(
-      (invite: any) => invite.inviteeEmail?.toLowerCase() === normalizedAutoEmail,
+      (invite) => invite.inviteeEmail?.toLowerCase() === normalizedAutoEmail,
     );
     if (!match) {
       return;
@@ -133,6 +136,7 @@ export function PendingInvitationsSection({ familyId, autoCompleteEmail }: Pendi
     handleCompleteInvite(match.inviteeEmail, match.id).catch(() => {
       // errors handled in handleCompleteInvite; no-op here
     });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [normalizedAutoEmail, autoCompleteHandled, loading, pendingInvites]);
 
   const checkIfRegistered = async (email: string) => {
@@ -179,7 +183,7 @@ export function PendingInvitationsSection({ familyId, autoCompleteEmail }: Pendi
       </CardHeader>
       <CardContent>
         <div className="space-y-3">
-          {pendingInvites.map((invite: any) => (
+          {pendingInvites.map((invite) => (
             <PendingInviteCard
               key={invite.id}
               invite={invite}
@@ -196,7 +200,7 @@ export function PendingInvitationsSection({ familyId, autoCompleteEmail }: Pendi
 }
 
 interface PendingInviteCardProps {
-  invite: any;
+  invite: PendingInvite;
   isCompleting: boolean;
   onComplete: (email: string, id: string) => void;
   checkIfRegistered: (email: string) => Promise<boolean>;

@@ -140,7 +140,7 @@ export default function FamilyInvitationsPage() {
             <p className="text-sm text-muted-foreground">{t('invitesList.empty', language)}</p>
           ) : (
             <div className="space-y-4">
-              {invites.map((invite: any) => {
+              {invites.map((invite) => {
                 const statusConfig =
                   STATUS_CONFIG[invite.status as InviteStatus] ?? STATUS_CONFIG.PENDING;
                 return (
@@ -170,7 +170,7 @@ export default function FamilyInvitationsPage() {
                           {t('invitesList.awaitingAcceptance', language)}
                         </span>
                       )}
-                      {invite.status === 'ACCEPTED' && (
+                      {invite.status === 'ACCEPTED' && invite.acceptedAt && (
                         <span className="text-xs text-muted-foreground">
                           {t('invitesList.acceptedOn', language, {
                             date: new Date(invite.acceptedAt).toLocaleString(),

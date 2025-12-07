@@ -282,7 +282,7 @@ export function ChatScreen({ chatName, chatAvatar, chatMembers, messages, channe
   const getChannelName = (channel: Channel) => {
     // If it's a translation key (starts with "channel."), translate it
     if (channel.name.startsWith("channel.")) {
-      return t(channel.name as any, language);
+      return t(channel.name as keyof typeof import('@/lib/translations').translations.en, language);
     }
     // Otherwise, it's a custom user-created channel, return as-is
     return channel.name;

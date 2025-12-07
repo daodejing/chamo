@@ -42,13 +42,13 @@ export interface MessageBubbleProps {
 
 export function MessageBubble({
   id,
-  userId,
+  // userId - reserved for future per-message actions
   userName,
   userAvatar,
   content,
   timestamp,
   isEdited,
-  editedAt,
+  // editedAt - reserved for showing edit timestamp tooltip
   isMine,
   onEdit,
   onDelete,

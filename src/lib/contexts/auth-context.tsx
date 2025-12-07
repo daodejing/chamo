@@ -125,6 +125,7 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function normalizeUserPayload(raw: any): User | null {
   if (!raw) {
     return null;
@@ -753,7 +754,7 @@ function getPendingVerificationFromErrors(
   fallbackEmail: string,
 ): PendingVerificationResult | null {
   for (const graphQlError of errors) {
-    const extensions = (graphQlError.extensions ?? {}) as Record<string, any>;
+    const extensions = (graphQlError.extensions ?? {}) as Record<string, unknown>;
     const response =
       (extensions.response as { requiresEmailVerification?: boolean; email?: string } | undefined) ??
       (extensions.originalError as { requiresEmailVerification?: boolean; email?: string } | undefined) ??

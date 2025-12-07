@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Upload, X, Download, Heart, MessageCircle, Calendar, User, Folder, Plus, MoreVertical, Edit2, Trash2, FolderOpen, FolderPlus } from "lucide-react";
+import { Upload, X, Heart, Plus, MoreVertical, Edit2, Trash2, FolderOpen, FolderPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
@@ -75,7 +75,7 @@ export function PhotoGallery({
   photos,
   currentUserId,
   currentUserName,
-  familyMembers,
+  // familyMembers - reserved for @mentions in comments
   photoFolders,
   language,
   onAddPhoto,
@@ -189,7 +189,7 @@ export function PhotoGallery({
   const getFolderName = (folder: PhotoFolder) => {
     // If it's a translation key (starts with "folder."), translate it
     if (folder.name.startsWith("folder.") || folder.name.startsWith("channel.")) {
-      return t(folder.name as any, language);
+      return t(folder.name as keyof typeof import('@/lib/translations').translations.en, language);
     }
     // Otherwise, it's a custom user-created folder, return as-is
     return folder.name;
@@ -270,6 +270,7 @@ export function PhotoGallery({
               </div>
               {photoUrl && (
                 <div className="rounded-xl overflow-hidden border">
+                  {/* eslint-disable-next-line @next/next/no-img-element -- dynamic user URL */}
                   <img
                     src={photoUrl}
                     alt="Preview"
@@ -399,6 +400,7 @@ export function PhotoGallery({
                   onClick={() => setSelectedPhoto(photo)}
                 >
                   <div className="aspect-square relative">
+                    {/* eslint-disable-next-line @next/next/no-img-element -- user-uploaded photos */}
                     <img
                       src={photo.url}
                       alt={photo.caption}
@@ -442,6 +444,7 @@ export function PhotoGallery({
             <div className="flex flex-col h-full">
               {/* Photo */}
               <div className="relative bg-black">
+                {/* eslint-disable-next-line @next/next/no-img-element -- user-uploaded photos */}
                 <img
                   src={selectedPhoto.url}
                   alt={selectedPhoto.caption}

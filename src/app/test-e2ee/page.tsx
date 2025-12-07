@@ -9,7 +9,6 @@
 import { useState } from 'react';
 import {
   generateFamilyKey,
-  importFamilyKey,
   createInviteCodeWithKey,
   parseInviteCode,
   initializeFamilyKey,
@@ -26,7 +25,7 @@ export default function E2EETestPage() {
   const testMessageEncryption = async () => {
     try {
       setStatus('Testing message encryption...');
-      const { familyKey, base64Key } = await generateFamilyKey();
+      const { familyKey } = await generateFamilyKey();
 
       const plaintext = 'Hello, E2EE World!';
       const encrypted = await encryptMessage(plaintext, familyKey);

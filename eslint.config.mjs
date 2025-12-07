@@ -25,6 +25,7 @@ export default [
       '**/scripts/**',
       '**/tests/**',
       '**/*.config.mjs',
+      '**/src/lib/graphql/generated/**',
     ],
   },
   ...compat.extends('next/core-web-vitals', 'next/typescript'),

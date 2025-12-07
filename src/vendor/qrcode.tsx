@@ -76,9 +76,11 @@ async function toDataURL(text: string, options: ToDataUrlOptions = {}): Promise<
   return svgToPngDataUrl(svgMarkup, width, margin);
 }
 
-export default {
+const qrcode = {
   toDataURL,
 };
+
+export default qrcode;
 
 export type { ToDataUrlOptions };
 

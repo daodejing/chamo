@@ -31,28 +31,6 @@ function AcceptInviteContent() {
 
   const inviteCode = searchParams.get('code');
 
-  useEffect(() => {
-    // Redirect to login if not authenticated
-    if (!user) {
-      const returnUrl = inviteCode
-        ? `/accept-invite?code=${encodeURIComponent(inviteCode)}`
-        : '/accept-invite';
-      router.push(`/login?returnUrl=${encodeURIComponent(returnUrl)}`);
-      return;
-    }
-
-    // Auto-accept if we have an invite code and haven't started accepting yet
-    if (
-      inviteCode &&
-      !autoAcceptAttempted.current &&
-      !acceptedFamily &&
-      !error
-    ) {
-      autoAcceptAttempted.current = true;
-      handleAcceptInvite(inviteCode);
-    }
-  }, [user, inviteCode, acceptedFamily, error]);
-
   const handleAcceptInvite = async (code: string) => {
     setIsAccepting(true);
     setError(null);
@@ -81,6 +59,29 @@ function AcceptInviteContent() {
       setIsAccepting(false);
     }
   };
+
+  useEffect(() => {
+    // Redirect to login if not authenticated
+    if (!user) {
+      const returnUrl = inviteCode
+        ? `/accept-invite?code=${encodeURIComponent(inviteCode)}`
+        : '/accept-invite';
+      router.push(`/login?returnUrl=${encodeURIComponent(returnUrl)}`);
+      return;
+    }
+
+    // Auto-accept if we have an invite code and haven't started accepting yet
+    if (
+      inviteCode &&
+      !autoAcceptAttempted.current &&
+      !acceptedFamily &&
+      !error
+    ) {
+      autoAcceptAttempted.current = true;
+      handleAcceptInvite(inviteCode);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, inviteCode, acceptedFamily, error, router]);
 
   if (!user) {
     return null; // Will redirect to login

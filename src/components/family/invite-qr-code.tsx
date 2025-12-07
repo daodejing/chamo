@@ -75,6 +75,7 @@ export function InviteQrCode({ language = 'en', familyName }: InviteQrCodeProps)
 
       {!isLoading && qrUrl && (
         <div className="flex flex-col items-center gap-3">
+          {/* eslint-disable-next-line @next/next/no-img-element -- data URL from QR generator */}
           <img
             src={qrUrl}
             alt={altText}

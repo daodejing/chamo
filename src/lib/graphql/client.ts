@@ -123,8 +123,8 @@ const wsLink = typeof window !== 'undefined' ? new GraphQLWsLink(
       error: (error) => {
         if (DEBUG_LOGS_ENABLED) {
           console.error('[WebSocket] ❌ Connection error:', {
-            message: (error as any)?.message,
-            name: (error as any)?.name,
+            message: (error as Error)?.message,
+            name: (error as Error)?.name,
             url: resolveWsUrl(GRAPHQL_WS_URL),
           });
         } else {
@@ -171,7 +171,7 @@ export const apolloClient = new ApolloClient({
           getMessages: {
             // Merge incoming messages with existing cache
             keyArgs: ['input', ['channelId']],
-            merge(existing = [], incoming) {
+            merge(_existing, incoming) {
               return [...incoming];
             },
           },

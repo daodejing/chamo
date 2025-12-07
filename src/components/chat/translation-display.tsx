@@ -38,7 +38,6 @@ const RETRY_BASE_DELAY_MS = 500;
 
 const debugLog = (...args: unknown[]) => {
   if (DEBUG_LOGS_ENABLED) {
-    // eslint-disable-next-line no-console
     console.debug('[TranslationDisplay]', ...args);
   }
 };
@@ -464,6 +463,7 @@ useEffect(
       cancelPendingTimer();
       controller.abort();
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     client,
     enabled,

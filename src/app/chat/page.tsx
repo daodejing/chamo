@@ -105,11 +105,11 @@ export default function ChatPage() {
 
   // Instrumentation refs for debugging double-subscription issue
   const executionCounterRef = useRef(0);
-  const objectIdentityMap = useRef(new WeakMap<any, number>());
+  const objectIdentityMap = useRef(new WeakMap<object, number>());
   const nextIdentityIdRef = useRef(0);
 
   // Helper to track object identity changes (reveals Apollo cache creating new references)
-  const getObjectId = (obj: any) => {
+  const getObjectId = (obj: object | null | undefined) => {
     if (!obj) return null;
     if (!objectIdentityMap.current.has(obj)) {
       objectIdentityMap.current.set(obj, nextIdentityIdRef.current++);
@@ -437,6 +437,7 @@ export default function ChatPage() {
     return () => {
       cancelled = true;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rawMessages, familyKey, user?.id, language]);
 
   // Handle real-time message added
@@ -669,13 +670,15 @@ export default function ChatPage() {
     }
   };
 
-  // Handler: Schedule message
+  // Handler: Schedule message (params reserved for future implementation)
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const handleScheduleMessage = async (_message: string, _scheduledTime: Date) => {
     // TODO: Implement scheduled messages in backend
     toast.info('Scheduled messages will be implemented soon!');
   };
 
-  // Handler: Cancel scheduled message
+  // Handler: Cancel scheduled message (param reserved for future implementation)
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const handleCancelScheduledMessage = async (_messageId: string) => {
     // TODO: Implement in backend
     toast.info('Cancel scheduled messages will be implemented soon!');

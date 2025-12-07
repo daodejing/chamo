@@ -3,7 +3,8 @@
  * Uses AES-256-GCM (Web Crypto API) for all encryption operations.
  */
 
-import { EncryptedPayload, DecryptedPayload } from '@/types/e2ee';
+// Types imported for documentation purposes - actual encryption uses CryptoKey directly
+import type {} from '@/types/e2ee';
 
 /**
  * Encrypts a text message using the family key.
