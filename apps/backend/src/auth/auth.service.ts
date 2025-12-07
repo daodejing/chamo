@@ -1534,6 +1534,57 @@ export class AuthService {
    * - Clears activeFamilyId
    * - Revokes all pending invites to this user
    */
+  /**
+   * Get all members of a family (for Settings member list and member count)
+   */
+  async getFamilyMembers(userId: string, familyId: string) {
+    // Verify user is a member of the family
+    const membership = await this.prisma.familyMembership.findUnique({
+      where: {
+        userId_familyId: {
+          userId,
+          familyId,
+        },
+      },
+    });
+
+    if (!membership) {
+      throw new ForbiddenException('You must be a family member to view members');
+    }
+
+    // Get all family members (exclude soft-deleted users)
+    const memberships = await this.prisma.familyMembership.findMany({
+      where: {
+        familyId,
+        user: {
+          deletedAt: null,
+        },
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            avatar: true,
+          },
+        },
+      },
+      orderBy: {
+        joinedAt: 'asc',
+      },
+    });
+
+    return memberships.map((m) => ({
+      id: m.user.id,
+      name: m.user.name,
+      email: m.user.email,
+      avatar: m.user.avatar,
+      role: m.role,
+      joinedAt: m.joinedAt,
+    }));
+  }
+
   async deregisterSelf(userId: string): Promise<GenericResponse> {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },

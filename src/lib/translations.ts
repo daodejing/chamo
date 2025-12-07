@@ -195,6 +195,7 @@ export const translations = {
 
     // Chat Screen
     "chat.members": "メンバー",
+    "chat.member": "メンバー",
     "chat.translation": "翻訳設定",
     "chat.showTranslation": "翻訳を表示",
     "chat.autoTranslate": "自動翻訳",
@@ -344,6 +345,13 @@ export const translations = {
     "settings.inviteCodeCopied": "招待コードをコピーしました！",
     "settings.setPasscode": "パスコードを設定",
     "settings.setBiometric": "生体認証を設定",
+    "settings.setBiometrics": "生体認証を設定",
+    "settings.fontSmall": "小",
+    "settings.fontMedium": "標準",
+    "settings.fontLarge": "大",
+    "settings.showTranslationDescription": "メッセージと一緒に翻訳を表示",
+    "settings.enableQuietHours": "静かな時間帯を有効化",
+    "settings.quietHoursInfo": "指定時間中はメッセージ送信が制限されます",
     "settings.logout": "ログアウト",
     "settings.deleteAccount": "アカウントを削除",
     "settings.deleteAccountDescription": "アカウントを削除するとすべての家族から退会します",
@@ -619,6 +627,7 @@ export const translations = {
 
     // Chat Screen
     "chat.members": "members",
+    "chat.member": "member",
     "chat.translation": "Translation Settings",
     "chat.showTranslation": "Show Translation",
     "chat.autoTranslate": "Auto Translate",
@@ -782,6 +791,13 @@ export const translations = {
     "settings.inviteCodeCopied": "Invite code copied!",
     "settings.setPasscode": "Set Passcode",
     "settings.setBiometric": "Set Biometric Auth",
+    "settings.setBiometrics": "Set Biometric Auth",
+    "settings.fontSmall": "Small",
+    "settings.fontMedium": "Medium",
+    "settings.fontLarge": "Large",
+    "settings.showTranslationDescription": "Display translation alongside messages",
+    "settings.enableQuietHours": "Enable Quiet Hours",
+    "settings.quietHoursInfo": "Restrict message sending during specified hours",
     "settings.logout": "Logout",
     "settings.deleteAccount": "Delete Account",
     "settings.deleteAccountDescription": "Deleting your account will remove you from all families",

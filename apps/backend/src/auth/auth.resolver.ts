@@ -25,6 +25,7 @@ import { AuthResponse, UserType, EmailVerificationResponse, GenericResponse, Cre
 import { CreateInviteResponse, AcceptInviteResponse, InviteType, InviteResponse } from './types/invite.type';
 import { FamilyType } from './types/family.type';
 import { FamilyMembershipType } from './types/family-membership.type';
+import { FamilyMemberType } from './types/family-member.type';
 import { UserPreferencesType } from './types/user-preferences.type';
 import { GqlAuthGuard } from './guards/gql-auth.guard';
 import { CurrentUser } from './current-user.decorator';
@@ -287,5 +288,17 @@ export class AuthResolver {
   @UseGuards(GqlAuthGuard)
   async deregisterSelf(@CurrentUser() user: User): Promise<GenericResponse> {
     return this.authService.deregisterSelf(user.id);
+  }
+
+  /**
+   * Get all members of a family (for Settings member list and member count)
+   */
+  @Query(() => [FamilyMemberType])
+  @UseGuards(GqlAuthGuard)
+  async getFamilyMembers(
+    @CurrentUser() user: User,
+    @Args('familyId') familyId: string,
+  ): Promise<FamilyMemberType[]> {
+    return this.authService.getFamilyMembers(user.id, familyId);
   }
 }

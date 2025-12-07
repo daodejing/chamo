@@ -100,7 +100,7 @@ export function MainHeader({
         <div>
           <h2 className="text-card-foreground">{familyName}</h2>
           <p className="text-xs text-muted-foreground">
-            {memberCount} {t("chat.members", language)}
+            {memberCount} {t(memberCount === 1 ? "chat.member" : "chat.members", language)}
           </p>
         </div>
       </div>

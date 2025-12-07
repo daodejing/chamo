@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ArrowLeft, Globe, Shield, LogOut, Bell, Moon, Sun, Camera, Type, Users, UserMinus, Crown, Clock, Hash, Plus, Trash, Languages, Calendar as CalendarIcon, RefreshCw, Check, Info } from "lucide-react";
+import { ArrowLeft, Globe, Shield, Bell, Moon, Sun, Camera, Type, Users, UserMinus, Crown, Clock, Hash, Plus, Trash, Languages, Calendar as CalendarIcon, RefreshCw, Check, Info } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -57,7 +57,6 @@ interface SettingsScreenProps {
   lastSyncTime: Date | null;
   autoSync: boolean;
   onBack: () => void;
-  onLogout: () => void;
   onDeleteAccount: () => void;
   onThemeToggle: () => void;
   onFontSizeChange: (size: "small" | "medium" | "large") => void;
@@ -83,7 +82,7 @@ interface SettingsScreenProps {
   onAboutClose?: () => void;
 }
 
-export function SettingsScreen({ userName, userEmail, userAvatar, familyName, familyAvatar, familyMembers, maxMembers, channels, inviteCode, isDarkMode, fontSize, language, quietHoursEnabled, quietHoursStart, quietHoursEnd, googleConnected, googleEmail, lastSyncTime, autoSync, onBack, onLogout, onDeleteAccount, onThemeToggle, onFontSizeChange, onFamilyNameChange, /* onFamilyAvatarChange - reserved for future */ onMaxMembersChange, onQuietHoursToggle, onQuietHoursStartChange, onQuietHoursEndChange, onRemoveMember, onCreateChannel, onDeleteChannel, onConnectGoogle, onDisconnectGoogle, onSyncGoogle, onAutoSyncToggle, preferredTranslationLanguage = "en", onPreferredTranslationLanguageChange, hideHeader = false, showAbout: propShowAbout, onAboutOpen, onAboutClose }: SettingsScreenProps) {
+export function SettingsScreen({ userName, userEmail, userAvatar, familyName, familyAvatar, familyMembers, maxMembers, channels, inviteCode, isDarkMode, fontSize, language, quietHoursEnabled, quietHoursStart, quietHoursEnd, googleConnected, googleEmail, lastSyncTime, autoSync, onBack, onDeleteAccount, onThemeToggle, onFontSizeChange, onFamilyNameChange, /* onFamilyAvatarChange - reserved for future */ onMaxMembersChange, onQuietHoursToggle, onQuietHoursStartChange, onQuietHoursEndChange, onRemoveMember, onCreateChannel, onDeleteChannel, onConnectGoogle, onDisconnectGoogle, onSyncGoogle, onAutoSyncToggle, preferredTranslationLanguage = "en", onPreferredTranslationLanguageChange, hideHeader = false, showAbout: propShowAbout, onAboutOpen, onAboutClose }: SettingsScreenProps) {
   const [internalShowAbout, setInternalShowAbout] = useState(false);
 
   // Use prop if provided (for lifted state), otherwise use internal state
@@ -749,20 +748,6 @@ export function SettingsScreen({ userName, userEmail, userAvatar, familyName, fa
                   v{getCurrentVersion()}
                 </Badge>
               </div>
-            </CardContent>
-          </Card>
-
-          {/* Logout */}
-          <Card className="rounded-[20px] shadow-lg overflow-hidden">
-            <CardContent className="pt-6">
-              <Button
-                onClick={onLogout}
-                variant="outline"
-                className="w-full rounded-xl border-2 hover:bg-muted"
-              >
-                <LogOut className="w-4 h-4 mr-2" />
-                {t("settings.logout", language)}
-              </Button>
             </CardContent>
           </Card>
 

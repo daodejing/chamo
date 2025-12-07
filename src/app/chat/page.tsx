@@ -15,13 +15,15 @@ import { MainHeader, type MainHeaderView } from '@/components/main-header';
 import { InviteMemberDialog } from '@/components/family/invite-member-dialog';
 import { useMessages, useSendMessage, useEditMessage, useDeleteMessage, useMessageSubscription } from '@/lib/hooks/use-messages';
 import { useChannels } from '@/lib/hooks/use-channels';
-import { useMutation } from '@apollo/client/react';
-import { REMOVE_FAMILY_MEMBER_MUTATION, DEREGISTER_SELF_MUTATION } from '@/lib/graphql/operations';
+import { useMutation, useQuery } from '@apollo/client/react';
+import { REMOVE_FAMILY_MEMBER_MUTATION, DEREGISTER_SELF_MUTATION, GET_FAMILY_MEMBERS_QUERY } from '@/lib/graphql/operations';
 import type {
   RemoveFamilyMemberMutation,
   RemoveFamilyMemberMutationVariables,
   DeregisterSelfMutation,
   DeregisterSelfMutationVariables,
+  GetFamilyMembersQuery,
+  GetFamilyMembersQueryVariables,
 } from '@/lib/graphql/generated/graphql';
 import { useAuth } from '@/lib/contexts/auth-context';
 import { useLanguage } from '@/lib/contexts/language-context';
@@ -189,6 +191,16 @@ export default function ChatPage() {
     DeregisterSelfMutationVariables
   >(DEREGISTER_SELF_MUTATION);
 
+  // Query family members for Settings panel
+  const { data: familyMembersData, refetch: refetchFamilyMembers } = useQuery<
+    GetFamilyMembersQuery,
+    GetFamilyMembersQueryVariables
+  >(GET_FAMILY_MEMBERS_QUERY, {
+    variables: { familyId: family?.id || '' },
+    skip: !family?.id || !isSettingsOpen,
+    fetchPolicy: 'network-only',
+  });
+
   // Subscribe to real-time updates
   const { messageAdded, messageEdited, messageDeleted } = useMessageSubscription(currentChannelId || '');
 
@@ -207,29 +219,25 @@ export default function ChatPage() {
     setSettingsMaxMembers((prev) => (prev === nextMaxMembers ? prev : nextMaxMembers));
   }, [isSettingsOpen, family?.name, family?.avatar, family?.maxMembers]);
 
+  // Sync family members from GraphQL query when settings is open
   useEffect(() => {
     if (!isSettingsOpen) {
       return;
     }
 
-    if (!user) {
-      setSettingsFamilyMembers((prev) => (prev.length === 0 ? prev : []));
+    if (!familyMembersData?.getFamilyMembers) {
       return;
     }
 
     setSettingsFamilyMembers((prev) => {
-      const joinedAt = prev[0]?.joinedAt ?? new Date().toISOString();
-
-      const nextMembers: SettingsFamilyMember[] = [
-        {
-          id: user.id,
-          name: user.name,
-          email: user.email,
-          avatar: user.avatar ?? '',
-          role: user.role?.toUpperCase() === 'ADMIN' ? 'admin' : 'member',
-          joinedAt,
-        },
-      ];
+      const nextMembers: SettingsFamilyMember[] = familyMembersData.getFamilyMembers.map((member) => ({
+        id: member.id,
+        name: member.name,
+        email: member.email,
+        avatar: member.avatar ?? '',
+        role: member.role.toUpperCase() === 'ADMIN' ? 'admin' : 'member',
+        joinedAt: member.joinedAt,
+      }));
 
       if (prev.length === nextMembers.length && prev.every((member, index) => {
         const next = nextMembers[index];
@@ -245,7 +253,7 @@ export default function ChatPage() {
       }
       return nextMembers;
     });
-  }, [isSettingsOpen, user, user?.id, user?.name, user?.email, user?.avatar, user?.role]);
+  }, [isSettingsOpen, familyMembersData]);
 
   useEffect(() => {
     if (!isSettingsOpen) {
@@ -831,7 +839,8 @@ export default function ChatPage() {
       });
 
       if (result.data?.removeFamilyMember?.success) {
-        setSettingsFamilyMembers((prev) => prev.filter((member) => member.id !== memberId));
+        // Refetch family members to update the list
+        refetchFamilyMembers();
         toast.success(t('toast.memberRemoved', language));
       } else {
         toast.error(result.data?.removeFamilyMember?.message || 'Failed to remove member');
@@ -1077,7 +1086,6 @@ export default function ChatPage() {
             lastSyncTime={lastSyncTime}
             autoSync={autoSync}
             onBack={handleChatClick}
-            onLogout={handleLogoutClick}
             onDeleteAccount={handleDeleteAccount}
             onThemeToggle={handleThemeToggle}
             onFontSizeChange={handleFontSizeChange}

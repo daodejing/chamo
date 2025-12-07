@@ -123,6 +123,15 @@ type FamilyAdminFixturePayload {
   inviteCode: String!
 }
 
+type FamilyMemberType {
+  avatar: String
+  email: String!
+  id: ID!
+  joinedAt: DateTime!
+  name: String!
+  role: String!
+}
+
 type FamilyMembershipType {
   family: FamilyType!
   familyId: String!
@@ -279,6 +288,7 @@ type Query {
   getChannel(id: String!): Channel
   getChannels: [Channel!]!
   getFamilyInvites(familyId: String!): [InviteType!]!
+  getFamilyMembers(familyId: String!): [FamilyMemberType!]!
   getMessages(input: GetMessagesInput!): [MessageWithUserType!]!
   getPendingInvites(familyId: String!): [InviteType!]!
   getUserPublicKey(email: String!): String

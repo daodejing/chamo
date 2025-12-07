@@ -257,6 +257,19 @@ export const GET_FAMILY_INVITES_QUERY = gql`
   }
 `;
 
+export const GET_FAMILY_MEMBERS_QUERY = gql`
+  query GetFamilyMembers($familyId: String!) {
+    getFamilyMembers(familyId: $familyId) {
+      id
+      name
+      email
+      avatar
+      role
+      joinedAt
+    }
+  }
+`;
+
 export const JOIN_FAMILY_EXISTING_MUTATION = gql`
   mutation JoinFamilyExisting($input: JoinFamilyExistingInput!) {
     joinFamilyAsMember(input: $input) {

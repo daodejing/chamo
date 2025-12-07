@@ -169,6 +169,23 @@ function AuthProviderInner({ children }: { children: React.ReactNode}) {
     setIsClient(true);
   }, []);
 
+  // Listen for localStorage changes (e.g., token cleared in DevTools or another tab)
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const handleStorageChange = (event: StorageEvent) => {
+      // If accessToken was removed, clear auth state
+      if (event.key === 'accessToken' && event.newValue === null) {
+        setUser(null);
+        setFamily(null);
+        setLostKeyModalOpen(false);
+      }
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
+  }, []);
+
   // Query current user - only on client-side where localStorage exists
   const { data, loading, error, refetch } = useQuery<MeQuery, MeQueryVariables>(ME_QUERY, {
     skip: !isClient, // Skip until we're on client-side
@@ -209,6 +226,15 @@ function AuthProviderInner({ children }: { children: React.ReactNode}) {
 
     // Mark that initial query has completed
     setHasCompletedInitialQuery(true);
+
+    // Additional check: if no token in localStorage, clear auth state immediately
+    const hasToken = typeof window !== 'undefined' && !!localStorage.getItem('accessToken');
+    if (!hasToken) {
+      setUser(null);
+      setFamily(null);
+      setLostKeyModalOpen(false);
+      return;
+    }
 
     if (error) {
       // Token expired, invalid, or missing - clear auth state
