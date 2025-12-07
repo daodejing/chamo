@@ -20,6 +20,7 @@ import { AcceptInviteInput } from './dto/accept-invite.input';
 import { CreatePendingInviteInput } from './dto/create-pending-invite.input';
 import { CreateInviteInput } from './dto/create-invite.input';
 import { ReportInviteDecryptFailureInput } from './dto/report-invite-decrypt-failure.input';
+import { RemoveFamilyMemberInput } from './dto/remove-family-member.input';
 import { AuthResponse, UserType, EmailVerificationResponse, GenericResponse, CreateFamilyResponse } from './types/auth-response.type';
 import { CreateInviteResponse, AcceptInviteResponse, InviteType, InviteResponse } from './types/invite.type';
 import { FamilyType } from './types/family.type';
@@ -263,5 +264,28 @@ export class AuthResolver {
     @Args('input') input: ReportInviteDecryptFailureInput,
   ): Promise<GenericResponse> {
     return this.authService.recordInviteDecryptFailure(user.id, input.inviteCode, input.reason);
+  }
+
+  /**
+   * Story 1.14 AC2, AC3, AC5: Remove a family member
+   * Only admins can remove non-admin members
+   */
+  @Mutation(() => GenericResponse)
+  @UseGuards(GqlAuthGuard)
+  async removeFamilyMember(
+    @CurrentUser() user: User,
+    @Args('input') input: RemoveFamilyMemberInput,
+  ): Promise<GenericResponse> {
+    return this.authService.removeFamilyMember(user.id, input.userId, input.familyId);
+  }
+
+  /**
+   * Story 1.14 AC9, AC10, AC11: Self de-registration
+   * Soft deletes user account and removes all family memberships
+   */
+  @Mutation(() => GenericResponse)
+  @UseGuards(GqlAuthGuard)
+  async deregisterSelf(@CurrentUser() user: User): Promise<GenericResponse> {
+    return this.authService.deregisterSelf(user.id);
   }
 }

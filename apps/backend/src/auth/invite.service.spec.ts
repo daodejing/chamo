@@ -11,6 +11,7 @@ describe('AuthService - Encrypted Invite Flow', () => {
   const prismaMock: any = {
     user: {
       findUnique: jest.fn(),
+      findFirst: jest.fn(),
       update: jest.fn(),
     },
     family: {

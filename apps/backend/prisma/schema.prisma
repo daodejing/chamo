@@ -30,7 +30,7 @@ enum InviteStatus {
 
 model User {
   id                      String              @id @default(uuid())
-  email                   String              @unique
+  email                   String              // Unique constraint handled by partial index (see migration)
   name                    String
   avatar                  String?
   role                    Role                @default(MEMBER)
@@ -45,6 +45,7 @@ model User {
   googleCalendarConnected Boolean             @default(false)
   activeFamilyId          String?
   activeFamily            Family?             @relation("ActiveFamily", fields: [activeFamilyId], references: [id], onDelete: SetNull)
+  deletedAt               DateTime?           // Story 1.14: Soft delete support
 
   memberships            FamilyMembership[]
   messages               Message[]
@@ -65,6 +66,7 @@ model User {
   @@index([email])
   @@index([activeFamilyId])
   @@index([publicKey])
+  @@index([deletedAt])
   @@map("users")
 }
 

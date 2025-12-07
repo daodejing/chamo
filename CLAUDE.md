@@ -9,6 +9,9 @@ Located in `.claude/skills/`. Read SKILL.md for usage.
 - database migrations → `database-migrations`
 - update graphql/db schemas → `schema-updater`
 - adapt prototype to production → `prototype-to-production-adaptation`
+- **interactive browser testing with Playwright MCP** → `playwright-mcp-multi-user-testing`
+
+**Auto-trigger:** When asked to "use Playwright MCP to test" or "test with the browser", invoke the `playwright-mcp-multi-user-testing` skill first.
 
 ## Testing Commands
 

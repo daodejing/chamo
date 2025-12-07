@@ -13,6 +13,7 @@ describe('AuthService email verification workflows', () => {
   const prismaMock: any = {
     user: {
       findUnique: jest.fn(),
+      findFirst: jest.fn(),
       update: jest.fn(),
     },
     family: {
@@ -66,12 +67,13 @@ describe('AuthService email verification workflows', () => {
 
   it('throws ForbiddenException with requiresEmailVerification when login is attempted before verification', async () => {
     const hashedPassword = await bcrypt.hash('PlainPassword!1', 8);
-    prismaMock.user.findUnique = jest.fn().mockResolvedValue({
+    prismaMock.user.findFirst = jest.fn().mockResolvedValue({
       id: 'user-1',
       email: 'user@example.com',
       passwordHash: hashedPassword,
       emailVerified: false,
       memberships: [],
+      deletedAt: null,
     });
 
     await expect(authService.login('user@example.com', 'PlainPassword!1')).rejects.toMatchObject({
@@ -83,10 +85,11 @@ describe('AuthService email verification workflows', () => {
   });
 
   it('sends a new verification email when resendVerificationEmail is called for an unverified account', async () => {
-    prismaMock.user.findUnique = jest.fn().mockResolvedValue({
+    prismaMock.user.findFirst = jest.fn().mockResolvedValue({
       id: 'user-2',
       email: 'member@example.com',
       emailVerified: false,
+      deletedAt: null,
     });
     prismaMock.emailVerificationToken.updateMany = jest.fn().mockResolvedValue(undefined);
     prismaMock.emailVerificationToken.create = jest.fn().mockResolvedValue(undefined);
@@ -143,17 +146,17 @@ describe('AuthService email verification workflows', () => {
 
   describe('getUserPublicKey', () => {
     it('returns public key when email exists', async () => {
-      prismaMock.user.findUnique = jest.fn().mockResolvedValue({ publicKey: 'abc' });
+      prismaMock.user.findFirst = jest.fn().mockResolvedValue({ publicKey: 'abc' });
       const key = await authService.getUserPublicKey('USER@example.com');
-      expect(prismaMock.user.findUnique).toHaveBeenCalledWith({
-        where: { email: 'user@example.com' },
+      expect(prismaMock.user.findFirst).toHaveBeenCalledWith({
+        where: { email: 'user@example.com', deletedAt: null },
         select: { publicKey: true },
       });
       expect(key).toBe('abc');
     });
 
     it('returns null when email not found', async () => {
-      prismaMock.user.findUnique = jest.fn().mockResolvedValue(null);
+      prismaMock.user.findFirst = jest.fn().mockResolvedValue(null);
       const key = await authService.getUserPublicKey('missing@example.com');
       expect(key).toBeNull();
     });

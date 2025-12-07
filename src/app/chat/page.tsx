@@ -15,6 +15,14 @@ import { MainHeader, type MainHeaderView } from '@/components/main-header';
 import { InviteMemberDialog } from '@/components/family/invite-member-dialog';
 import { useMessages, useSendMessage, useEditMessage, useDeleteMessage, useMessageSubscription } from '@/lib/hooks/use-messages';
 import { useChannels } from '@/lib/hooks/use-channels';
+import { useMutation } from '@apollo/client/react';
+import { REMOVE_FAMILY_MEMBER_MUTATION, DEREGISTER_SELF_MUTATION } from '@/lib/graphql/operations';
+import type {
+  RemoveFamilyMemberMutation,
+  RemoveFamilyMemberMutationVariables,
+  DeregisterSelfMutation,
+  DeregisterSelfMutationVariables,
+} from '@/lib/graphql/generated/graphql';
 import { useAuth } from '@/lib/contexts/auth-context';
 import { useLanguage } from '@/lib/contexts/language-context';
 import { encryptMessage, decryptMessage } from '@/lib/e2ee/encryption';
@@ -172,6 +180,14 @@ export default function ChatPage() {
   const { send } = useSendMessage();
   const { edit } = useEditMessage();
   const { remove } = useDeleteMessage();
+  const [removeFamilyMemberMutation] = useMutation<
+    RemoveFamilyMemberMutation,
+    RemoveFamilyMemberMutationVariables
+  >(REMOVE_FAMILY_MEMBER_MUTATION);
+  const [deregisterSelfMutation] = useMutation<
+    DeregisterSelfMutation,
+    DeregisterSelfMutationVariables
+  >(DEREGISTER_SELF_MUTATION);
 
   // Subscribe to real-time updates
   const { messageAdded, messageEdited, messageDeleted } = useMessageSubscription(currentChannelId || '');
@@ -513,7 +529,18 @@ export default function ChatPage() {
           }
 
           console.log(`[Subscription:${execId}] ✅ Adding new message:`, newMessage.id);
-          const updated = [...prev, newMessage];
+
+          // If this is my own message arriving via subscription, remove the optimistic temp message
+          let filtered = prev;
+          if (newMessage.isMine) {
+            const tempCount = prev.filter((m) => m.id.startsWith('temp-')).length;
+            if (tempCount > 0) {
+              console.log(`[Subscription:${execId}] Removing ${tempCount} optimistic temp message(s)`);
+              filtered = prev.filter((m) => !m.id.startsWith('temp-'));
+            }
+          }
+
+          const updated = [...filtered, newMessage];
           console.log(`[Subscription:${execId}] Updated messages count:`, updated.length);
 
           // Cache the result for StrictMode duplicate call keyed by previous state reference
@@ -743,6 +770,26 @@ export default function ChatPage() {
     }
   };
 
+  // Handler: Delete account (Story 1.14 AC7, AC8)
+  const handleDeleteAccount = async () => {
+    try {
+      const result = await deregisterSelfMutation();
+
+      if (result.data?.deregisterSelf?.success) {
+        toast.success(t('settings.deleteAccountSuccess', language));
+        setIsSettingsOpen(false);
+        await logout();
+        window.location.href = '/login';
+      } else {
+        toast.error(result.data?.deregisterSelf?.message || 'Failed to delete account');
+      }
+    } catch (error) {
+      console.error('Delete account error:', error);
+      const message = error instanceof Error ? error.message : 'Failed to delete account';
+      toast.error(message);
+    }
+  };
+
   const handleFamilyNameChange = (name: string) => {
     setSettingsFamilyName(name);
   };
@@ -767,9 +814,33 @@ export default function ChatPage() {
     setQuietHoursEnd(time);
   };
 
-  const handleRemoveMember = (memberId: string) => {
-    setSettingsFamilyMembers((prev) => prev.filter((member) => member.id !== memberId));
-    toast.success(t('toast.memberRemoved', language));
+  const handleRemoveMember = async (memberId: string) => {
+    if (!family?.id) {
+      toast.error('No active family');
+      return;
+    }
+
+    try {
+      const result = await removeFamilyMemberMutation({
+        variables: {
+          input: {
+            userId: memberId,
+            familyId: family.id,
+          },
+        },
+      });
+
+      if (result.data?.removeFamilyMember?.success) {
+        setSettingsFamilyMembers((prev) => prev.filter((member) => member.id !== memberId));
+        toast.success(t('toast.memberRemoved', language));
+      } else {
+        toast.error(result.data?.removeFamilyMember?.message || 'Failed to remove member');
+      }
+    } catch (error) {
+      console.error('Remove member error:', error);
+      const message = error instanceof Error ? error.message : 'Failed to remove member';
+      toast.error(message);
+    }
   };
 
   const handleCreateChannel = (channel: SettingsChannel) => {
@@ -1007,6 +1078,7 @@ export default function ChatPage() {
             autoSync={autoSync}
             onBack={handleChatClick}
             onLogout={handleLogoutClick}
+            onDeleteAccount={handleDeleteAccount}
             onThemeToggle={handleThemeToggle}
             onFontSizeChange={handleFontSizeChange}
             onFamilyNameChange={handleFamilyNameChange}

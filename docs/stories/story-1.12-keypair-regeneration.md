@@ -1,6 +1,10 @@
 # Story 1.12: User Keypair Regeneration
 
-Status: ready
+Status: superseded
+
+> **Superseded by:** [Story 1.14: User De-registration](story-1.14-user-deregistration.md)
+>
+> De-registration provides a simpler solution: soft-delete user → re-invite → re-register with fresh keys. This reuses existing flows rather than building complex in-place key regeneration.
 
 ## Story
 

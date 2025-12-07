@@ -9,9 +9,69 @@ import { EditMessageInput } from './dto/edit-message.input';
 import { DeleteMessageInput } from './dto/delete-message.input';
 import { GetMessagesInput } from './dto/get-messages.input';
 
+const DELETED_USER_PLACEHOLDER = 'Deleted User';
+
+interface MessageWithUserAndDeletedAt {
+  id: string;
+  channelId: string;
+  userId: string;
+  encryptedContent: string;
+  timestamp: Date;
+  isEdited: boolean;
+  editedAt: Date | null;
+  createdAt: Date;
+  user: {
+    id: string;
+    name: string;
+    avatar: string | null;
+    deletedAt: Date | null;
+  } | null;
+}
+
+interface MessageWithUser {
+  id: string;
+  channelId: string;
+  userId: string;
+  encryptedContent: string;
+  timestamp: Date;
+  isEdited: boolean;
+  editedAt: Date | null;
+  createdAt: Date;
+  user: {
+    id: string;
+    name: string;
+    avatar: string | null;
+  };
+}
+
 @Injectable()
 export class MessagesService {
   constructor(private prisma: PrismaService) {}
+
+  /**
+   * Story 1.14 AC12: Transform user data to show "Deleted User" for soft-deleted users
+   */
+  private transformMessageUser(message: MessageWithUserAndDeletedAt): MessageWithUser {
+    const { user, ...rest } = message;
+
+    if (user?.deletedAt) {
+      return {
+        ...rest,
+        user: {
+          id: user.id,
+          name: DELETED_USER_PLACEHOLDER,
+          avatar: null,
+        },
+      };
+    }
+
+    return {
+      ...rest,
+      user: user
+        ? { id: user.id, name: user.name, avatar: user.avatar }
+        : { id: '', name: DELETED_USER_PLACEHOLDER, avatar: null },
+    };
+  }
 
   private async requireChannelAccess(channelId: string, userId: string) {
     const channel = await this.prisma.channel.findUnique({
@@ -87,12 +147,14 @@ export class MessagesService {
             id: true,
             name: true,
             avatar: true,
+            deletedAt: true, // Story 1.14: Include for deleted user detection
           },
         },
       },
     });
 
-    return messages;
+    // Story 1.14 AC12: Transform deleted user names
+    return messages.map((msg) => this.transformMessageUser(msg));
   }
 
   async editMessage(userId: string, input: EditMessageInput) {

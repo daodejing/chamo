@@ -221,8 +221,8 @@ export class AuthService {
         ? pendingInviteCode.trim()
         : null;
 
-    const existingUser = await this.prisma.user.findUnique({
-      where: { email: normalizedEmail },
+    const existingUser = await this.prisma.user.findFirst({
+      where: { email: normalizedEmail, deletedAt: null },
     });
 
     if (existingUser) {
@@ -381,8 +381,8 @@ export class AuthService {
     const normalizedPublicKey = this.validatePublicKey(publicKey);
     const normalizedEmail = email.trim().toLowerCase();
 
-    const existingUser = await this.prisma.user.findUnique({
-      where: { email: normalizedEmail },
+    const existingUser = await this.prisma.user.findFirst({
+      where: { email: normalizedEmail, deletedAt: null },
     });
 
     if (existingUser) {
@@ -571,8 +571,8 @@ export class AuthService {
       throw new BadRequestException('Email is required.');
     }
 
-    const user = await this.prisma.user.findUnique({
-      where: { email: normalizedEmail },
+    const user = await this.prisma.user.findFirst({
+      where: { email: normalizedEmail, deletedAt: null },
       select: { publicKey: true },
     });
 
@@ -608,8 +608,8 @@ export class AuthService {
   }
 
   async login(email: string, password: string): Promise<AuthResponse> {
-    const user = await this.prisma.user.findUnique({
-      where: { email },
+    const user = await this.prisma.user.findFirst({
+      where: { email, deletedAt: null },
       include: {
         activeFamily: true,
         memberships: {
@@ -761,8 +761,8 @@ export class AuthService {
     }
 
     // Find user by email (return generic success even if not found to prevent enumeration)
-    const user = await this.prisma.user.findUnique({
-      where: { email },
+    const user = await this.prisma.user.findFirst({
+      where: { email, deletedAt: null },
     });
 
     if (user && !user.emailVerified) {
@@ -928,8 +928,8 @@ export class AuthService {
 
     // Verify invitee is not already a member
     const normalizedEmail = this.normalizeEmail(inviteeEmail);
-    const inviteeUser = await this.prisma.user.findUnique({
-      where: { email: normalizedEmail },
+    const inviteeUser = await this.prisma.user.findFirst({
+      where: { email: normalizedEmail, deletedAt: null },
       include: {
         memberships: {
           where: { familyId },
@@ -1118,8 +1118,8 @@ export class AuthService {
 
     // Verify invitee is not already a member
     const normalizedEmail = this.normalizeEmail(inviteeEmail);
-    const inviteeUser = await this.prisma.user.findUnique({
-      where: { email: normalizedEmail },
+    const inviteeUser = await this.prisma.user.findFirst({
+      where: { email: normalizedEmail, deletedAt: null },
       include: {
         memberships: {
           where: { familyId },
@@ -1351,8 +1351,8 @@ export class AuthService {
     const normalizedEmail = inviteeEmail.trim().toLowerCase();
 
     // Verify invitee is not already a member
-    const inviteeUser = await this.prisma.user.findUnique({
-      where: { email: normalizedEmail },
+    const inviteeUser = await this.prisma.user.findFirst({
+      where: { email: normalizedEmail, deletedAt: null },
       include: {
         memberships: {
           where: { familyId: user.activeFamilyId },
@@ -1425,5 +1425,164 @@ export class AuthService {
 
   private normalizeEmail(email: string): string {
     return email.trim().toLowerCase();
+  }
+
+  /**
+   * Story 1.14 AC2, AC3, AC5: Remove a family member
+   * - Only family admins can remove members
+   * - Cannot remove other admins
+   * - Clears activeFamilyId if user was active in this family
+   * - Revokes pending invites to this user for this family
+   */
+  async removeFamilyMember(
+    callerId: string,
+    targetUserId: string,
+    familyId: string,
+  ): Promise<GenericResponse> {
+    // Verify caller is an admin of the family
+    const callerMembership = await this.prisma.familyMembership.findUnique({
+      where: {
+        userId_familyId: {
+          userId: callerId,
+          familyId,
+        },
+      },
+    });
+
+    if (!callerMembership || callerMembership.role !== Role.ADMIN) {
+      throw new ForbiddenException('Only family admins can remove members');
+    }
+
+    // Prevent self-removal through this endpoint
+    if (callerId === targetUserId) {
+      throw new BadRequestException('Use deregisterSelf to remove yourself from a family');
+    }
+
+    // Get target user's membership
+    const targetMembership = await this.prisma.familyMembership.findUnique({
+      where: {
+        userId_familyId: {
+          userId: targetUserId,
+          familyId,
+        },
+      },
+      include: {
+        user: {
+          select: {
+            name: true,
+            email: true,
+            activeFamilyId: true,
+          },
+        },
+      },
+    });
+
+    if (!targetMembership) {
+      throw new BadRequestException('User is not a member of this family');
+    }
+
+    // AC3: Prevent removing other admins
+    if (targetMembership.role === Role.ADMIN) {
+      throw new ForbiddenException('Cannot remove other admins from the family');
+    }
+
+    // Use transaction to ensure atomicity
+    await this.prisma.$transaction(async (tx) => {
+      // AC2 1.4: Delete the FamilyMembership record
+      await tx.familyMembership.delete({
+        where: {
+          userId_familyId: {
+            userId: targetUserId,
+            familyId,
+          },
+        },
+      });
+
+      // 1.5: Clear user's activeFamilyId if it was this family
+      if (targetMembership.user.activeFamilyId === familyId) {
+        await tx.user.update({
+          where: { id: targetUserId },
+          data: { activeFamilyId: null },
+        });
+      }
+
+      // AC5 1.6: Revoke pending invites TO this user for this family
+      await tx.invite.updateMany({
+        where: {
+          familyId,
+          inviteeEmail: targetMembership.user.email,
+          status: {
+            in: ['PENDING', 'PENDING_REGISTRATION'],
+          },
+        },
+        data: {
+          status: 'REVOKED',
+        },
+      });
+    });
+
+    return {
+      success: true,
+      message: `Successfully removed ${targetMembership.user.name} from the family`,
+    };
+  }
+
+  /**
+   * Story 1.14 AC9, AC10, AC11: Self de-registration (soft delete user account)
+   * - Soft deletes the user (sets deletedAt)
+   * - Removes all family memberships
+   * - Clears activeFamilyId
+   * - Revokes all pending invites to this user
+   */
+  async deregisterSelf(userId: string): Promise<GenericResponse> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      include: {
+        memberships: true,
+      },
+    });
+
+    if (!user) {
+      throw new BadRequestException('User not found');
+    }
+
+    if (user.deletedAt) {
+      throw new BadRequestException('Account is already deleted');
+    }
+
+    // Use transaction to ensure atomicity
+    await this.prisma.$transaction(async (tx) => {
+      // 5.2: Soft delete the user (set deletedAt)
+      await tx.user.update({
+        where: { id: userId },
+        data: {
+          deletedAt: new Date(),
+          activeFamilyId: null, // 5.4: Clear activeFamilyId
+        },
+      });
+
+      // 5.3: Delete all FamilyMembership records for this user
+      await tx.familyMembership.deleteMany({
+        where: { userId },
+      });
+
+      // 5.5: Revoke all pending invites TO this user
+      await tx.invite.updateMany({
+        where: {
+          inviteeEmail: user.email,
+          status: {
+            in: ['PENDING', 'PENDING_REGISTRATION'],
+          },
+        },
+        data: {
+          status: 'REVOKED',
+        },
+      });
+    });
+
+    return {
+      success: true,
+      message: 'Your account has been deleted. You can re-register with the same email address.',
+    };
   }
 }

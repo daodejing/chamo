@@ -2,14 +2,25 @@
   "versions": [
     {
       "version": "1.0.0",
-      "date": "2025-11-30",
+      "date": "2025-12-07",
       "changes": {
         "features": [
+          "Enable multi-user messaging test (AC3) (e2e)",
           "Allow resending registration invites with rate limiting (invite)",
           "Add About screen with version and changelog (Story 5.6) (settings)",
           "Implement sticky header and fix scroll behavior (Story 5.5) (ui)"
         ],
         "fixes": [
+          "Replace paths-ignore with negation patterns in deploy-staging (ci)",
+          "Fix all ESLint warnings and enforce zero-warning policy (lint)",
+          "Use UI language as default for invite emails (invite)",
+          "Update tests to use fixture-based approach and fix selectors (e2e)",
+          "Increase E2E timeout to 45 min for full test suite (ci)",
+          "Support both docker compose v1 and v2, increase timeout (ci)",
+          "Use docker compose v2 syntax for CI compatibility (e2e)",
+          "Let Playwright handle E2E test environment startup (ci)",
+          "Update integration test for sendVerificationEmail language param (test)",
+          "Fix 18 failing E2E tests with fixtures and MailHog patterns (e2e)",
           "Resolve Firefox E2E test failures with proper key management (e2e)",
           "Skip deployment for test-only changes (cd)",
           "Add missing mocks for email verification e2e test (test)",

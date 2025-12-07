@@ -243,12 +243,14 @@ type Mutation {
   createInvite(input: CreateInviteInput!): InviteResponse!
   createPendingInvite(input: CreatePendingInviteInput!): CreateInviteResponse!
   deleteMessage(input: DeleteMessageInput!): DeleteMessageResponse!
+  deregisterSelf: GenericResponse!
   editMessage(input: EditMessageInput!): MessageWithUserType!
   joinFamily(input: JoinFamilyInput!): EmailVerificationResponse!
   joinFamilyAsMember(input: JoinFamilyExistingInput!): FamilyType!
   login(input: LoginInput!): AuthResponse!
   logout: Boolean!
   register(input: RegisterInput!): EmailVerificationResponse!
+  removeFamilyMember(input: RemoveFamilyMemberInput!): GenericResponse!
   reportInviteDecryptFailure(input: ReportInviteDecryptFailureInput!): GenericResponse!
   resendVerificationEmail(email: String!): GenericResponse!
   sendMessage(input: SendMessageInput!): MessageWithUserType!
@@ -290,6 +292,11 @@ input RegisterInput {
   password: String!
   pendingInviteCode: String
   publicKey: String!
+}
+
+input RemoveFamilyMemberInput {
+  familyId: ID!
+  userId: ID!
 }
 
 input ReportInviteDecryptFailureInput {

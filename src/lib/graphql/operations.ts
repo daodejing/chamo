@@ -528,3 +528,25 @@ export const CACHE_MESSAGE_TRANSLATION_MUTATION = gql`
     }
   }
 `;
+
+// ============================================================================
+// FAMILY MANAGEMENT
+// ============================================================================
+
+export const REMOVE_FAMILY_MEMBER_MUTATION = gql`
+  mutation RemoveFamilyMember($input: RemoveFamilyMemberInput!) {
+    removeFamilyMember(input: $input) {
+      success
+      message
+    }
+  }
+`;
+
+export const DEREGISTER_SELF_MUTATION = gql`
+  mutation DeregisterSelf {
+    deregisterSelf {
+      success
+      message
+    }
+  }
+`;

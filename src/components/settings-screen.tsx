@@ -58,6 +58,7 @@ interface SettingsScreenProps {
   autoSync: boolean;
   onBack: () => void;
   onLogout: () => void;
+  onDeleteAccount: () => void;
   onThemeToggle: () => void;
   onFontSizeChange: (size: "small" | "medium" | "large") => void;
   onFamilyNameChange: (name: string) => void;
@@ -82,7 +83,7 @@ interface SettingsScreenProps {
   onAboutClose?: () => void;
 }
 
-export function SettingsScreen({ userName, userEmail, userAvatar, familyName, familyAvatar, familyMembers, maxMembers, channels, inviteCode, isDarkMode, fontSize, language, quietHoursEnabled, quietHoursStart, quietHoursEnd, googleConnected, googleEmail, lastSyncTime, autoSync, onBack, onLogout, onThemeToggle, onFontSizeChange, onFamilyNameChange, /* onFamilyAvatarChange - reserved for future */ onMaxMembersChange, onQuietHoursToggle, onQuietHoursStartChange, onQuietHoursEndChange, onRemoveMember, onCreateChannel, onDeleteChannel, onConnectGoogle, onDisconnectGoogle, onSyncGoogle, onAutoSyncToggle, preferredTranslationLanguage = "en", onPreferredTranslationLanguageChange, hideHeader = false, showAbout: propShowAbout, onAboutOpen, onAboutClose }: SettingsScreenProps) {
+export function SettingsScreen({ userName, userEmail, userAvatar, familyName, familyAvatar, familyMembers, maxMembers, channels, inviteCode, isDarkMode, fontSize, language, quietHoursEnabled, quietHoursStart, quietHoursEnd, googleConnected, googleEmail, lastSyncTime, autoSync, onBack, onLogout, onDeleteAccount, onThemeToggle, onFontSizeChange, onFamilyNameChange, /* onFamilyAvatarChange - reserved for future */ onMaxMembersChange, onQuietHoursToggle, onQuietHoursStartChange, onQuietHoursEndChange, onRemoveMember, onCreateChannel, onDeleteChannel, onConnectGoogle, onDisconnectGoogle, onSyncGoogle, onAutoSyncToggle, preferredTranslationLanguage = "en", onPreferredTranslationLanguageChange, hideHeader = false, showAbout: propShowAbout, onAboutOpen, onAboutClose }: SettingsScreenProps) {
   const [internalShowAbout, setInternalShowAbout] = useState(false);
 
   // Use prop if provided (for lifted state), otherwise use internal state
@@ -253,7 +254,7 @@ export function SettingsScreen({ userName, userEmail, userAvatar, familyName, fa
                       {member.role !== "admin" && (
                         <Button
                           onClick={() => {
-                            if (confirm(`${member.name}をグループから削除しますか？`)) {
+                            if (confirm(t("settings.removeMemberConfirm", language, { name: member.name, familyName }))) {
                               onRemoveMember(member.id);
                             }
                           }}
@@ -761,6 +762,33 @@ export function SettingsScreen({ userName, userEmail, userAvatar, familyName, fa
               >
                 <LogOut className="w-4 h-4 mr-2" />
                 {t("settings.logout", language)}
+              </Button>
+            </CardContent>
+          </Card>
+
+          {/* Delete Account */}
+          <Card className="rounded-[20px] shadow-lg overflow-hidden border-destructive/50">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-destructive">
+                <Trash className="w-5 h-5" />
+                {t("settings.deleteAccount", language)}
+              </CardTitle>
+              <CardDescription>
+                {t("settings.deleteAccountDescription", language)}
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button
+                onClick={() => {
+                  if (confirm(t("settings.deleteAccountConfirm", language))) {
+                    onDeleteAccount();
+                  }
+                }}
+                variant="destructive"
+                className="w-full rounded-xl"
+              >
+                <Trash className="w-4 h-4 mr-2" />
+                {t("settings.deleteAccountButton", language)}
               </Button>
             </CardContent>
           </Card>
