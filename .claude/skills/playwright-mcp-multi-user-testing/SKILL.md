@@ -97,6 +97,66 @@ Optionally resize browsers using `browser_resize` (e.g., 720x900 for side-by-sid
 2. Verify User B receives it via WebSocket subscription
 3. Check console logs for subscription events
 
+## Comprehensive Observation Discipline
+
+**CRITICAL:** Testing is not just about verifying story acceptance criteria. Every action is an opportunity to discover issues across the entire application.
+
+### After EVERY Action Checklist
+
+After each browser action (click, navigate, submit), observe and document:
+
+1. **Console logs** - Any errors, warnings, or unexpected messages?
+2. **Network requests** - Failed requests, slow responses, unexpected calls?
+3. **Visual state** - Correct page? Expected UI elements? Unexpected changes?
+4. **Data correctness** - Counts accurate? Names correct? Timestamps valid?
+5. **UX quality** - Confusing flows? Missing feedback? Broken translations?
+
+### What Constitutes an Issue
+
+Document ANY of these, regardless of story relevance:
+
+| Category | Examples |
+|----------|----------|
+| **Bugs** | Incorrect data, broken functionality, errors |
+| **UX Problems** | Confusing flows, missing guidance, unclear errors |
+| **Translation Issues** | Untranslated keys, wrong language, grammar errors |
+| **Visual Issues** | Layout problems, alignment, responsiveness |
+| **Data Display** | Wrong counts, stale data, missing items |
+| **Console Noise** | Errors that succeed, unnecessary warnings |
+| **Performance** | Slow loads, excessive re-renders |
+| **Accessibility** | Missing labels, keyboard navigation |
+
+### Avoiding Narrow Focus
+
+**DO NOT** limit observations to just the story being tested. If testing "Remove Member" and you notice:
+- Translation keys showing as raw text → **Document it**
+- Member count showing wrong number → **Document it**
+- Duplicate logout buttons → **Document it**
+- Auth state validation missing → **Document it**
+
+These are all valid issues even if unrelated to the story's acceptance criteria.
+
+### Staying in Observation Mode
+
+To maintain comprehensive observation throughout a testing session:
+
+1. **Start each action** by stating what you're testing AND that you'll observe for any issues
+2. **After each action**, explicitly check: "Checking console... Checking visual state... Checking data..."
+3. **Before moving on**, confirm: "No new issues observed" OR document what was found
+4. **At session end**, review all observations and write to issues file
+
+### Example Observation Pattern
+
+```
+[Action] Clicking "Remove" button for Bob Member
+[Observe Console] ✓ No errors
+[Observe Visual]
+  - ✓ Confirmation modal appeared
+  - ⚠️ Notice: Header still shows "Test Family · 2 members"
+[Observe Data] Will verify count after confirmation
+[Document] Potential issue: member count not updated immediately (may be expected)
+```
+
 ## Critical Patterns
 
 ### Screenshot-Driven Testing
@@ -198,22 +258,70 @@ Console indicators for successful deregistration:
 [WebSocket] ❌ Connection closed: {code: 1000, reason: Normal Closure, wasClean: true}
 ```
 
-## Issue Documentation Pattern
+## Issue Documentation
 
-When finding bugs during testing, document with replication steps:
+### Where to Write Issues
+
+Write testing issues to `docs/issues/` with date-hour prefix:
+
+```
+docs/issues/YYYY-MM-DD-HH-<description>.md
+```
+
+Example: `docs/issues/2025-12-07-23-story-1.14-remove-member.md`
+
+### Issue File Format
 
 ```markdown
-### Issue N: [Title]
-- **Location:** [Page/component]
-- **Observed:** [What happened]
-- **Expected:** [What should happen]
+# Testing Issues: [Feature/Story Name]
+
+**Date:** YYYY-MM-DD
+**Tested by:** Claude (Playwright MCP dual browser testing)
+**Story:** [Story reference if applicable]
+
+---
+
+## Test Results Summary
+
+| AC | Description | Status | Notes |
+|---|---|---|---|
+| AC1 | ... | PASS/FAIL/NOT TESTED | ... |
+
+---
+
+## Issues Found
+
+### Issue 1: [Title]
+
 - **Severity:** Low/Medium/High/Critical
-- **How to Replicate:**
-  1. Step one
-  2. Step two
-  3. **Observe:** [Specific observation]
-- **Screenshot:** [path if taken]
+- **Component:** Frontend/Backend/Both
+- **Status:** Open/Fixed/Won't Fix
+
+**Description:**
+[What was observed]
+
+**Expected:**
+[What should happen]
+
+**Steps to Reproduce:**
+1. Step one
+2. Step two
+3. Observe: [specific observation]
+
+**Console/Logs:**
+\`\`\`
+[relevant log output]
+\`\`\`
+
+**Notes:**
+[Any additional context, workarounds, or related issues]
 ```
+
+### Important
+
+**Always write issues to a file before ending a testing session.** Do not just report issues verbally - they must be documented in `docs/issues/` for tracking.
+
+**Comprehensive observation is mandatory.** Document ALL issues found during testing, not just those related to the story's acceptance criteria. A testing session that only reports story-specific issues has failed to fulfill the skill's purpose.
 
 ## Troubleshooting
 

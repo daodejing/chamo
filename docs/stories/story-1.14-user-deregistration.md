@@ -184,10 +184,14 @@ src/
 
 ### Agent Model Used
 
-<!-- To be filled by dev agent -->
+Claude Opus 4.5 (claude-opus-4-5-20251101)
 
 ### Debug Log References
 
 ### Completion Notes List
 
 ### File List
+
+### Manual Testing Notes
+
+See `docs/issues/2025-12-07-23-story-1.14-remove-member.md` for testing session results and issues found.
