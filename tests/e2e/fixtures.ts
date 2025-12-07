@@ -5,7 +5,7 @@
  * Uses the test-support module mutations to create users, families, and inject auth state.
  */
 
-import { Page } from '@playwright/test';
+import { Page, Browser, BrowserContext } from '@playwright/test';
 import nacl from 'tweetnacl';
 import { E2E_CONFIG } from './config';
 
@@ -215,6 +215,34 @@ export interface FamilyAdminFixture {
   inviteCode: string;
 }
 
+export interface MessagingFixture {
+  admin: {
+    user: {
+      id: string;
+      email: string;
+      name: string;
+    };
+    accessToken: string;
+  };
+  member: {
+    user: {
+      id: string;
+      email: string;
+      name: string;
+    };
+    accessToken: string;
+  };
+  family: {
+    id: string;
+    name: string;
+  };
+  channel: {
+    id: string;
+    name: string;
+  };
+  inviteCode: string;
+}
+
 export interface CleanupResult {
   success: boolean;
   message: string;
@@ -248,6 +276,62 @@ async function graphqlRequest<T>(
 // ============================================================================
 // Fixture Creation
 // ============================================================================
+
+/**
+ * Create a messaging fixture via the test-support API.
+ * Creates admin, member, family, and channel in one call.
+ */
+export async function createMessagingFixture(
+  admin: TestUser,
+  member: TestUser,
+  familyName: string,
+  channelName?: string,
+): Promise<MessagingFixture> {
+  const mutation = `
+    mutation TestCreateMessagingFixture($input: TestCreateMessagingFixtureInput!) {
+      testCreateMessagingFixture(input: $input) {
+        admin {
+          user {
+            id
+            email
+            name
+          }
+          accessToken
+        }
+        member {
+          user {
+            id
+            email
+            name
+          }
+          accessToken
+        }
+        family {
+          id
+          name
+        }
+        channel {
+          id
+          name
+        }
+        inviteCode
+      }
+    }
+  `;
+
+  const data = await graphqlRequest<{
+    testCreateMessagingFixture: MessagingFixture;
+  }>(mutation, {
+    input: {
+      admin,
+      member,
+      familyName,
+      ...(channelName && { channelName }),
+    },
+  });
+
+  return data.testCreateMessagingFixture;
+}
 
 /**
  * Create a family admin fixture via the test-support API
@@ -522,4 +606,106 @@ export async function setupFamilyAdminTest(
   };
 
   return { fixture, cleanup };
+}
+
+/**
+ * Complete setup for a messaging test with two users (admin and member):
+ * 1. Generates real NaCl keypairs for both users
+ * 2. Creates both users, family, and channel via API
+ * 3. Sets up both browser contexts with auth tokens and keys
+ * 4. Returns fixture data, pages, contexts, and cleanup function
+ *
+ * IMPORTANT: Uses separate browser contexts for proper auth isolation.
+ * The caller must close the contexts when done (cleanup handles data only).
+ */
+export async function setupMessagingTest(
+  browser: Browser,
+  testId: string,
+): Promise<{
+  fixture: MessagingFixture;
+  adminPage: Page;
+  adminContext: BrowserContext;
+  memberPage: Page;
+  memberContext: BrowserContext;
+  familyKeyBase64: string;
+  cleanup: () => Promise<void>;
+}> {
+  // Generate real NaCl keypairs for both users
+  const adminKeys = generateRealKeypair();
+  const memberKeys = generateRealKeypair();
+
+  const admin: TestUser = {
+    email: `${testId}-admin@example.com`,
+    password: 'TestPassword123!',
+    name: `${testId} Admin`,
+    publicKey: adminKeys.publicKey,
+  };
+
+  const member: TestUser = {
+    email: `${testId}-member@example.com`,
+    password: 'TestPassword123!',
+    name: `${testId} Member`,
+    publicKey: memberKeys.publicKey,
+  };
+
+  const familyName = `${testId} Test Family`;
+
+  // Create fixture via API
+  const fixture = await createMessagingFixture(admin, member, familyName);
+
+  // Generate a shared family key (same key for both users)
+  const familyKeyBase64 = btoa(
+    String.fromCharCode(
+      ...new Uint8Array(32).map(() => Math.floor(Math.random() * 256)),
+    ),
+  );
+
+  // Create separate browser contexts for admin and member
+  const adminContext = await browser.newContext();
+  const adminPage = await adminContext.newPage();
+
+  const memberContext = await browser.newContext();
+  const memberPage = await memberContext.newPage();
+
+  // Set up admin's browser
+  await injectAuthToken(adminPage, fixture.admin.accessToken);
+  await storeUserPrivateKey(adminPage, fixture.admin.user.id, adminKeys.secretKeyBase64);
+  await injectFamilyKey(adminPage, fixture.family.id, familyKeyBase64);
+
+  // Set up member's browser
+  await injectAuthToken(memberPage, fixture.member.accessToken);
+  await storeUserPrivateKey(memberPage, fixture.member.user.id, memberKeys.secretKeyBase64);
+  await injectFamilyKey(memberPage, fixture.family.id, familyKeyBase64);
+
+  // Reload both pages to pick up auth state
+  await Promise.all([
+    adminPage.reload({ waitUntil: 'networkidle' }),
+    memberPage.reload({ waitUntil: 'networkidle' }),
+  ]);
+
+  // Wait for auth state to be fully loaded
+  await Promise.all([
+    adminPage.waitForTimeout(1000),
+    memberPage.waitForTimeout(1000),
+  ]);
+
+  // Cleanup function (data only - caller must close contexts)
+  const cleanup = async () => {
+    await adminContext.close();
+    await memberContext.close();
+    await cleanupTestData({
+      userIds: [fixture.admin.user.id, fixture.member.user.id],
+      familyIds: [fixture.family.id],
+    });
+  };
+
+  return {
+    fixture,
+    adminPage,
+    adminContext,
+    memberPage,
+    memberContext,
+    familyKeyBase64,
+    cleanup,
+  };
 }
