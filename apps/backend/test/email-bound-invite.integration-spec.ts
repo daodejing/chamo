@@ -25,6 +25,7 @@ describe('Email-Bound Invite Flow (Integration)', () => {
   const prismaMock: any = {
     user: {
       findUnique: jest.fn(),
+      findFirst: jest.fn(),
       create: jest.fn(),
       update: jest.fn(),
     },
@@ -140,6 +141,9 @@ describe('Email-Bound Invite Flow (Integration)', () => {
       expect(createResult.inviteCode).toBe(inviteCode);
       expect(createResult.inviteeEmail).toBe(inviteeEmail);
       expect(createResult.expiresAt).toBeInstanceOf(Date);
+
+      // Mock: No existing user with this email (findFirst check)
+      prismaMock.user.findFirst.mockResolvedValueOnce(null);
 
       // Mock: Lookup invite for redemption
       prismaMock.familyInvite.findUnique.mockResolvedValueOnce({
@@ -257,6 +261,9 @@ describe('Email-Bound Invite Flow (Integration)', () => {
       const encryptedEmail = encryptEmail(inviteeEmail);
       const validPublicKey = 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=';
 
+      // Mock: No existing user with this email
+      prismaMock.user.findFirst.mockResolvedValueOnce(null);
+
       // Mock: Lookup invite
       prismaMock.familyInvite.findUnique.mockResolvedValueOnce({
         id: 'invite-123',
@@ -307,6 +314,9 @@ describe('Email-Bound Invite Flow (Integration)', () => {
       const codeHash = hashInviteCode(inviteCode);
       const encryptedEmail = encryptEmail(inviteeEmail.toLowerCase());
       const validPublicKey = 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=';
+
+      // Mock: No existing user with this email
+      prismaMock.user.findFirst.mockResolvedValueOnce(null);
 
       // Mock: Lookup invite
       prismaMock.familyInvite.findUnique.mockResolvedValueOnce({
@@ -378,6 +388,9 @@ describe('Email-Bound Invite Flow (Integration)', () => {
       const encryptedEmail = encryptEmail(inviteeEmail);
       const validPublicKey = 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=';
 
+      // Mock: No existing user with this email
+      prismaMock.user.findFirst.mockResolvedValueOnce(null);
+
       // Mock: Lookup expired invite
       prismaMock.familyInvite.findUnique.mockResolvedValueOnce({
         id: 'invite-123',
@@ -426,6 +439,9 @@ describe('Email-Bound Invite Flow (Integration)', () => {
       const codeHash = hashInviteCode(inviteCode);
       const encryptedEmail = encryptEmail(inviteeEmail);
       const validPublicKey = 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=';
+
+      // Mock: No existing user with this email
+      prismaMock.user.findFirst.mockResolvedValueOnce(null);
 
       // Mock: Lookup used invite
       prismaMock.familyInvite.findUnique.mockResolvedValueOnce({
@@ -499,6 +515,9 @@ describe('Email-Bound Invite Flow (Integration)', () => {
         },
       };
 
+      // First request: no existing user
+      prismaMock.user.findFirst.mockResolvedValueOnce(null);
+
       // First request gets valid invite
       prismaMock.familyInvite.findUnique.mockResolvedValueOnce(validInvite);
       prismaMock.user.findUnique.mockResolvedValueOnce(null);
@@ -544,6 +563,9 @@ describe('Email-Bound Invite Flow (Integration)', () => {
         redeemedAt: new Date(),
         redeemedByUserId: 'user-123',
       };
+
+      // Second request: no existing user with this email
+      prismaMock.user.findFirst.mockResolvedValueOnce(null);
 
       prismaMock.familyInvite.findUnique.mockResolvedValueOnce(usedInvite);
       prismaMock.family.findUnique.mockResolvedValueOnce({
