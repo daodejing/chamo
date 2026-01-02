@@ -202,7 +202,9 @@ export default function ChatPage() {
   >(DEREGISTER_SELF_MUTATION);
 
   // Story 1.15: Admin transfer mutations and query
-  const [getAdminStatus] = useLazyQuery<GetAdminStatusQuery>(GET_ADMIN_STATUS_QUERY);
+  const [getAdminStatus] = useLazyQuery<GetAdminStatusQuery>(GET_ADMIN_STATUS_QUERY, {
+    fetchPolicy: 'network-only', // Always fetch fresh data - critical for admin status checks
+  });
   const [promoteToAdminMutation] = useMutation<
     PromoteToAdminMutation,
     PromoteToAdminMutationVariables
