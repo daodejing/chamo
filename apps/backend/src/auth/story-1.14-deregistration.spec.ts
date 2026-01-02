@@ -32,8 +32,12 @@ describe('AuthService - Story 1.14: Remove Family Member & Self De-registration'
     },
     familyMembership: {
       findUnique: jest.fn(),
+      findMany: jest.fn(),
       delete: jest.fn(),
       deleteMany: jest.fn(),
+    },
+    family: {
+      update: jest.fn(),
     },
     invite: {
       updateMany: jest.fn(),
@@ -373,13 +377,21 @@ describe('AuthService - Story 1.14: Remove Family Member & Self De-registration'
   // Part B: Self De-registration (AC9, AC10, AC11)
   // ==========================================================================
   describe('deregisterSelf', () => {
+    // Story 1.15: Helper to mock getAdminStatus (no blocking families)
+    const mockNoBlockingFamilies = () => {
+      prismaMock.familyMembership.findMany.mockResolvedValueOnce([]);
+    };
+
     describe('AC9: Soft Delete Execution', () => {
       it('should soft delete user by setting deletedAt and clearing activeFamilyId', async () => {
+        // Story 1.15: Mock getAdminStatus
+        mockNoBlockingFamilies();
+
         prismaMock.user.findUnique.mockResolvedValueOnce({
           id: memberUserId,
           email: memberEmail,
           deletedAt: null,
-          memberships: [{ familyId }],
+          memberships: [{ familyId, family: { id: familyId, deletedAt: null, memberships: [{ userId: memberUserId, user: { deletedAt: null } }] } }],
         });
 
         const userUpdateMock = jest.fn().mockResolvedValue({});
@@ -387,6 +399,7 @@ describe('AuthService - Story 1.14: Remove Family Member & Self De-registration'
           return callback({
             user: { update: userUpdateMock },
             familyMembership: { deleteMany: jest.fn().mockResolvedValue({ count: 1 }) },
+            family: { update: jest.fn().mockResolvedValue({}) },
             invite: { updateMany: jest.fn().mockResolvedValue({ count: 0 }) },
           });
         });
@@ -409,14 +422,17 @@ describe('AuthService - Story 1.14: Remove Family Member & Self De-registration'
 
     describe('AC10: Membership Cleanup', () => {
       it('should delete all FamilyMembership records for the user', async () => {
+        // Story 1.15: Mock getAdminStatus
+        mockNoBlockingFamilies();
+
         prismaMock.user.findUnique.mockResolvedValueOnce({
           id: memberUserId,
           email: memberEmail,
           deletedAt: null,
           memberships: [
-            { familyId: 'family-1' },
-            { familyId: 'family-2' },
-            { familyId: 'family-3' },
+            { familyId: 'family-1', family: { id: 'family-1', deletedAt: null, memberships: [{ userId: memberUserId, user: { deletedAt: null } }, { userId: 'other', user: { deletedAt: null } }] } },
+            { familyId: 'family-2', family: { id: 'family-2', deletedAt: null, memberships: [{ userId: memberUserId, user: { deletedAt: null } }, { userId: 'other', user: { deletedAt: null } }] } },
+            { familyId: 'family-3', family: { id: 'family-3', deletedAt: null, memberships: [{ userId: memberUserId, user: { deletedAt: null } }, { userId: 'other', user: { deletedAt: null } }] } },
           ],
         });
 
@@ -425,6 +441,7 @@ describe('AuthService - Story 1.14: Remove Family Member & Self De-registration'
           return callback({
             user: { update: jest.fn().mockResolvedValue({}) },
             familyMembership: { deleteMany: membershipDeleteMock },
+            family: { update: jest.fn().mockResolvedValue({}) },
             invite: { updateMany: jest.fn().mockResolvedValue({ count: 0 }) },
           });
         });
@@ -439,6 +456,9 @@ describe('AuthService - Story 1.14: Remove Family Member & Self De-registration'
 
     describe('AC11: Invite Cleanup', () => {
       it('should revoke all pending invites TO the deleted user', async () => {
+        // Story 1.15: Mock getAdminStatus
+        mockNoBlockingFamilies();
+
         prismaMock.user.findUnique.mockResolvedValueOnce({
           id: memberUserId,
           email: memberEmail,
@@ -451,6 +471,7 @@ describe('AuthService - Story 1.14: Remove Family Member & Self De-registration'
           return callback({
             user: { update: jest.fn().mockResolvedValue({}) },
             familyMembership: { deleteMany: jest.fn().mockResolvedValue({ count: 0 }) },
+            family: { update: jest.fn().mockResolvedValue({}) },
             invite: { updateMany: inviteUpdateMock },
           });
         });
@@ -478,6 +499,8 @@ describe('AuthService - Story 1.14: Remove Family Member & Self De-registration'
         await expect(authService.deregisterSelf(memberUserId)).rejects.toThrow(
           BadRequestException,
         );
+
+        prismaMock.user.findUnique.mockResolvedValueOnce(null);
 
         await expect(authService.deregisterSelf(memberUserId)).rejects.toThrow(
           'User not found',
@@ -512,11 +535,14 @@ describe('AuthService - Story 1.14: Remove Family Member & Self De-registration'
 
     describe('Transaction Atomicity', () => {
       it('should execute all operations within a single transaction', async () => {
+        // Story 1.15: Mock getAdminStatus
+        mockNoBlockingFamilies();
+
         prismaMock.user.findUnique.mockResolvedValueOnce({
           id: memberUserId,
           email: memberEmail,
           deletedAt: null,
-          memberships: [{ familyId }],
+          memberships: [{ familyId, family: { id: familyId, deletedAt: null, memberships: [{ userId: memberUserId, user: { deletedAt: null } }, { userId: 'other', user: { deletedAt: null } }] } }],
         });
 
         const txOperations: string[] = [];
@@ -533,6 +559,11 @@ describe('AuthService - Story 1.14: Remove Family Member & Self De-registration'
               deleteMany: jest.fn().mockImplementation(() => {
                 txOperations.push('familyMembership.deleteMany');
                 return Promise.resolve({ count: 1 });
+              }),
+            },
+            family: {
+              update: jest.fn().mockImplementation(() => {
+                return Promise.resolve({});
               }),
             },
             invite: {

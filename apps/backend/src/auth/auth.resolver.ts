@@ -21,7 +21,9 @@ import { CreatePendingInviteInput } from './dto/create-pending-invite.input';
 import { CreateInviteInput } from './dto/create-invite.input';
 import { ReportInviteDecryptFailureInput } from './dto/report-invite-decrypt-failure.input';
 import { RemoveFamilyMemberInput } from './dto/remove-family-member.input';
-import { AuthResponse, UserType, EmailVerificationResponse, GenericResponse, CreateFamilyResponse } from './types/auth-response.type';
+import { PromoteToAdminInput } from './dto/promote-to-admin.input';
+import { DeleteFamilyInput } from './dto/delete-family.input';
+import { AuthResponse, UserType, EmailVerificationResponse, GenericResponse, CreateFamilyResponse, AdminStatusResponse } from './types/auth-response.type';
 import { CreateInviteResponse, AcceptInviteResponse, InviteType, InviteResponse } from './types/invite.type';
 import { FamilyType } from './types/family.type';
 import { FamilyMembershipType } from './types/family-membership.type';
@@ -300,5 +302,39 @@ export class AuthResolver {
     @Args('familyId') familyId: string,
   ): Promise<FamilyMemberType[]> {
     return this.authService.getFamilyMembers(user.id, familyId);
+  }
+
+  /**
+   * Story 1.15: Get admin status for deletion check
+   * Returns whether user can delete account and list of blocking families
+   */
+  @Query(() => AdminStatusResponse)
+  @UseGuards(GqlAuthGuard)
+  async getAdminStatus(@CurrentUser() user: User): Promise<AdminStatusResponse> {
+    return this.authService.getAdminStatus(user.id);
+  }
+
+  /**
+   * Story 1.15 AC4, AC5, AC6, AC7: Promote a member to admin
+   */
+  @Mutation(() => GenericResponse)
+  @UseGuards(GqlAuthGuard)
+  async promoteToAdmin(
+    @CurrentUser() user: User,
+    @Args('input') input: PromoteToAdminInput,
+  ): Promise<GenericResponse> {
+    return this.authService.promoteToAdmin(user.id, input.userId, input.familyId);
+  }
+
+  /**
+   * Story 1.15 AC9, AC10, AC11, AC12: Delete a family (soft delete)
+   */
+  @Mutation(() => GenericResponse)
+  @UseGuards(GqlAuthGuard)
+  async deleteFamily(
+    @CurrentUser() user: User,
+    @Args('input') input: DeleteFamilyInput,
+  ): Promise<GenericResponse> {
+    return this.authService.deleteFamily(user.id, input.familyId);
   }
 }

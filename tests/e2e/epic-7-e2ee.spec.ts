@@ -107,7 +107,7 @@ test.describe('Epic 7: E2EE Infrastructure', () => {
       { timeout: 10000 }
     );
 
-    // Verify IndexedDB contains the key
+    // Verify IndexedDB contains the key (stored as familyKey:{familyId})
     const hasKey = await page.evaluate(async () => {
       const dbName = 'ourchat-keys';
       const request = indexedDB.open(dbName);
@@ -122,7 +122,8 @@ test.describe('Epic 7: E2EE Infrastructure', () => {
 
           const transaction = db.transaction(['keys'], 'readonly');
           const store = transaction.objectStore('keys');
-          const getRequest = store.get('familyKey');
+          // Key is stored as familyKey:{familyId}, test harness uses 'test-family'
+          const getRequest = store.get('familyKey:test-family');
 
           getRequest.onsuccess = () => {
             resolve(!!getRequest.result);

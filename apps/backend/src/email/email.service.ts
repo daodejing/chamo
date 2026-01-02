@@ -8,6 +8,10 @@ import {
   InviteEmailTranslation,
 } from './templates/invite-email.translations';
 import {
+  getInviteNotificationTranslation,
+  InviteNotificationTranslation,
+} from './templates/invite-notification.translations';
+import {
   getVerificationEmailTranslation,
   VerificationEmailTranslation,
 } from './templates/verification-email.translations';
@@ -182,11 +186,13 @@ export class EmailService implements OnModuleInit {
   /**
    * Send invite notification (future use for Story 1.5)
    * Fires and forgets - logs errors but doesn't throw
+   * @param language - Optional language code for localized email (defaults to 'en')
    */
   async sendInviteNotification(
     email: string,
     familyName: string,
     inviteCode: string,
+    language: string = 'en',
   ): Promise<void> {
     if (!this.isValidEmail(email)) {
       this.logger.error(
@@ -194,6 +200,9 @@ export class EmailService implements OnModuleInit {
       );
       return;
     }
+
+    const translations = getInviteNotificationTranslation(language);
+    const replacements = { familyName };
 
     try {
       const sendSmtpEmail = new Brevo.SendSmtpEmail();
@@ -205,21 +214,26 @@ export class EmailService implements OnModuleInit {
       const acceptUrl = `${this.getAppBaseUrl()}/accept-invite?code=${encodeURIComponent(
         inviteCode,
       )}`;
-      sendSmtpEmail.subject = `You've been invited to join ${familyName} on Chamo`;
-      sendSmtpEmail.htmlContent = this.getInviteEmailHtml(
-        familyName,
-        inviteCode,
-        acceptUrl,
+      sendSmtpEmail.subject = formatTranslation(
+        translations.subject,
+        replacements,
       );
-      sendSmtpEmail.textContent = this.getInviteEmailText(
+      sendSmtpEmail.htmlContent = this.getInviteNotificationHtml(
         familyName,
         inviteCode,
         acceptUrl,
+        translations,
+      );
+      sendSmtpEmail.textContent = this.getInviteNotificationText(
+        familyName,
+        inviteCode,
+        acceptUrl,
+        translations,
       );
 
       await this.sendEmailWithRetry(sendSmtpEmail);
       this.logger.debug(
-        `Invite notification sent successfully to ${email} (family: ${familyName})`,
+        `Invite notification sent successfully to ${email} (family: ${familyName}, language: ${language})`,
       );
     } catch (error) {
       this.logger.error(
@@ -564,31 +578,42 @@ Need help? Just reply to this email and we'll get back to you.
     `.trim();
   }
 
-  private getInviteEmailHtml(
+  private getInviteNotificationHtml(
     familyName: string,
     inviteCode: string,
     acceptUrl: string,
+    translations: InviteNotificationTranslation,
   ): string {
+    const replacements = { familyName };
+    const title = formatTranslation(translations.title, replacements);
+    const heading = formatTranslation(translations.heading, replacements);
+    const intro = formatTranslation(translations.intro, replacements);
+    const body = formatTranslation(translations.body, replacements);
+    const codeLabel = formatTranslation(translations.codeLabel, replacements);
+    const cta = formatTranslation(translations.cta, replacements);
+    const note = formatTranslation(translations.note, replacements);
+    const footer = formatTranslation(translations.footer, replacements);
+
     return `
 <!DOCTYPE html>
 <html>
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>You've been invited to ${familyName}!</title>
+  <title>${title}</title>
 </head>
 <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
   <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
-    <h1 style="color: white; margin: 0; font-size: 28px;">👋 You're Invited!</h1>
+    <h1 style="color: white; margin: 0; font-size: 28px;">👋 ${heading}</h1>
   </div>
 
   <div style="background: #ffffff; padding: 40px; border: 1px solid #e0e0e0; border-top: none; border-radius: 0 0 10px 10px;">
-    <h2 style="color: #333; margin-top: 0;">Join ${familyName} on Chamo</h2>
+    <h2 style="color: #333; margin-top: 0;">${intro}</h2>
 
-    <p>You've been invited to join <strong>${familyName}</strong> on Chamo - a secure family communication platform.</p>
+    <p>${body}</p>
 
     <div style="background: #f8f9fa; padding: 20px; border-radius: 6px; margin: 30px 0; text-align: center;">
-      <p style="margin: 0 0 10px 0; font-size: 14px; color: #666;">Your invite code:</p>
+      <p style="margin: 0 0 10px 0; font-size: 14px; color: #666;">${codeLabel}</p>
       <p style="margin: 0; font-size: 24px; font-weight: bold; color: #667eea; letter-spacing: 2px; font-family: monospace;">
         ${inviteCode}
       </p>
@@ -597,41 +622,52 @@ Need help? Just reply to this email and we'll get back to you.
     <div style="text-align: center; margin: 30px 0;">
       <a href="${acceptUrl}"
          style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 14px 28px; text-decoration: none; border-radius: 6px; font-weight: 600; display: inline-block;">
-        Accept Invitation
+        ${cta}
       </a>
     </div>
 
     <p style="margin-top: 30px; font-size: 14px; color: #666;">
-      Don't have an account? You'll be able to create one when you accept the invitation.
+      ${note}
     </p>
   </div>
 
   <div style="text-align: center; margin-top: 20px; color: #999; font-size: 12px;">
-    <p>© ${new Date().getFullYear()} Chamo. Family communication made simple.</p>
+    <p>© ${new Date().getFullYear()} Chamo. ${footer}</p>
   </div>
 </body>
 </html>
     `.trim();
   }
 
-  private getInviteEmailText(
+  private getInviteNotificationText(
     familyName: string,
     inviteCode: string,
     acceptUrl: string,
+    translations: InviteNotificationTranslation,
   ): string {
+    const replacements = { familyName };
+    const heading = formatTranslation(translations.heading, replacements);
+    const intro = formatTranslation(translations.intro, replacements);
+    const body = formatTranslation(translations.body, replacements);
+    const codeLabel = formatTranslation(translations.codeLabel, replacements);
+    const cta = formatTranslation(translations.cta, replacements);
+    const note = formatTranslation(translations.note, replacements);
+    const footer = formatTranslation(translations.footer, replacements);
+
     return `
-You're Invited! - Join ${familyName} on Chamo
+${heading} - ${intro}
 
-You've been invited to join ${familyName} on Chamo - a secure family communication platform.
+${body}
 
-Your invite code: ${inviteCode}
+${codeLabel} ${inviteCode}
 
-Visit ${acceptUrl} to accept the invitation.
+${cta}:
+${acceptUrl}
 
-Don't have an account? You'll be able to create one when you accept the invitation.
+${note}
 
 ---
-© ${new Date().getFullYear()} Chamo. Family communication made simple.
+© ${new Date().getFullYear()} Chamo. ${footer}
     `.trim();
   }
 

@@ -87,3 +87,27 @@ export class CreateFamilyResponse {
   @Field()
   inviteCode: string;
 }
+
+@ObjectType()
+export class BlockingFamilyType {
+  @Field(() => ID)
+  familyId: string;
+
+  @Field()
+  familyName: string;
+
+  @Field()
+  memberCount: number;
+
+  @Field()
+  requiresAction: boolean;
+}
+
+@ObjectType()
+export class AdminStatusResponse {
+  @Field()
+  canDelete: boolean;
+
+  @Field(() => [BlockingFamilyType])
+  blockingFamilies: BlockingFamilyType[];
+}

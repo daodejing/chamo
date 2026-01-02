@@ -15,8 +15,8 @@ import { MainHeader, type MainHeaderView } from '@/components/main-header';
 import { InviteMemberDialog } from '@/components/family/invite-member-dialog';
 import { useMessages, useSendMessage, useEditMessage, useDeleteMessage, useMessageSubscription } from '@/lib/hooks/use-messages';
 import { useChannels } from '@/lib/hooks/use-channels';
-import { useMutation, useQuery } from '@apollo/client/react';
-import { REMOVE_FAMILY_MEMBER_MUTATION, DEREGISTER_SELF_MUTATION, GET_FAMILY_MEMBERS_QUERY } from '@/lib/graphql/operations';
+import { useMutation, useQuery, useLazyQuery } from '@apollo/client/react';
+import { REMOVE_FAMILY_MEMBER_MUTATION, DEREGISTER_SELF_MUTATION, GET_FAMILY_MEMBERS_QUERY, GET_ADMIN_STATUS_QUERY, PROMOTE_TO_ADMIN_MUTATION, DELETE_FAMILY_MUTATION } from '@/lib/graphql/operations';
 import type {
   RemoveFamilyMemberMutation,
   RemoveFamilyMemberMutationVariables,
@@ -24,7 +24,13 @@ import type {
   DeregisterSelfMutationVariables,
   GetFamilyMembersQuery,
   GetFamilyMembersQueryVariables,
+  GetAdminStatusQuery,
+  PromoteToAdminMutation,
+  PromoteToAdminMutationVariables,
+  DeleteFamilyMutation,
+  DeleteFamilyMutationVariables,
 } from '@/lib/graphql/generated/graphql';
+import { LastAdminModal, type BlockingFamily } from '@/components/family/last-admin-modal';
 import { useAuth } from '@/lib/contexts/auth-context';
 import { useLanguage } from '@/lib/contexts/language-context';
 import { encryptMessage, decryptMessage } from '@/lib/e2ee/encryption';
@@ -113,6 +119,10 @@ export default function ChatPage() {
   const [settingsChannels, setSettingsChannels] = useState<SettingsChannel[]>([]);
   const [settingsFamilyMembers, setSettingsFamilyMembers] = useState<SettingsFamilyMember[]>([]);
 
+  // Story 1.15: Last admin modal state
+  const [isLastAdminModalOpen, setIsLastAdminModalOpen] = useState(false);
+  const [blockingFamilies, setBlockingFamilies] = useState<BlockingFamily[]>([]);
+
   // Instrumentation refs for debugging double-subscription issue
   const executionCounterRef = useRef(0);
   const objectIdentityMap = useRef(new WeakMap<object, number>());
@@ -190,6 +200,17 @@ export default function ChatPage() {
     DeregisterSelfMutation,
     DeregisterSelfMutationVariables
   >(DEREGISTER_SELF_MUTATION);
+
+  // Story 1.15: Admin transfer mutations and query
+  const [getAdminStatus] = useLazyQuery<GetAdminStatusQuery>(GET_ADMIN_STATUS_QUERY);
+  const [promoteToAdminMutation] = useMutation<
+    PromoteToAdminMutation,
+    PromoteToAdminMutationVariables
+  >(PROMOTE_TO_ADMIN_MUTATION);
+  const [deleteFamilyMutation] = useMutation<
+    DeleteFamilyMutation,
+    DeleteFamilyMutationVariables
+  >(DELETE_FAMILY_MUTATION);
 
   // Query family members (needed for header member count and Settings panel)
   const { data: familyMembersData, refetch: refetchFamilyMembers } = useQuery<
@@ -778,9 +799,26 @@ export default function ChatPage() {
     }
   };
 
-  // Handler: Delete account (Story 1.14 AC7, AC8)
+  // Handler: Delete account (Story 1.14 AC7, AC8 + Story 1.15 admin check)
   const handleDeleteAccount = async () => {
     try {
+      // Story 1.15: Check admin status before deletion
+      const { data: adminStatusData } = await getAdminStatus();
+
+      if (!adminStatusData?.getAdminStatus?.canDelete) {
+        // User is the only admin in one or more families
+        const families = adminStatusData?.getAdminStatus?.blockingFamilies || [];
+        setBlockingFamilies(families.map(f => ({
+          familyId: f.familyId,
+          familyName: f.familyName,
+          memberCount: f.memberCount,
+          requiresAction: f.requiresAction,
+        })));
+        setIsLastAdminModalOpen(true);
+        return;
+      }
+
+      // No blocking families - proceed with deletion
       const result = await deregisterSelfMutation();
 
       if (result.data?.deregisterSelf?.success) {
@@ -794,6 +832,49 @@ export default function ChatPage() {
     } catch (error) {
       console.error('Delete account error:', error);
       const message = error instanceof Error ? error.message : 'Failed to delete account';
+      toast.error(message);
+    }
+  };
+
+  // Story 1.15: Handle promoting a member to admin from the last admin modal
+  const handlePromoteMemberFromModal = () => {
+    setIsLastAdminModalOpen(false);
+    // Navigate to settings (already open) with focus on the family
+    // The user will need to select a member to promote
+    toast.info(t('lastAdmin.promoteOptionDesc', language));
+  };
+
+  // Story 1.15: Handle deleting a family from the last admin modal
+  const handleDeleteFamilyFromModal = async (familyId: string, familyName: string) => {
+    if (!confirm(t('settings.deleteFamilyConfirm', language, { familyName }))) {
+      return;
+    }
+
+    try {
+      const result = await deleteFamilyMutation({
+        variables: { input: { familyId } },
+      });
+
+      if (result.data?.deleteFamily?.success) {
+        toast.success(t('settings.deleteFamilySuccess', language, { familyName }));
+
+        // Remove the deleted family from blocking families
+        setBlockingFamilies((prev) => prev.filter((f) => f.familyId !== familyId));
+
+        // If no more blocking families, close the modal
+        if (blockingFamilies.length <= 1) {
+          setIsLastAdminModalOpen(false);
+          // Now the user can try deleting their account again
+        }
+
+        // Refetch family members if needed
+        refetchFamilyMembers();
+      } else {
+        toast.error(result.data?.deleteFamily?.message || 'Failed to delete family');
+      }
+    } catch (error) {
+      console.error('Delete family error:', error);
+      const message = error instanceof Error ? error.message : 'Failed to delete family';
       toast.error(message);
     }
   };
@@ -848,6 +929,37 @@ export default function ChatPage() {
     } catch (error) {
       console.error('Remove member error:', error);
       const message = error instanceof Error ? error.message : 'Failed to remove member';
+      toast.error(message);
+    }
+  };
+
+  // Story 1.15: Handler for promoting a member to admin
+  const handlePromoteMember = async (memberId: string) => {
+    if (!family?.id) {
+      toast.error('No active family');
+      return;
+    }
+
+    try {
+      const result = await promoteToAdminMutation({
+        variables: {
+          input: {
+            userId: memberId,
+            familyId: family.id,
+          },
+        },
+      });
+
+      if (result.data?.promoteToAdmin?.success) {
+        // Refetch family members to update the list
+        refetchFamilyMembers();
+        toast.success(result.data.promoteToAdmin.message || t('settings.promoteSuccess', language, { name: '' }));
+      } else {
+        toast.error(result.data?.promoteToAdmin?.message || 'Failed to promote member');
+      }
+    } catch (error) {
+      console.error('Promote member error:', error);
+      const message = error instanceof Error ? error.message : 'Failed to promote member';
       toast.error(message);
     }
   };
@@ -1097,6 +1209,8 @@ export default function ChatPage() {
             onQuietHoursStartChange={handleQuietHoursStartChange}
             onQuietHoursEndChange={handleQuietHoursEndChange}
             onRemoveMember={handleRemoveMember}
+            onPromoteMember={handlePromoteMember}
+            currentUserRole={(user?.memberships?.find(m => m.familyId === (family?.id || user?.activeFamilyId))?.role as 'admin' | 'member') || 'member'}
             onCreateChannel={handleCreateChannel}
             onDeleteChannel={handleDeleteChannel}
             onConnectGoogle={handleConnectGoogle}
@@ -1119,6 +1233,16 @@ export default function ChatPage() {
         onOpenChange={setIsInviteDialogOpen}
         familyId={family?.id || user?.activeFamilyId || ''}
         familyName={familyName}
+      />
+
+      {/* Story 1.15: Last Admin Modal */}
+      <LastAdminModal
+        open={isLastAdminModalOpen}
+        onOpenChange={setIsLastAdminModalOpen}
+        blockingFamilies={blockingFamilies}
+        language={language}
+        onPromoteMember={handlePromoteMemberFromModal}
+        onDeleteFamily={handleDeleteFamilyFromModal}
       />
     </div>
   );

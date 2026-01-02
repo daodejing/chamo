@@ -16,12 +16,24 @@ type AcceptInviteResponse {
   success: Boolean!
 }
 
+type AdminStatusResponse {
+  blockingFamilies: [BlockingFamilyType!]!
+  canDelete: Boolean!
+}
+
 type AuthResponse {
   accessToken: String!
   family: FamilyType
   pendingInviteCode: String
   refreshToken: String!
   user: UserType!
+}
+
+type BlockingFamilyType {
+  familyId: ID!
+  familyName: String!
+  memberCount: Float!
+  requiresAction: Boolean!
 }
 
 input CacheMessageTranslationInput {
@@ -92,6 +104,10 @@ input CreatePendingInviteInput {
 A date-time string at UTC, such as 2019-12-03T09:54:33Z, compliant with the date-time format.
 """
 scalar DateTime
+
+input DeleteFamilyInput {
+  familyId: ID!
+}
 
 input DeleteMessageInput {
   messageId: ID!
@@ -251,6 +267,7 @@ type Mutation {
   createFamily(input: CreateFamilyInput!): CreateFamilyResponse!
   createInvite(input: CreateInviteInput!): InviteResponse!
   createPendingInvite(input: CreatePendingInviteInput!): CreateInviteResponse!
+  deleteFamily(input: DeleteFamilyInput!): GenericResponse!
   deleteMessage(input: DeleteMessageInput!): DeleteMessageResponse!
   deregisterSelf: GenericResponse!
   editMessage(input: EditMessageInput!): MessageWithUserType!
@@ -258,6 +275,7 @@ type Mutation {
   joinFamilyAsMember(input: JoinFamilyExistingInput!): FamilyType!
   login(input: LoginInput!): AuthResponse!
   logout: Boolean!
+  promoteToAdmin(input: PromoteToAdminInput!): GenericResponse!
   register(input: RegisterInput!): EmailVerificationResponse!
   removeFamilyMember(input: RemoveFamilyMemberInput!): GenericResponse!
   reportInviteDecryptFailure(input: ReportInviteDecryptFailureInput!): GenericResponse!
@@ -284,7 +302,13 @@ type Mutation {
   verifyEmail(token: String!): AuthResponse!
 }
 
+input PromoteToAdminInput {
+  familyId: ID!
+  userId: ID!
+}
+
 type Query {
+  getAdminStatus: AdminStatusResponse!
   getChannel(id: String!): Channel
   getChannels: [Channel!]!
   getFamilyInvites(familyId: String!): [InviteType!]!

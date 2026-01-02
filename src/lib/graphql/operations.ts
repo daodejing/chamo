@@ -563,3 +563,39 @@ export const DEREGISTER_SELF_MUTATION = gql`
     }
   }
 `;
+
+// ============================================================================
+// STORY 1.15: ADMIN TRANSFER & FAMILY DELETION
+// ============================================================================
+
+export const GET_ADMIN_STATUS_QUERY = gql`
+  query GetAdminStatus {
+    getAdminStatus {
+      canDelete
+      blockingFamilies {
+        familyId
+        familyName
+        memberCount
+        requiresAction
+      }
+    }
+  }
+`;
+
+export const PROMOTE_TO_ADMIN_MUTATION = gql`
+  mutation PromoteToAdmin($input: PromoteToAdminInput!) {
+    promoteToAdmin(input: $input) {
+      success
+      message
+    }
+  }
+`;
+
+export const DELETE_FAMILY_MUTATION = gql`
+  mutation DeleteFamily($input: DeleteFamilyInput!) {
+    deleteFamily(input: $input) {
+      success
+      message
+    }
+  }
+`;

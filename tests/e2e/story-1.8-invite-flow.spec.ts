@@ -29,6 +29,17 @@ import {
 } from './fixtures';
 import { E2E_CONFIG } from './config';
 import { inviteEmailTranslations } from '../../apps/backend/src/email/templates/invite-email.translations';
+import { translations } from '../../src/lib/translations';
+
+/**
+ * Helper to create a regex that matches a translation key in any language
+ */
+function t(key: keyof typeof translations.en): RegExp {
+  const values = Object.values(translations).map(lang => lang[key]).filter(Boolean);
+  // Escape regex special characters and join with |
+  const escaped = values.map(v => v.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+  return new RegExp(escaped.join('|'), 'i');
+}
 
 /**
  * Generate a unique test email
@@ -89,7 +100,7 @@ test.describe('Story 1.8: Family Invite Flow', () => {
       await expect(inviteePage.getByTestId('auth-screen-container')).toBeVisible();
 
       // Switch to "Create Account" mode
-      await inviteePage.click('button:has-text("Create an account")');
+      await inviteePage.click('button:has-text("Create a New Account")');
       await expect(inviteePage.getByTestId('auth-screen-mode')).toContainText(/Create Account/i);
 
       // Fill registration form
@@ -116,7 +127,7 @@ test.describe('Story 1.8: Family Invite Flow', () => {
 
       // Navigate to verification link
       await inviteePage.goto(`/verify-email?token=${verificationToken}`);
-      await expect(inviteePage.getByText(/verified/i)).toBeVisible({ timeout: 10000 });
+      await expect(inviteePage.getByText(t('verification.success'))).toBeVisible({ timeout: 10000 });
 
       // Should redirect to login
       await expect(inviteePage).toHaveURL(/login/, { timeout: 15000 });
@@ -147,7 +158,9 @@ test.describe('Story 1.8: Family Invite Flow', () => {
 
       // Verify success - should NOT show "not registered" warning since user is registered
       // The invite should be created directly (encrypted invite flow)
-      await expect(adminPage.getByText(/invited/i)).toBeVisible({ timeout: 10000 });
+      // Toast says "Invite sent to {email}"
+      const inviteSentToast = adminPage.locator('[data-sonner-toast]').filter({ hasText: /Invite sent/i });
+      await expect(inviteSentToast).toBeVisible({ timeout: 10000 });
 
       // Wait for invite email
       const inviteEmail = await waitForMailHogEmail('to', inviteeEmail, 15000);
@@ -172,8 +185,11 @@ test.describe('Story 1.8: Family Invite Flow', () => {
       // Navigate to accept invite with the code
       await inviteePage.goto(`/accept-invite?code=${inviteCodeFromEmail}`);
 
-      // Verify successful join
-      await expect(inviteePage.getByText(/successfully/i)).toBeVisible({ timeout: 15000 });
+      // Verify successful join - may show success message briefly or go straight to chat
+      await Promise.race([
+        expect(inviteePage.getByText(t('acceptInvite.successTitle'))).toBeVisible({ timeout: 15000 }),
+        expect(inviteePage).toHaveURL(/chat/, { timeout: 15000 }),
+      ]);
 
       // Should redirect to chat
       await expect(inviteePage).toHaveURL(/chat/, { timeout: 15000 });
@@ -253,8 +269,9 @@ test.describe('Story 1.8: Family Invite Flow', () => {
       await expect(sendRegLinkButton).toBeVisible();
       await sendRegLinkButton.click();
 
-      // Verify success toast
-      await expect(adminPage.getByText(/registration|invite/i)).toBeVisible({ timeout: 10000 });
+      // Verify success toast (filter to toast element to avoid matching page content)
+      const successToast = adminPage.locator('[data-sonner-toast]').filter({ hasText: /sent|email/i });
+      await expect(successToast).toBeVisible({ timeout: 10000 });
 
       // ============================================================
       // PHASE 2: Invitee receives registration email and registers
@@ -265,7 +282,9 @@ test.describe('Story 1.8: Family Invite Flow', () => {
 
       // Verify email is in Japanese (check for Japanese characters or specific content)
       // The email body should contain Japanese text
-      const emailBody = registrationEmail.Content.Body;
+      const rawEmailBody = registrationEmail.Content.Body;
+      // Decode quoted-printable encoding first (emails use QP encoding)
+      const emailBody = decodeQuotedPrintable(rawEmailBody);
       // Just verify the email arrived with a registration link
       expect(emailBody).toMatch(/login\?mode=create/);
 
@@ -279,7 +298,8 @@ test.describe('Story 1.8: Family Invite Flow', () => {
       await expect(inviteePage.getByTestId('auth-screen-container')).toBeVisible();
 
       // Verify mode is locked to registration (Create Account mode)
-      await expect(inviteePage.getByTestId('auth-screen-mode')).toContainText(/Create Account/i);
+      // Uses translation helper to match both English and Japanese
+      await expect(inviteePage.getByTestId('auth-screen-mode')).toContainText(t('login.createAccount'));
 
       // Email should be pre-filled
       const emailField = inviteePage.locator('input[name="email"]');
@@ -309,7 +329,7 @@ test.describe('Story 1.8: Family Invite Flow', () => {
 
       // Navigate to verification link
       await inviteePage.goto(`/verify-email?token=${verificationToken}`);
-      await expect(inviteePage.getByText(/verified/i)).toBeVisible({ timeout: 10000 });
+      await expect(inviteePage.getByText(t('verification.success'))).toBeVisible({ timeout: 10000 });
 
       // ============================================================
       // PHASE 4: Admin completes invite
@@ -331,8 +351,9 @@ test.describe('Story 1.8: Family Invite Flow', () => {
       await expect(completeInviteButton).toBeVisible({ timeout: 10000 });
       await completeInviteButton.click();
 
-      // Wait for encrypted invite to be created
-      await expect(adminPage.getByText(/completed|invite/i)).toBeVisible({ timeout: 10000 });
+      // Wait for encrypted invite to be created - look for toast specifically
+      const completedToast = adminPage.locator('[data-sonner-toast]').filter({ hasText: /sent|completed|invite/i });
+      await expect(completedToast).toBeVisible({ timeout: 10000 });
 
       // ============================================================
       // PHASE 5: Invitee accepts invite
@@ -353,14 +374,18 @@ test.describe('Story 1.8: Family Invite Flow', () => {
 
       // Wait for login to complete
       await inviteePage.waitForURL(/family-setup|chat/, { timeout: 15000 });
+      await inviteePage.waitForLoadState('networkidle');
 
       // Navigate to accept invite
       await inviteePage.goto(`/accept-invite?code=${inviteCode}`);
 
-      // Verify successful join
-      await expect(inviteePage.getByText(/successfully/i)).toBeVisible({ timeout: 15000 });
+      // Verify successful join - may show success message briefly or go straight to chat
+      await Promise.race([
+        expect(inviteePage.getByText(t('acceptInvite.successTitle'))).toBeVisible({ timeout: 15000 }),
+        expect(inviteePage).toHaveURL(/chat/, { timeout: 15000 }),
+      ]);
 
-      // Should redirect to chat
+      // Should end up in chat
       await expect(inviteePage).toHaveURL(/chat/, { timeout: 15000 });
 
       console.log('Test 2 passed: Unregistered user full flow complete');
@@ -588,7 +613,7 @@ test.describe('Story 1.8: Family Invite Flow', () => {
 
       // Navigate to verify - include lang=ja if not already in token URL
       await inviteePage.goto(`/verify-email?token=${verificationToken}&lang=ja`);
-      await expect(inviteePage.getByText(/verified|確認/i)).toBeVisible({ timeout: 10000 });
+      await expect(inviteePage.getByText(t('verification.success'))).toBeVisible({ timeout: 10000 });
 
       console.log('Test 4 passed: Language preservation verified');
     } finally {

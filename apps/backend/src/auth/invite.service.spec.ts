@@ -83,6 +83,8 @@ describe('AuthService - Encrypted Invite Flow', () => {
         },
       });
 
+      prismaMock.user.findFirst.mockResolvedValueOnce(null);
+
       // Mock no existing pending invite
       prismaMock.invite.findFirst.mockResolvedValueOnce(null);
 
@@ -95,6 +97,7 @@ describe('AuthService - Encrypted Invite Flow', () => {
         encryptedFamilyKey,
         nonce,
         inviteCode,
+        inviteeLanguage: 'en',
         status: 'PENDING',
         expiresAt,
         acceptedAt: null,
@@ -148,6 +151,7 @@ describe('AuthService - Encrypted Invite Flow', () => {
           encryptedFamilyKey,
           nonce,
           inviteCode,
+          inviteeLanguage: 'en',
           status: 'PENDING',
           expiresAt,
         },
@@ -157,7 +161,68 @@ describe('AuthService - Encrypted Invite Flow', () => {
         inviteeEmail,
         'Test Family',
         inviteCode,
+        'en',
       );
+    });
+
+    it('should use invitee preferred language for notifications', async () => {
+      prismaMock.familyMembership.findUnique.mockResolvedValueOnce({
+        userId: inviterUserId,
+        familyId,
+        role: 'ADMIN',
+        family: {
+          id: familyId,
+          name: 'Test Family',
+        },
+      });
+
+      prismaMock.user.findFirst.mockResolvedValueOnce({
+        id: 'invitee-id',
+        email: inviteeEmail,
+        preferences: { preferredLanguage: 'ja' },
+        memberships: [],
+      });
+
+      prismaMock.invite.findFirst.mockResolvedValueOnce(null);
+
+      prismaMock.invite.create.mockResolvedValueOnce({
+        id: 'invite-456',
+        familyId,
+        inviterId: inviterUserId,
+        inviteeEmail,
+        encryptedFamilyKey,
+        nonce,
+        inviteCode,
+        inviteeLanguage: 'ja',
+        status: 'PENDING',
+        expiresAt,
+        acceptedAt: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
+
+      await authService.createEncryptedInvite(
+        inviterUserId,
+        familyId,
+        inviteeEmail,
+        encryptedFamilyKey,
+        nonce,
+        inviteCode,
+        expiresAt,
+      );
+
+      expect(emailServiceMock.sendInviteNotification).toHaveBeenCalledWith(
+        inviteeEmail,
+        'Test Family',
+        inviteCode,
+        'ja',
+      );
+
+      expect(prismaMock.invite.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          inviteeLanguage: 'ja',
+        }),
+      });
     });
 
     it('should throw ForbiddenException if inviter is not a family member', async () => {

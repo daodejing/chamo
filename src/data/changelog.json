@@ -2,7 +2,7 @@
   "versions": [
     {
       "version": "1.0.0",
-      "date": "2025-12-07",
+      "date": "2025-12-21",
       "changes": {
         "features": [
           "Implement user deregistration and remove family member (story-1.14)",
@@ -12,6 +12,9 @@
           "Implement sticky header and fix scroll behavior (Story 5.5) (ui)"
         ],
         "fixes": [
+          "Add missing findFirst mock to integration tests (backend)",
+          "Display correct family member count in chat header",
+          "Resolve 7 testing issues from Story 1.14 manual testing",
           "Replace paths-ignore with negation patterns in deploy-staging (ci)",
           "Fix all ESLint warnings and enforce zero-warning policy (lint)",
           "Use UI language as default for invite emails (invite)",
@@ -28,8 +31,7 @@
           "Resolve CI test failures (ci)"
         ],
         "improvements": [
-          "Extract MainHeader component and lift state for persistent header (ui)",
-          "Add comprehensive observation discipline to Playwright MCP testing skill (testing)"
+          "Extract MainHeader component and lift state for persistent header (ui)"
         ]
       }
     }

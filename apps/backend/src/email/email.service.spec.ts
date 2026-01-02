@@ -320,6 +320,20 @@ describe('EmailService', () => {
       );
     });
 
+    it('should send invite notification in Japanese when ja language is specified', async () => {
+      const email = 'invitee@example.com';
+      const familyName = 'Sakura Family';
+      const inviteCode = 'SAKURA123';
+
+      await service.sendInviteNotification(email, familyName, inviteCode, 'ja');
+
+      const payload = mockSendTransacEmail.mock.calls[0][0];
+      expect(payload.subject).toContain(familyName);
+      expect(payload.subject).toContain('招待');
+      expect(payload.htmlContent).toContain('招待コード');
+      expect(payload.htmlContent).toContain('招待を受け入れる');
+    });
+
     it('should include familyName and inviteCode in content', async () => {
       await service.sendInviteNotification(
         'user@example.com',

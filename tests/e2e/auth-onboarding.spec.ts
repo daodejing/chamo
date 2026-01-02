@@ -235,23 +235,6 @@ test.describe('Story 1.1: Create Family Account', () => {
   });
 
   /**
-   * Error handling: Duplicate email registration
-   * Skipped: Requires toast implementation and integration test covers API behavior
-   */
-  test.skip('Error: Cannot register with duplicate email', async ({ page }) => {
-    // This test is covered by integration tests
-    // UI toast behavior requires toast component to be properly configured
-  });
-
-  /**
-   * UI: Family name appears in chat after registration
-   * Skipped: /chat page is outside Story 1.1 scope
-   */
-  test.skip('AC4: Family name visible in chat UI after registration', async ({ page }) => {
-    // /chat page implementation is part of future stories
-  });
-
-  /**
    * Performance: Registration completes within 10 seconds
    */
   test('Performance: Registration completes within 10 seconds', async ({ page }) => {
@@ -274,22 +257,6 @@ test.describe('Story 1.1: Create Family Account', () => {
 
     const duration = endTime - startTime;
     expect(duration).toBeLessThan(10000); // Should complete within 10 seconds
-  });
-
-  /**
-   * Invite code format verification
-   * Skipped: Toast display requires configuration, format validated in integration tests
-   */
-  test.skip('AC3: Invite code has correct format FAMILY-XXXXXXXX:BASE64KEY', async ({ page }) => {
-    // Invite code format is validated in integration tests
-  });
-
-  /**
-   * Toast duration: Invite code toast stays visible long enough to copy
-   * Skipped: Toast display requires configuration
-   */
-  test.skip('AC3: Invite code toast visible for at least 8 seconds', async ({ page }) => {
-    // Toast behavior requires toast component to be properly configured
   });
 });
 
@@ -401,13 +368,5 @@ test.describe('Story 1.2: Join Family via Invite Code', () => {
     await page.getByText('Have an invite code? Join Family').click();
     await page.waitForTimeout(300);
     await expect(page.locator('[data-slot="card-description"]', { hasText: 'Join Family' })).toBeVisible();
-  });
-
-  /**
-   * Performance: Join completes within 10 seconds
-   * Skipped: Requires actual API integration
-   */
-  test.skip('Performance: Join completes within 10 seconds', async ({ page }) => {
-    // Requires actual join API integration
   });
 });

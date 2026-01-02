@@ -1,7 +1,12 @@
 import { test, expect } from '@playwright/test';
-import { E2E_CONFIG } from './config';
 import { translations } from '../../src/lib/translations';
-import { generateInviteCode, generateTestFamilyKey, createFullInviteCode } from './test-helpers';
+import {
+  setupFamilyAdminTest,
+  cleanupTestData,
+  clearMailHogEmails,
+  waitForMailHogEmail,
+  extractVerificationToken,
+} from './fixtures';
 
 /**
  * Epic 1 - User Onboarding & Authentication
@@ -20,7 +25,7 @@ import { generateInviteCode, generateTestFamilyKey, createFullInviteCode } from 
  * - Frontend: Apollo Client via useAuth() hook
  * - UI: Unified login screen with join mode
  *
- * NOTE: All UI text assertions use i18n translations (default language: 'en')
+ * NOTE: Uses fixture-based setup for admin/family creation
  */
 
 // Helper to get translated text (default language is 'en')
@@ -29,171 +34,140 @@ const t = (key: keyof typeof translations.en): string => {
 };
 
 test.describe('Story 1.2: Join Family via Invite Code', () => {
-  let testId: string;
-  let createdFamilyIds: string[] = [];
-  let createdUserIds: string[] = [];
-
-  test.beforeEach(async ({ page }) => {
-    // Generate unique test identifier for this test run
-    testId = `e2e-story-1-2-${Date.now()}`;
-    createdFamilyIds = [];
-    createdUserIds = [];
-
-    // Navigate to login page
-    await page.goto('/login');
-    // Wait for the page title to be visible
-    await expect(page.getByText(t('login.title'))).toBeVisible();
-  });
-
-  test.afterEach(async ({ page }) => {
-    // Cleanup: Delete test data created during the test
-    // Note: In a real implementation, you would call GraphQL mutations to delete test data
-    // For now, we rely on database cleanup scripts or manual cleanup
-    // TODO: Implement GraphQL deleteFamily and deleteUser mutations for cleanup
-  });
-
-
   /**
    * AC1-AC6: Complete join flow - Member joins family using invite code
    * Tests the full story: member enters details, validates invite code, joins family, auto-login
    */
-  test('Join family - full end-to-end flow', async ({ page }) => {
-    // SETUP: First create a family to get a valid invite code
-    const adminEmail = `${testId}-admin@example.com`;
-    const adminPassword = 'AdminPassword123!';
-    const familyName = `[${testId}] E2E Test Family`;
-    const adminName = `[${testId}] E2E Admin`;
+  test('Join family - full end-to-end flow', async ({ page, browser }) => {
+    const testId = `join-e2e-${Date.now()}`;
 
-    const registerMutation = `
-      mutation Register($input: RegisterInput!) {
-        register(input: $input) {
-          user { id name email role }
-          family { id name inviteCode }
-          accessToken
+    // SETUP: Create admin with family via fixtures
+    const { fixture, cleanup } = await setupFamilyAdminTest(page, testId);
+
+    try {
+      // Get the invite code from the fixture (it's at top level, not inside family)
+      const inviteCode = fixture.inviteCode;
+      // Production invite codes are 22-character base64url strings
+      expect(inviteCode).toMatch(/^[A-Za-z0-9_-]{22}$/);
+
+      // Create a separate browser context for the member (isolated auth state)
+      const memberContext = await browser.newContext();
+      const memberPage = await memberContext.newPage();
+
+      try {
+        // Navigate to login page and switch to join mode
+        await memberPage.goto('/login');
+        await expect(memberPage.getByText(t('login.title'))).toBeVisible();
+
+        // Switch to join family mode
+        await memberPage.getByText(t('login.switchToJoin')).click();
+        await memberPage.waitForTimeout(300);
+
+        // Verify we're in join mode (check for join-specific field)
+        await expect(memberPage.locator('#inviteCode')).toBeVisible();
+
+        // AC1: Fill join form with all required fields
+        const memberEmail = `${testId}-member@example.com`;
+        const memberPassword = 'MemberPassword123!';
+        const memberName = `${testId} Member`;
+
+        await memberPage.locator('#userName').fill(memberName);
+        await memberPage.locator('#email').fill(memberEmail);
+        await memberPage.locator('#password').fill(memberPassword);
+        // Use the invite code from fixture (just the code portion, not CODE:KEY format)
+        await memberPage.locator('#inviteCode').fill(inviteCode);
+
+        // Clear MailHog before registration to isolate verification email
+        await clearMailHogEmails();
+
+        // Intercept GraphQL joinFamily mutation
+        const joinResponsePromise = memberPage.waitForResponse(
+          (response) =>
+            response.url().includes('/graphql') &&
+            response.request().method() === 'POST' &&
+            response.request().postDataJSON()?.operationName === 'JoinFamily',
+        );
+
+        // Submit form
+        await memberPage.locator('button[type="submit"]').click();
+
+        // Wait for GraphQL response
+        const joinResponse = await joinResponsePromise;
+        expect(joinResponse.status()).toBe(200);
+
+        const responseData = await joinResponse.json();
+
+        // Check if email verification is required (new flow)
+        if (responseData.data?.joinFamily?.requiresEmailVerification) {
+          // Wait for verification email
+          const verificationEmail = await waitForMailHogEmail(
+            'to',
+            memberEmail,
+            15000,
+          );
+          expect(verificationEmail).toBeTruthy();
+
+          const token = extractVerificationToken(verificationEmail);
+          expect(token).toBeTruthy();
+
+          // Verify email
+          await memberPage.goto(`/verify-email?token=${token}`);
+          await expect(
+            memberPage.getByText(/verified|success/i),
+          ).toBeVisible({ timeout: 10000 });
+
+          // Login after verification
+          await memberPage.goto('/login');
+          await memberPage.locator('input[name="email"]').fill(memberEmail);
+          await memberPage
+            .locator('input[name="password"]')
+            .fill(memberPassword);
+          await memberPage.locator('button[type="submit"]').click();
+
+          // Should redirect to chat after login
+          await expect(memberPage).toHaveURL(/chat/, { timeout: 15000 });
+        } else {
+          // Direct auth response (legacy flow)
+          expect(responseData.data.joinFamily).toBeDefined();
+          const { user, family, accessToken } = responseData.data.joinFamily;
+
+          // AC4: Verify member user was created with correct role
+          expect(user.email).toBe(memberEmail);
+          expect(user.name).toBe(memberName);
+          expect(user.role).toBe('MEMBER');
+
+          // AC2: Verify family was found and joined
+          expect(family.name).toBe(fixture.family.name);
+
+          // AC5: Verify user is logged in (JWT token issued)
+          expect(accessToken).toBeDefined();
+          expect(accessToken.length).toBeGreaterThan(0);
+
+          // Wait for redirect to chat
+          await expect(memberPage).toHaveURL(/chat/, { timeout: 15000 });
         }
+
+        // Cleanup member
+        await cleanupTestData({ emailPatterns: [memberEmail] });
+      } finally {
+        await memberContext.close();
       }
-    `;
-
-    // Generate invite code and family key for registration
-    const inviteCode = generateInviteCode();
-    const familyKey = generateTestFamilyKey(testId);
-    const fullInviteCode = createFullInviteCode(inviteCode, familyKey);
-
-    const registerResponse = await page.request.post(E2E_CONFIG.GRAPHQL_URL, {
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      data: {
-        query: registerMutation,
-        variables: {
-          input: {
-            email: adminEmail,
-            password: adminPassword,
-            familyName: familyName,
-            name: adminName,
-            inviteCode: inviteCode,
-          },
-        },
-      },
-    });
-
-    expect(registerResponse.ok()).toBeTruthy();
-    const registerData = await registerResponse.json();
-    const inviteCodeFromBackend = registerData.data.register.family.inviteCode;
-    createdUserIds.push(registerData.data.register.user.id);
-    createdFamilyIds.push(registerData.data.register.family.id);
-
-    // Backend returns only the code portion (AC2 - format validation)
-    // Format changed to 16 characters for 128-bit entropy
-    expect(inviteCodeFromBackend).toMatch(/^FAMILY-[A-Z0-9]{16}$/);
-
-    // Use the full invite code (with key) for joining
-    expect(fullInviteCode).toMatch(/^FAMILY-[A-Z0-9]{16}:[A-Za-z0-9+/=]+$/);
-
-    // Now navigate to login page and switch to join mode
-    await page.goto('/login');
-    await expect(page.getByText(t('login.title'))).toBeVisible();
-
-    // Switch to join family mode
-    await page.getByText(t('login.switchToJoin')).click();
-    await page.waitForTimeout(300);
-    // Verify we're in join mode (check for join-specific field instead of description text)
-    await expect(page.locator('#inviteCode')).toBeVisible();
-
-    // AC1: Fill join form with all required fields
-    const memberEmail = `${testId}-member@example.com`;
-    const memberPassword = 'MemberPassword123!';
-    const memberName = `[${testId}] E2E Member`;
-
-    await page.locator('#userName').fill(memberName);
-    await page.locator('#email').fill(memberEmail);
-    await page.locator('#password').fill(memberPassword);
-    await page.locator('#inviteCode').fill(fullInviteCode);
-
-    // Intercept GraphQL joinFamily mutation
-    const joinResponsePromise = page.waitForResponse(
-      response =>
-        response.url().includes(E2E_CONFIG.GRAPHQL_URL) &&
-        response.request().method() === 'POST' &&
-        response.request().postDataJSON()?.operationName === 'JoinFamily'
-    );
-
-    // Submit form
-    await page.locator('button[type="submit"]').click();
-
-    // Wait for GraphQL response
-    const joinResponse = await joinResponsePromise;
-    expect(joinResponse.status()).toBe(200);
-
-    const responseData = await joinResponse.json();
-    expect(responseData.data.joinFamily).toBeDefined();
-    const { user, family, accessToken } = responseData.data.joinFamily;
-
-    // AC4: Verify member user was created with correct role
-    expect(user.email).toBe(memberEmail);
-    expect(user.name).toBe(memberName);
-    expect(user.role).toBe('MEMBER');
-    createdUserIds.push(user.id);
-
-    // AC2: Verify family was found and joined
-    expect(family.name).toBe(familyName);
-    // Note: Backend returns only the code portion, not the full invite code with key
-    // Updated to 16 characters for 128-bit entropy (security fix)
-    expect(family.inviteCode).toMatch(/^FAMILY-[A-Z0-9]{16}$/);
-
-    // AC5: Verify user is logged in (JWT token issued)
-    expect(accessToken).toBeDefined();
-    expect(accessToken.length).toBeGreaterThan(0);
-
-    // AC5: Verify redirect occurred (navigation away from login page)
-    // Note: The redirect may not happen automatically in E2E tests due to auth context timing
-    // Wait longer and check if redirect occurs, but don't fail if it doesn't
-    // The important part is that the join was successful and tokens were issued
-    await page.waitForTimeout(2000);
-    const currentUrl = page.url();
-
-    // Either redirected to chat, or still on login but join was successful
-    // We verify success by checking the GraphQL response had valid tokens
-    if (!currentUrl.includes('/login')) {
-      // Successfully redirected
-      expect(currentUrl).not.toContain('/login');
-    } else {
-      // Still on login page, but join was successful (verified by tokens above)
-      // This is acceptable in E2E tests where React context updates may be delayed
-      console.log('Join successful but redirect did not occur (acceptable in E2E environment)');
+    } finally {
+      await cleanup();
     }
-
-    // AC6: Verify family key stored (implicit - tested via backend validation)
-    // The encrypted family key should be stored in the user record
-    // This is validated by the backend during join
   });
-
 
   /**
    * AC2: Invalid invite code validation
    * Tests that system properly rejects invalid invite codes
    */
   test('Cannot join with invalid invite code', async ({ page }) => {
+    const testId = `join-invalid-${Date.now()}`;
+
+    // Navigate to login page
+    await page.goto('/login');
+    await expect(page.getByText(t('login.title'))).toBeVisible();
+
     // Switch to join family mode
     await page.getByText(t('login.switchToJoin')).click();
     await page.waitForTimeout(300);
@@ -201,7 +175,7 @@ test.describe('Story 1.2: Join Family via Invite Code', () => {
     // Fill form with invalid invite code
     const memberEmail = `${testId}-invalid@example.com`;
     const memberPassword = 'MemberPassword123!';
-    const memberName = `[${testId}] Invalid Member`;
+    const memberName = `${testId} Invalid Member`;
     const invalidInviteCode = 'INVALID-CODE-12345';
 
     await page.locator('#userName').fill(memberName);
@@ -215,8 +189,9 @@ test.describe('Story 1.2: Join Family via Invite Code', () => {
     await page.waitForTimeout(1000);
 
     // Verify error message appears (could be client-side validation or server error)
-    // The form may prevent submission or show error after GraphQL response
-    const errorMessages = page.locator('[role="alert"], .text-red-500, .text-destructive');
+    const errorMessages = page.locator(
+      '[role="alert"], .text-red-500, .text-destructive',
+    );
     const errorCount = await errorMessages.count();
 
     // If there are visible error messages, validation is working
@@ -224,12 +199,14 @@ test.describe('Story 1.2: Join Family via Invite Code', () => {
       await expect(errorMessages.first()).toBeVisible();
     } else {
       // Otherwise, check if GraphQL error was returned
-      const errorResponsePromise = page.waitForResponse(
-        response =>
-          response.url().includes(E2E_CONFIG.GRAPHQL_URL) &&
-          response.request().postDataJSON()?.operationName === 'JoinFamily',
-        { timeout: 2000 }
-      ).catch(() => null);
+      const errorResponsePromise = page
+        .waitForResponse(
+          (response) =>
+            response.url().includes('/graphql') &&
+            response.request().postDataJSON()?.operationName === 'JoinFamily',
+          { timeout: 2000 },
+        )
+        .catch(() => null);
 
       const errorResponse = await errorResponsePromise;
       if (errorResponse) {
@@ -240,198 +217,15 @@ test.describe('Story 1.2: Join Family via Invite Code', () => {
     }
   });
 
-
-  /**
-   * AC3: Family capacity check
-   * Tests that system prevents joining when family is full
-   */
-  test('Cannot join family when at capacity', async ({ page }) => {
-    // SETUP: Create a family with maxMembers=1
-    const adminEmail = `${testId}-capacity-admin@example.com`;
-    const adminPassword = 'AdminPassword123!';
-    const familyName = `[${testId}] Full Family`;
-    const adminName = `[${testId}] Capacity Admin`;
-
-    const registerMutation = `
-      mutation Register($input: RegisterInput!) {
-        register(input: $input) {
-          user { id }
-          family { id inviteCode }
-        }
-      }
-    `;
-
-    const capacityInviteCode = generateInviteCode();
-
-    const registerResponse = await page.request.post(E2E_CONFIG.GRAPHQL_URL, {
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      data: {
-        query: registerMutation,
-        variables: {
-          input: {
-            email: adminEmail,
-            password: adminPassword,
-            familyName: familyName,
-            name: adminName,
-            inviteCode: capacityInviteCode,
-          },
-        },
-      },
-    });
-
-    const registerData = await registerResponse.json();
-    const inviteCode = registerData.data.register.family.inviteCode;
-    createdUserIds.push(registerData.data.register.user.id);
-    createdFamilyIds.push(registerData.data.register.family.id);
-
-    // Note: The default maxMembers is typically 5 or more
-    // To properly test this, we would need to:
-    // 1. Update the family to have maxMembers=1 via GraphQL mutation
-    // 2. Or create multiple members until capacity is reached
-    // For this test, we'll simulate the scenario by documenting the expected behavior
-
-    // TODO: Add GraphQL mutation to update family maxMembers for testing
-    // TODO: Create members up to maxMembers-1, then attempt to join as one more
-
-    // Switch to join mode
-    await page.goto('/login');
-    await page.getByText(t('login.switchToJoin')).click();
-    await page.waitForTimeout(300);
-
-    // Fill form
-    const memberEmail = `${testId}-overflow@example.com`;
-    const memberPassword = 'MemberPassword123!';
-    const memberName = `[${testId}] Overflow Member`;
-
-    await page.locator('#userName').fill(memberName);
-    await page.locator('#email').fill(memberEmail);
-    await page.locator('#password').fill(memberPassword);
-    await page.locator('#inviteCode').fill(inviteCode);
-
-    // Note: This test will pass since the family is not actually full
-    // In a complete implementation, this would verify ConflictException is thrown
-    // when family.users.length >= family.maxMembers
-  });
-
-
-  /**
-   * Error handling: Duplicate email
-   * Tests that system prevents joining with an already registered email
-   */
-  test('Cannot join with duplicate email', async ({ page }) => {
-    // SETUP: Create a family and first member
-    const adminEmail = `${testId}-duplicate-admin@example.com`;
-    const memberEmail = `${testId}-duplicate-member@example.com`;
-    const duplicateInviteCode = generateInviteCode();
-    const duplicateFamilyKey = generateTestFamilyKey(`duplicate-${testId}`);
-    const duplicateFullInviteCode = createFullInviteCode(duplicateInviteCode, duplicateFamilyKey);
-
-    // Create admin and family
-    const registerMutation = `
-      mutation Register($input: RegisterInput!) {
-        register(input: $input) {
-          user { id }
-          family { id inviteCode }
-        }
-      }
-    `;
-
-    const registerResponse = await page.request.post(E2E_CONFIG.GRAPHQL_URL, {
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      data: {
-        query: registerMutation,
-        variables: {
-          input: {
-            email: adminEmail,
-            password: 'AdminPassword123!',
-            familyName: `[${testId}] Duplicate Test Family`,
-            name: `[${testId}] Duplicate Admin`,
-            inviteCode: duplicateInviteCode,
-          },
-        },
-      },
-    });
-
-    const registerData = await registerResponse.json();
-    const inviteCode = registerData.data.register.family.inviteCode;
-    createdUserIds.push(registerData.data.register.user.id);
-    createdFamilyIds.push(registerData.data.register.family.id);
-
-    // Create first member via joinFamily
-    const joinMutation = `
-      mutation JoinFamily($input: JoinFamilyInput!) {
-        joinFamily(input: $input) {
-          user { id }
-        }
-      }
-    `;
-
-    const firstJoinResponse = await page.request.post(E2E_CONFIG.GRAPHQL_URL, {
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      data: {
-        query: joinMutation,
-        variables: {
-          input: {
-            email: memberEmail,
-            password: 'MemberPassword123!',
-            name: `[${testId}] First Member`,
-            inviteCode: duplicateFullInviteCode, // UI sends full CODE:KEY format
-          },
-        },
-      },
-    });
-
-    const firstJoinData = await firstJoinResponse.json();
-
-    // Check if join was successful (might fail if backend doesn't accept full format)
-    if (firstJoinData.data?.joinFamily?.user?.id) {
-      createdUserIds.push(firstJoinData.data.joinFamily.user.id);
-    } else if (firstJoinData.errors) {
-      // If the join failed, log the error and skip this test
-      console.log('First join failed:', firstJoinData.errors);
-      // Skip the rest of the test as we can't test duplicate email without first member
-      return;
-    }
-
-    // Now attempt to join again with the same email
-    await page.goto('/login');
-    await page.getByText(t('login.switchToJoin')).click();
-    await page.waitForTimeout(300);
-
-    await page.locator('#userName').fill(`[${testId}] Second Member`);
-    await page.locator('#email').fill(memberEmail); // Same email as first member
-    await page.locator('#password').fill('DifferentPassword123!');
-    await page.locator('#inviteCode').fill(duplicateFullInviteCode);
-
-    const errorResponsePromise = page.waitForResponse(
-      response =>
-        response.url().includes(E2E_CONFIG.GRAPHQL_URL) &&
-        response.request().postDataJSON()?.operationName === 'JoinFamily'
-    );
-
-    await page.locator('button[type="submit"]').click();
-    const errorResponse = await errorResponsePromise;
-    const errorData = await errorResponse.json();
-
-    // Verify error returned for duplicate email
-    expect(errorData.errors).toBeDefined();
-    expect(errorData.errors.length).toBeGreaterThan(0);
-    // The actual error message from backend is "Email already registered"
-    expect(errorData.errors[0].message).toContain('Email already registered');
-  });
-
-
   /**
    * AC1: Form field validation - all required fields
    * Tests that join form displays all required input fields
    */
   test('Join form displays all required fields', async ({ page }) => {
+    // Navigate to login page
+    await page.goto('/login');
+    await expect(page.getByText(t('login.title'))).toBeVisible();
+
     // Switch to join family mode
     await page.getByText(t('login.switchToJoin')).click();
     await page.waitForTimeout(300);
@@ -447,12 +241,15 @@ test.describe('Story 1.2: Join Family via Invite Code', () => {
     await expect(submitButton).toBeVisible();
   });
 
-
   /**
    * UI: Can switch between login modes
    * Tests that user can toggle between login, create, and join modes
    */
   test('Can switch to join mode from login page', async ({ page }) => {
+    // Navigate to login page
+    await page.goto('/login');
+    await expect(page.getByText(t('login.title'))).toBeVisible();
+
     // Verify initial state (login mode - no invite code field)
     const inviteCodeInitial = page.locator('#inviteCode');
     await expect(inviteCodeInitial).not.toBeVisible();
@@ -463,9 +260,58 @@ test.describe('Story 1.2: Join Family via Invite Code', () => {
 
     // Verify join mode is active (invite code field now visible)
     await expect(page.locator('#inviteCode')).toBeVisible();
-
-    // Verify invite code field appears (specific to join mode)
-    await expect(page.locator('#inviteCode')).toBeVisible();
   });
 
+  /**
+   * Error handling: Duplicate email
+   * Tests that system prevents joining with an already registered email
+   */
+  test('Cannot join with duplicate email', async ({ page, browser }) => {
+    const testId = `join-dup-${Date.now()}`;
+
+    // SETUP: Create admin with family
+    const { fixture, cleanup } = await setupFamilyAdminTest(page, testId);
+
+    try {
+      // Use the admin's email (which already exists) as the duplicate
+      const duplicateEmail = fixture.admin.user.email;
+
+      // Member context for the attempt
+      const memberContext = await browser.newContext();
+      const memberPage = await memberContext.newPage();
+
+      try {
+        // Attempt to join with admin's email (already registered)
+        await memberPage.goto('/login');
+        await memberPage.getByText(t('login.switchToJoin')).click();
+        await memberPage.waitForTimeout(300);
+
+        await memberPage.locator('#userName').fill(`${testId} Duplicate User`);
+        await memberPage.locator('#email').fill(duplicateEmail);
+        await memberPage.locator('#password').fill('DifferentPassword123!');
+        await memberPage.locator('#inviteCode').fill(fixture.inviteCode);
+
+        const errorResponsePromise = memberPage.waitForResponse(
+          (response) =>
+            response.url().includes('/graphql') &&
+            response.request().postDataJSON()?.operationName === 'JoinFamily',
+        );
+
+        await memberPage.locator('button[type="submit"]').click();
+        const errorResponse = await errorResponsePromise;
+        const errorData = await errorResponse.json();
+
+        // Verify error returned for duplicate email
+        expect(errorData.errors).toBeDefined();
+        expect(errorData.errors.length).toBeGreaterThan(0);
+        expect(errorData.errors[0].message).toContain(
+          'Email already registered',
+        );
+      } finally {
+        await memberContext.close();
+      }
+    } finally {
+      await cleanup();
+    }
+  });
 });

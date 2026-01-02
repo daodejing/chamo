@@ -7,6 +7,7 @@ import { randomBytes } from 'crypto';
 import * as bcrypt from 'bcrypt';
 import { Role, Channel as PrismaChannel } from '@prisma/client';
 import { Channel as ChannelType } from '../channels/types/channel.type';
+import { generateInviteCode } from '../common/utils/invite-code.util';
 
 @Injectable()
 export class TestSupportService {
@@ -24,10 +25,6 @@ export class TestSupportService {
         'Test support operations are disabled in this environment.',
       );
     }
-  }
-
-  private generateInviteCode(): string {
-    return randomBytes(4).toString('hex').toUpperCase();
   }
 
   private generatePublicKey(): string {
@@ -70,7 +67,7 @@ export class TestSupportService {
     const { family, inviteCode } = await this.authService.createFamily(
       adminUser.id,
       familyName,
-      this.generateInviteCode(),
+      generateInviteCode(),
     );
 
     const memberUser = await this.prisma.user.create({
@@ -160,7 +157,7 @@ export class TestSupportService {
     const { family, inviteCode } = await this.authService.createFamily(
       adminUser.id,
       familyName,
-      this.generateInviteCode(),
+      generateInviteCode(),
     );
 
     const adminAuth = await this.authService.login(adminEmail, admin.password);

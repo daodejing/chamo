@@ -10,7 +10,7 @@ import { setupFamilyAdminTest, cleanupTestData } from './fixtures';
  *
  * Coverage:
  * - AC1: Language selector appears in invite dialog
- * - AC2: 20+ language options available
+ * - AC2: Limited language options available
  * - AC3: Default language matches inviter's UI language
  * - AC4: Language included in GraphQL mutation
  * - AC5/AC6: Invite created with selected language
@@ -67,27 +67,22 @@ test.describe('Story 1.13: Invite Language Selection', () => {
       await expect(languageSelector).toContainText(/English/i);
       console.log('✅ AC3: Default language is English');
 
-      // AC2: Open dropdown and verify 20+ languages are available
+      // AC2: Open dropdown and verify limited language options are available
       await languageSelector.click();
       await page.waitForTimeout(300);
 
       // Count language options
       const languageOptions = page.locator('[role="option"]');
       const optionCount = await languageOptions.count();
-      expect(optionCount).toBeGreaterThanOrEqual(20);
-      console.log(`✅ AC2: ${optionCount} language options available (>= 20)`);
+      expect(optionCount).toBe(2);
+      console.log(`✅ AC2: ${optionCount} language options available (en/ja)`);
 
-      // AC2: Verify specific languages are present
+      // AC2: Verify English and Japanese are present
+      await expect(page.getByRole('option', { name: /English/i })).toBeVisible();
       await expect(
         page.getByRole('option', { name: /Japanese|日本語/i }),
       ).toBeVisible();
-      await expect(
-        page.getByRole('option', { name: /Spanish|Español/i }),
-      ).toBeVisible();
-      await expect(
-        page.getByRole('option', { name: /French|Français/i }),
-      ).toBeVisible();
-      console.log('✅ AC2: Common languages (Japanese, Spanish, French) available');
+      console.log('✅ AC2: English and Japanese options available');
 
       // Select Japanese language
       await page.getByRole('option', { name: /Japanese|日本語/i }).click();
@@ -179,10 +174,8 @@ test.describe('Story 1.13: Invite Language Selection', () => {
       await expect(languageSelector).toBeVisible();
 
       const languagesToTest = [
-        { code: 'es', name: /Spanish|Español/i },
-        { code: 'fr', name: /French|Français/i },
-        { code: 'de', name: /German|Deutsch/i },
-        { code: 'zh', name: /Chinese|中文/i },
+        { code: 'ja', name: /Japanese|日本語/i },
+        { code: 'en', name: /English/i },
       ];
 
       for (const lang of languagesToTest) {
@@ -194,7 +187,7 @@ test.describe('Story 1.13: Invite Language Selection', () => {
         console.log(`✅ Successfully selected ${lang.code}`);
       }
 
-      // Create invite with last selected language (Chinese)
+      // Create invite with last selected language (English)
       const inviteeEmail = `${testId}-invitee@example.com`;
       await page.locator('#email').fill(inviteeEmail);
 
@@ -208,7 +201,7 @@ test.describe('Story 1.13: Invite Language Selection', () => {
       const inviteCodeElement = page.locator('code');
       await expect(inviteCodeElement).toBeVisible({ timeout: 10000 });
 
-      console.log('✅ Invite created with Chinese language selection');
+      console.log('✅ Invite created with English language selection');
     } finally {
       // TEARDOWN: Clean up test data
       await cleanup();

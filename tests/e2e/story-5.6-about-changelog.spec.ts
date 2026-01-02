@@ -237,41 +237,6 @@ test.describe('Story 5.6: About Screen with Changelog', () => {
     }
   });
 
-  test.skip('Back button returns to Settings screen', async ({ page }) => {
-    // SKIPPED: This test is flaky due to navigation timing issues
-    const testId = `about-back-${Date.now()}`;
-    const { cleanup } = await setupFamilyAdminTest(page, testId);
-
-    try {
-      await page.goto('/chat');
-      await page.waitForLoadState('networkidle');
-
-      await page.click('button:has(.lucide-settings)');
-      await expect(page.locator(`text=${t('settings.language')}`).first()).toBeVisible({ timeout: 10000 });
-
-      // Navigate to About screen
-      await page.getByRole('heading', { name: t('about.title'), exact: true }).scrollIntoViewIfNeeded();
-      await page.getByRole('heading', { name: t('about.title'), exact: true }).click();
-
-      // Verify we're on About screen (look for app name "Chamo")
-      await expect(page.locator('text=Chamo').first()).toBeVisible();
-
-      // Click back button or navigate back
-      const backButton = page.locator('button:has(.lucide-arrow-left)');
-      if (await backButton.isVisible().catch(() => false)) {
-        await backButton.click();
-      } else {
-        // If no back button visible, use browser back
-        await page.goBack();
-      }
-
-      // Verify we're back on Settings screen
-      await expect(page.locator(`text=${t('settings.language')}`).first()).toBeVisible({ timeout: 10000 });
-    } finally {
-      await cleanup();
-    }
-  });
-
   test('About section in Settings shows version preview', async ({ page }) => {
     const testId = `about-preview-${Date.now()}`;
     const { cleanup } = await setupFamilyAdminTest(page, testId);

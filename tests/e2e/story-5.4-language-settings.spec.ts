@@ -222,56 +222,6 @@ test.describe('Story 5.4: Language Settings', () => {
     }
   });
 
-  test.skip('AC5: UI language requires reload, translation language does not', async ({ page }) => {
-    // SKIPPED: This test is flaky due to timing issues with page reload and translation language selector
-    const testId = `lang-ac5-${Date.now()}`;
-    const { cleanup } = await setupFamilyAdminTest(page, testId);
-
-    try {
-      await page.goto('/chat');
-      await page.waitForLoadState('networkidle');
-
-      // Navigate to settings
-      await page.click('button:has(.lucide-settings)');
-      await expect(page.locator(`text=${t('settings.language')}`).first()).toBeVisible({ timeout: 10000 });
-
-      // Test UI language change triggers reload
-      const uiLanguageButton = page.locator(`button:has-text("${t('settings.japanese')}")`);
-      await uiLanguageButton.click();
-
-      // Wait for reload by checking URL doesn't change but page reloads
-      await page.waitForLoadState('networkidle');
-
-      // Navigate to settings after reload
-      await page.click('button:has(.lucide-settings)');
-      await expect(page.locator(`text=${t('settings.language', 'ja')}`).first()).toBeVisible({ timeout: 10000 });
-
-      // Verify page reloaded by checking new language is active
-      await expect(page.locator(`text=${t('settings.appLanguage', 'ja')}`)).toBeVisible();
-
-      // Test translation language change does NOT trigger reload
-      const translationSelector = page.locator('[role="combobox"]').first();
-
-      // Track if page reloads by setting a flag
-      let pageReloaded = false;
-      page.on('load', () => { pageReloaded = true; });
-
-      await translationSelector.click();
-      await page.click('[role="option"]:has-text("スペイン語")');
-
-      // Wait a bit to see if reload happens
-      await page.waitForTimeout(1000);
-
-      // Page should NOT have reloaded
-      expect(pageReloaded).toBe(false);
-
-      // But toast should have appeared (Japanese message)
-      await expect(page.locator(`text=${t('toast.translationLanguageUpdated', 'ja')}`)).toBeVisible();
-    } finally {
-      await cleanup();
-    }
-  });
-
   test('Language settings persist in localStorage', async ({ page }) => {
     const testId = `lang-persist-${Date.now()}`;
     const { cleanup } = await setupFamilyAdminTest(page, testId);
@@ -322,43 +272,6 @@ test.describe('Story 5.4: Language Settings', () => {
 
       // Verify Translation Language help text
       await expect(page.locator('text=automatically translate family messages')).toBeVisible();
-    } finally {
-      await cleanup();
-    }
-  });
-
-  test.skip('Language selector buttons have correct visual states', async ({ page }) => {
-    // SKIPPED: This test is flaky due to class assertion timing after page reload
-    const testId = `lang-visual-${Date.now()}`;
-    const { cleanup } = await setupFamilyAdminTest(page, testId);
-
-    try {
-      await page.goto('/chat');
-      await page.waitForLoadState('networkidle');
-
-      // Navigate to settings
-      await page.click('button:has(.lucide-settings)');
-      await expect(page.locator(`text=${t('settings.language')}`).first()).toBeVisible({ timeout: 10000 });
-
-      // English should be selected by default (highlighted)
-      const englishButton = page.locator(`button:has-text("${t('settings.english')}")`);
-      await expect(englishButton).toHaveClass(/bg-gradient-to-r/);
-
-      // Japanese should not be selected (outlined)
-      const japaneseButton = page.locator(`button:has-text("${t('settings.japanese')}")`);
-      await expect(japaneseButton).not.toHaveClass(/bg-gradient-to-r/);
-
-      // Click Japanese and wait for reload
-      await japaneseButton.click();
-      await page.waitForLoadState('networkidle');
-
-      // Navigate to settings after reload
-      await page.click('button:has(.lucide-settings)');
-      await expect(page.locator(`text=${t('settings.language', 'ja')}`).first()).toBeVisible({ timeout: 10000 });
-
-      // Now Japanese should be selected (check for gradient class)
-      const japaneseButtonAfter = page.locator(`button:has-text("${t('settings.japanese')}")`);
-      await expect(japaneseButtonAfter).toHaveClass(/bg-gradient-to-r/);
     } finally {
       await cleanup();
     }

@@ -67,6 +67,8 @@ interface SettingsScreenProps {
   onQuietHoursStartChange: (time: string) => void;
   onQuietHoursEndChange: (time: string) => void;
   onRemoveMember: (memberId: string) => void;
+  onPromoteMember?: (memberId: string) => void;
+  currentUserRole?: "admin" | "member";
   onCreateChannel: (channel: Channel) => void;
   onDeleteChannel: (channelId: string) => void;
   onConnectGoogle: () => void;
@@ -82,7 +84,7 @@ interface SettingsScreenProps {
   onAboutClose?: () => void;
 }
 
-export function SettingsScreen({ userName, userEmail, userAvatar, familyName, familyAvatar, familyMembers, maxMembers, channels, inviteCode, isDarkMode, fontSize, language, quietHoursEnabled, quietHoursStart, quietHoursEnd, googleConnected, googleEmail, lastSyncTime, autoSync, onBack, onDeleteAccount, onThemeToggle, onFontSizeChange, onFamilyNameChange, /* onFamilyAvatarChange - reserved for future */ onMaxMembersChange, onQuietHoursToggle, onQuietHoursStartChange, onQuietHoursEndChange, onRemoveMember, onCreateChannel, onDeleteChannel, onConnectGoogle, onDisconnectGoogle, onSyncGoogle, onAutoSyncToggle, preferredTranslationLanguage = "en", onPreferredTranslationLanguageChange, hideHeader = false, showAbout: propShowAbout, onAboutOpen, onAboutClose }: SettingsScreenProps) {
+export function SettingsScreen({ userName, userEmail, userAvatar, familyName, familyAvatar, familyMembers, maxMembers, channels, inviteCode, isDarkMode, fontSize, language, quietHoursEnabled, quietHoursStart, quietHoursEnd, googleConnected, googleEmail, lastSyncTime, autoSync, onBack, onDeleteAccount, onThemeToggle, onFontSizeChange, onFamilyNameChange, /* onFamilyAvatarChange - reserved for future */ onMaxMembersChange, onQuietHoursToggle, onQuietHoursStartChange, onQuietHoursEndChange, onRemoveMember, onPromoteMember, currentUserRole = "member", onCreateChannel, onDeleteChannel, onConnectGoogle, onDisconnectGoogle, onSyncGoogle, onAutoSyncToggle, preferredTranslationLanguage = "en", onPreferredTranslationLanguageChange, hideHeader = false, showAbout: propShowAbout, onAboutOpen, onAboutClose }: SettingsScreenProps) {
   const [internalShowAbout, setInternalShowAbout] = useState(false);
 
   // Use prop if provided (for lifted state), otherwise use internal state
@@ -250,19 +252,39 @@ export function SettingsScreen({ userName, userEmail, userAvatar, familyName, fa
                           <p className="text-xs text-muted-foreground">{member.email}</p>
                         </div>
                       </div>
-                      {member.role !== "admin" && (
-                        <Button
-                          onClick={() => {
-                            if (confirm(t("settings.removeMemberConfirm", language, { name: member.name, familyName }))) {
-                              onRemoveMember(member.id);
-                            }
-                          }}
-                          variant="ghost"
-                          size="sm"
-                          className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                        >
-                          <UserMinus className="w-4 h-4" />
-                        </Button>
+                      {/* Admin actions for non-admin members */}
+                      {member.role !== "admin" && currentUserRole === "admin" && (
+                        <div className="flex items-center gap-1">
+                          {/* Story 1.15: Promote to Admin button */}
+                          {onPromoteMember && (
+                            <Button
+                              onClick={() => {
+                                if (confirm(t("settings.promoteConfirm", language, { name: member.name }))) {
+                                  onPromoteMember(member.id);
+                                }
+                              }}
+                              variant="ghost"
+                              size="sm"
+                              className="text-amber-600 hover:text-amber-700 hover:bg-amber-100 dark:hover:bg-amber-900/20"
+                              title={t("settings.promoteToAdmin", language)}
+                            >
+                              <Crown className="w-4 h-4" />
+                            </Button>
+                          )}
+                          {/* Remove member button */}
+                          <Button
+                            onClick={() => {
+                              if (confirm(t("settings.removeMemberConfirm", language, { name: member.name, familyName }))) {
+                                onRemoveMember(member.id);
+                              }
+                            }}
+                            variant="ghost"
+                            size="sm"
+                            className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                          >
+                            <UserMinus className="w-4 h-4" />
+                          </Button>
+                        </div>
                       )}
                     </div>
                   ))}

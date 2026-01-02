@@ -71,12 +71,13 @@ model User {
 }
 
 model Family {
-  id         String  @id @default(uuid())
+  id         String    @id @default(uuid())
   name       String
   avatar     String?
-  inviteCode String  @unique // Format: CODE-XXXX-YYYY
-  maxMembers Int     @default(10)
+  inviteCode String    @unique // Format: CODE-XXXX-YYYY
+  maxMembers Int       @default(10)
   createdBy  String
+  deletedAt  DateTime? // Story 1.15: Soft delete support
 
   memberships    FamilyMembership[]
   activeUsers    User[]            @relation("ActiveFamily")
@@ -90,6 +91,7 @@ model Family {
   updatedAt DateTime @updatedAt
 
   @@index([inviteCode])
+  @@index([deletedAt])
   @@map("families")
 }
 

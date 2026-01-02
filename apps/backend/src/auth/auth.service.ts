@@ -941,6 +941,13 @@ export class AuthService {
       throw new ConflictException('User is already a member of this family');
     }
 
+    const inviteePreferences = inviteeUser?.preferences as Record<string, unknown> | null;
+    const inviteePreferredLanguage =
+      inviteePreferences && typeof inviteePreferences.preferredLanguage === 'string'
+        ? inviteePreferences.preferredLanguage
+        : null;
+    const inviteeLanguage = inviteePreferredLanguage || 'en';
+
     // Check for existing pending invite
     const existingInvite = await this.prisma.invite.findFirst({
       where: {
@@ -963,6 +970,7 @@ export class AuthService {
         encryptedFamilyKey,
         nonce,
         inviteCode,
+        inviteeLanguage,
         status: 'PENDING',
         expiresAt,
       },
@@ -984,6 +992,7 @@ export class AuthService {
         normalizedEmail,
         membership.family.name,
         invite.inviteCode,
+        inviteeLanguage,
       );
     }
 
@@ -1585,11 +1594,272 @@ export class AuthService {
     }));
   }
 
+  /**
+   * Story 1.15: Get admin status for a user
+   * Returns blocking families where user is the only admin with other members
+   */
+  async getAdminStatus(userId: string): Promise<{
+    canDelete: boolean;
+    blockingFamilies: {
+      familyId: string;
+      familyName: string;
+      memberCount: number;
+      requiresAction: boolean;
+    }[];
+  }> {
+    // Get all families where user is an admin
+    const adminMemberships = await this.prisma.familyMembership.findMany({
+      where: {
+        userId,
+        role: Role.ADMIN,
+        family: {
+          deletedAt: null, // Only consider non-deleted families
+        },
+      },
+      include: {
+        family: {
+          include: {
+            memberships: {
+              include: {
+                user: {
+                  select: { deletedAt: true },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    const blockingFamilies: {
+      familyId: string;
+      familyName: string;
+      memberCount: number;
+      requiresAction: boolean;
+    }[] = [];
+
+    for (const membership of adminMemberships) {
+      const family = membership.family;
+
+      // Get active members (non-deleted users)
+      const activeMembers = family.memberships.filter(
+        (m) => m.user.deletedAt === null,
+      );
+
+      // Count other admins
+      const otherAdmins = activeMembers.filter(
+        (m) => m.role === Role.ADMIN && m.userId !== userId,
+      );
+
+      // Count other members (non-admin)
+      const otherMembers = activeMembers.filter((m) => m.userId !== userId);
+
+      // If user is the only admin AND there are other members, this is a blocking family
+      if (otherAdmins.length === 0 && otherMembers.length > 0) {
+        blockingFamilies.push({
+          familyId: family.id,
+          familyName: family.name,
+          memberCount: activeMembers.length,
+          requiresAction: true,
+        });
+      }
+    }
+
+    return {
+      canDelete: blockingFamilies.length === 0,
+      blockingFamilies,
+    };
+  }
+
+  /**
+   * Story 1.15 AC4, AC6, AC7: Promote a member to admin
+   */
+  async promoteToAdmin(
+    callerId: string,
+    targetUserId: string,
+    familyId: string,
+  ): Promise<GenericResponse> {
+    // Verify caller is an admin of the family
+    const callerMembership = await this.prisma.familyMembership.findUnique({
+      where: {
+        userId_familyId: {
+          userId: callerId,
+          familyId,
+        },
+      },
+    });
+
+    if (!callerMembership || callerMembership.role !== Role.ADMIN) {
+      throw new ForbiddenException('Only family admins can promote members');
+    }
+
+    // Prevent self-promotion (already admin)
+    if (callerId === targetUserId) {
+      throw new BadRequestException('You are already an admin');
+    }
+
+    // Get target user's membership
+    const targetMembership = await this.prisma.familyMembership.findUnique({
+      where: {
+        userId_familyId: {
+          userId: targetUserId,
+          familyId,
+        },
+      },
+      include: {
+        user: {
+          select: {
+            name: true,
+            deletedAt: true,
+          },
+        },
+      },
+    });
+
+    if (!targetMembership) {
+      throw new BadRequestException('User is not a member of this family');
+    }
+
+    if (targetMembership.user.deletedAt) {
+      throw new BadRequestException('Cannot promote a deleted user');
+    }
+
+    // AC6: Check if already admin
+    if (targetMembership.role === Role.ADMIN) {
+      throw new BadRequestException('User is already an admin');
+    }
+
+    // Update target's role to ADMIN
+    await this.prisma.familyMembership.update({
+      where: {
+        userId_familyId: {
+          userId: targetUserId,
+          familyId,
+        },
+      },
+      data: {
+        role: Role.ADMIN,
+      },
+    });
+
+    return {
+      success: true,
+      message: `Successfully promoted ${targetMembership.user.name} to admin`,
+    };
+  }
+
+  /**
+   * Story 1.15 AC9, AC10, AC11, AC12: Delete a family (soft delete)
+   */
+  async deleteFamily(
+    callerId: string,
+    familyId: string,
+  ): Promise<GenericResponse> {
+    // Verify caller is an admin of the family
+    const callerMembership = await this.prisma.familyMembership.findUnique({
+      where: {
+        userId_familyId: {
+          userId: callerId,
+          familyId,
+        },
+      },
+      include: {
+        family: {
+          select: {
+            name: true,
+            deletedAt: true,
+          },
+        },
+      },
+    });
+
+    if (!callerMembership || callerMembership.role !== Role.ADMIN) {
+      throw new ForbiddenException('Only family admins can delete the family');
+    }
+
+    if (callerMembership.family.deletedAt) {
+      throw new BadRequestException('Family is already deleted');
+    }
+
+    const familyName = callerMembership.family.name;
+
+    // Use transaction to ensure atomicity
+    await this.prisma.$transaction(async (tx) => {
+      // AC11: Set deletedAt on family
+      await tx.family.update({
+        where: { id: familyId },
+        data: {
+          deletedAt: new Date(),
+        },
+      });
+
+      // AC12: Get all users who will be affected (to clear their activeFamilyId)
+      const affectedMemberships = await tx.familyMembership.findMany({
+        where: { familyId },
+        select: { userId: true },
+      });
+
+      // AC12: Clear activeFamilyId for affected users
+      await tx.user.updateMany({
+        where: {
+          id: { in: affectedMemberships.map((m) => m.userId) },
+          activeFamilyId: familyId,
+        },
+        data: {
+          activeFamilyId: null,
+        },
+      });
+
+      // AC12: Delete all FamilyMembership records for this family
+      await tx.familyMembership.deleteMany({
+        where: { familyId },
+      });
+
+      // Revoke all pending invites for this family
+      await tx.invite.updateMany({
+        where: {
+          familyId,
+          status: {
+            in: ['PENDING', 'PENDING_REGISTRATION'],
+          },
+        },
+        data: {
+          status: 'REVOKED',
+        },
+      });
+    });
+
+    this.logger.log(`Family "${familyName}" (${familyId}) deleted by user ${callerId}`);
+
+    return {
+      success: true,
+      message: `Family "${familyName}" has been deleted`,
+    };
+  }
+
+  /**
+   * Story 1.14 AC9, AC10, AC11 + Story 1.15: Self de-registration (soft delete user account)
+   * Now checks admin status and auto-deletes empty families
+   */
   async deregisterSelf(userId: string): Promise<GenericResponse> {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
       include: {
-        memberships: true,
+        memberships: {
+          include: {
+            family: {
+              include: {
+                memberships: {
+                  include: {
+                    user: {
+                      select: { deletedAt: true },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
       },
     });
 
@@ -1601,23 +1871,58 @@ export class AuthService {
       throw new BadRequestException('Account is already deleted');
     }
 
+    // Story 1.15: Check admin status before deletion
+    const adminStatus = await this.getAdminStatus(userId);
+    if (!adminStatus.canDelete) {
+      // Return detailed error with blocking families
+      const familyNames = adminStatus.blockingFamilies
+        .map((f) => f.familyName)
+        .join(', ');
+      throw new ForbiddenException({
+        message: `You are the only admin of: ${familyNames}. Please promote another member to admin or delete the family first.`,
+        blockingFamilies: adminStatus.blockingFamilies,
+      });
+    }
+
     // Use transaction to ensure atomicity
     await this.prisma.$transaction(async (tx) => {
-      // 5.2: Soft delete the user (set deletedAt)
+      // Story 1.15 AC2: Auto-delete families where user is the only member
+      for (const membership of user.memberships) {
+        const family = membership.family;
+        if (family.deletedAt) continue; // Skip already deleted families
+
+        // Count active members (non-deleted users)
+        const activeMembers = family.memberships.filter(
+          (m) => m.user.deletedAt === null,
+        );
+
+        // If user is the only active member, auto-delete the family
+        if (activeMembers.length === 1 && activeMembers[0].userId === userId) {
+          await tx.family.update({
+            where: { id: family.id },
+            data: { deletedAt: new Date() },
+          });
+          this.logger.log(
+            `Auto-deleted empty family "${family.name}" (${family.id}) during user ${userId} deregistration`,
+          );
+        }
+      }
+
+      // Soft delete the user (set deletedAt)
       await tx.user.update({
         where: { id: userId },
         data: {
           deletedAt: new Date(),
-          activeFamilyId: null, // 5.4: Clear activeFamilyId
+          activeFamilyId: null,
         },
       });
 
-      // 5.3: Delete all FamilyMembership records for this user
+      // Delete all FamilyMembership records for this user
       await tx.familyMembership.deleteMany({
         where: { userId },
       });
 
-      // 5.5: Revoke all pending invites TO this user
+      // Revoke all pending invites TO this user
       await tx.invite.updateMany({
         where: {
           inviteeEmail: user.email,
