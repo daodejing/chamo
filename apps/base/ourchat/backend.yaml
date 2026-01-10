@@ -18,7 +18,7 @@ spec:
     image:
       # Image policy markers for Flux image automation
       repository: k3d-registry.localhost:5000/ourchat/backend # {"$imagepolicy": "flux-system:ourchat-backend:name"}
-      tag: f6ab5f7-1768025452 # {"$imagepolicy": "flux-system:ourchat-backend:tag"}
+      tag: f6ab5f7-1768025885 # {"$imagepolicy": "flux-system:ourchat-backend:tag"}
       pullPolicy: Always
     service:
       enabled: true
