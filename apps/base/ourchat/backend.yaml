@@ -1,0 +1,80 @@
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: ourchat-backend
+  namespace: flux-system
+spec:
+  interval: 5m
+  chart:
+    spec:
+      chart: generic-service
+      version: ">=0.1.0"
+      sourceRef:
+        kind: HelmRepository
+        name: platform-charts
+  targetNamespace: ourchat
+  values:
+    replicaCount: 1
+    image:
+      # Image policy markers for Flux image automation
+      repository: k3d-registry.localhost:5000/ourchat/backend # {"$imagepolicy": "flux-system:ourchat-backend:name"}
+      tag: latest # {"$imagepolicy": "flux-system:ourchat-backend:tag"}
+      pullPolicy: Always
+    service:
+      enabled: true
+      port: 4000
+    healthcheck:
+      enabled: true
+      path: /health
+      port: 4000
+      initialDelaySeconds: 15
+      periodSeconds: 10
+    resources:
+      requests:
+        cpu: 100m
+        memory: 256Mi
+      limits:
+        cpu: 500m
+        memory: 512Mi
+    env:
+      - name: NODE_ENV
+        value: "production"
+      - name: PORT
+        value: "4000"
+      - name: CORS_ALLOWED_ORIGINS
+        value: "http://ourchat.localhost,http://localhost:3000"
+      - name: EMAIL_FROM
+        value: "noreply@ourchat.localhost"
+      - name: EMAIL_FROM_NAME
+        value: "OurChat"
+      - name: EMAIL_VERIFICATION_URL
+        value: "http://ourchat.localhost/verify-email"
+      - name: APP_BASE_URL
+        value: "http://ourchat.localhost"
+      # SMTP settings for MailHog
+      - name: SMTP_HOST
+        value: "ourchat-mailhog.ourchat.svc.cluster.local"
+      - name: SMTP_PORT
+        value: "1025"
+      # Database URL from secret
+      - name: DATABASE_URL
+        valueFrom:
+          secretKeyRef:
+            name: ourchat-secrets
+            key: DATABASE_URL
+      - name: JWT_SECRET
+        valueFrom:
+          secretKeyRef:
+            name: ourchat-secrets
+            key: JWT_SECRET
+      - name: REFRESH_TOKEN_SECRET
+        valueFrom:
+          secretKeyRef:
+            name: ourchat-secrets
+            key: REFRESH_TOKEN_SECRET
+      - name: INVITE_SECRET
+        valueFrom:
+          secretKeyRef:
+            name: ourchat-secrets
+            key: INVITE_SECRET

@@ -1,0 +1,69 @@
+---
+# MailHog Deployment (email testing)
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ourchat-mailhog
+  namespace: ourchat
+  labels:
+    app.kubernetes.io/name: ourchat-mailhog
+    app.kubernetes.io/instance: ourchat-mailhog
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: ourchat-mailhog
+      app.kubernetes.io/instance: ourchat-mailhog
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: ourchat-mailhog
+        app.kubernetes.io/instance: ourchat-mailhog
+    spec:
+      containers:
+        - name: mailhog
+          image: mailhog/mailhog:latest
+          ports:
+            - name: smtp
+              containerPort: 1025
+            - name: web
+              containerPort: 8025
+          resources:
+            requests:
+              cpu: 10m
+              memory: 32Mi
+            limits:
+              cpu: 100m
+              memory: 128Mi
+          livenessProbe:
+            tcpSocket:
+              port: 8025
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          readinessProbe:
+            tcpSocket:
+              port: 8025
+            initialDelaySeconds: 5
+            periodSeconds: 5
+---
+# MailHog Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: ourchat-mailhog
+  namespace: ourchat
+  labels:
+    app.kubernetes.io/name: ourchat-mailhog
+    app.kubernetes.io/instance: ourchat-mailhog
+spec:
+  type: ClusterIP
+  ports:
+    - name: smtp
+      port: 1025
+      targetPort: 1025
+    - name: web
+      port: 8025
+      targetPort: 8025
+  selector:
+    app.kubernetes.io/name: ourchat-mailhog
+    app.kubernetes.io/instance: ourchat-mailhog

@@ -1,0 +1,65 @@
+---
+# =============================================================================
+# Image Repositories - Scan registry for new image tags
+# =============================================================================
+
+# Frontend image repository
+apiVersion: image.toolkit.fluxcd.io/v1beta2
+kind: ImageRepository
+metadata:
+  name: ourchat-frontend
+  namespace: flux-system
+spec:
+  image: k3d-registry.localhost:5000/ourchat/frontend
+  interval: 1m
+  insecure: true
+---
+# Backend image repository
+apiVersion: image.toolkit.fluxcd.io/v1beta2
+kind: ImageRepository
+metadata:
+  name: ourchat-backend
+  namespace: flux-system
+spec:
+  image: k3d-registry.localhost:5000/ourchat/backend
+  interval: 1m
+  insecure: true
+
+---
+# =============================================================================
+# Image Policies - Select which tag to use
+# =============================================================================
+
+# Frontend image policy
+# Pattern: <git-sha>-<timestamp> (e.g., af0585f-1767924290)
+# Strategy: Numerical ascending by timestamp (latest = highest)
+apiVersion: image.toolkit.fluxcd.io/v1beta2
+kind: ImagePolicy
+metadata:
+  name: ourchat-frontend
+  namespace: flux-system
+spec:
+  imageRepositoryRef:
+    name: ourchat-frontend
+  filterTags:
+    pattern: '^[a-f0-9]+-(?P<ts>[0-9]+)$'
+    extract: '$ts'
+  policy:
+    numerical:
+      order: asc
+---
+# Backend image policy
+apiVersion: image.toolkit.fluxcd.io/v1beta2
+kind: ImagePolicy
+metadata:
+  name: ourchat-backend
+  namespace: flux-system
+spec:
+  imageRepositoryRef:
+    name: ourchat-backend
+  filterTags:
+    pattern: '^[a-f0-9]+-(?P<ts>[0-9]+)$'
+    extract: '$ts'
+  policy:
+    numerical:
+      order: asc

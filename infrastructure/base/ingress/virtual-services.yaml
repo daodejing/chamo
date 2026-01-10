@@ -1,0 +1,72 @@
+---
+# Frontend - ourchat.localhost
+apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  name: frontend
+  namespace: istio-ingress
+spec:
+  hosts:
+    - "ourchat.localhost"
+  gateways:
+    - main-gateway
+  http:
+    - route:
+        - destination:
+            host: ourchat-frontend.ourchat.svc.cluster.local
+            port:
+              number: 3000
+---
+# Backend API - api.ourchat.localhost
+apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  name: backend
+  namespace: istio-ingress
+spec:
+  hosts:
+    - "api.ourchat.localhost"
+  gateways:
+    - main-gateway
+  http:
+    - route:
+        - destination:
+            host: ourchat-backend.ourchat.svc.cluster.local
+            port:
+              number: 4000
+---
+# MailHog - mail.ourchat.localhost
+apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  name: mailhog
+  namespace: istio-ingress
+spec:
+  hosts:
+    - "mail.ourchat.localhost"
+  gateways:
+    - main-gateway
+  http:
+    - route:
+        - destination:
+            host: ourchat-mailhog.ourchat.svc.cluster.local
+            port:
+              number: 8025
+---
+# Grafana - grafana.localhost
+apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  name: grafana
+  namespace: istio-ingress
+spec:
+  hosts:
+    - "grafana.localhost"
+  gateways:
+    - main-gateway
+  http:
+    - route:
+        - destination:
+            host: grafana.observability.svc.cluster.local
+            port:
+              number: 80

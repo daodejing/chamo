@@ -1,0 +1,9 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  # NOTE: flux-system is NOT included here for local k3d
+  # Flux components are installed via `flux install` CLI
+  # GitRepository + Kustomization are generated dynamically by local-lab.sh
+  - sources.yaml           # Helm repository definitions
+  - infrastructure.yaml    # Infrastructure controllers + local setup
+  - apps.yaml             # Application deployments

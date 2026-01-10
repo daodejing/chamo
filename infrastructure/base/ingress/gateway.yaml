@@ -1,0 +1,21 @@
+---
+# Istio Gateway for all ingress traffic
+apiVersion: networking.istio.io/v1
+kind: Gateway
+metadata:
+  name: main-gateway
+  namespace: istio-ingress
+spec:
+  selector:
+    istio: gateway
+  servers:
+    - port:
+        number: 80
+        name: http
+        protocol: HTTP
+      hosts:
+        - "ourchat.localhost"
+        - "api.ourchat.localhost"
+        - "mail.ourchat.localhost"
+        - "grafana.localhost"
+        - "*.localhost"

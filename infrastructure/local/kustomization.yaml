@@ -1,0 +1,9 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  # Base infrastructure
+  - ../base/observability
+  - ../base/ingress
+  # Local-specific resources
+  - namespaces.yaml
+  - postgres.yaml

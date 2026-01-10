@@ -1,0 +1,18 @@
+---
+# Application namespace
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ourchat
+  labels:
+    istio-injection: enabled
+---
+# Istio mTLS strict mode for ourchat namespace
+apiVersion: security.istio.io/v1
+kind: PeerAuthentication
+metadata:
+  name: default
+  namespace: ourchat
+spec:
+  mtls:
+    mode: STRICT

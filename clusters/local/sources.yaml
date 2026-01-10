@@ -1,0 +1,63 @@
+---
+# Local OCI registry for custom charts
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: HelmRepository
+metadata:
+  name: platform-charts
+  namespace: flux-system
+spec:
+  type: oci
+  interval: 1m
+  url: oci://k3d-registry.localhost:5000/charts
+  insecure: true
+---
+# Jetstack (cert-manager)
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: HelmRepository
+metadata:
+  name: jetstack
+  namespace: flux-system
+spec:
+  interval: 30m
+  url: https://charts.jetstack.io
+---
+# Istio
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: HelmRepository
+metadata:
+  name: istio
+  namespace: flux-system
+spec:
+  interval: 30m
+  url: https://istio-release.storage.googleapis.com/charts
+---
+# Prometheus Community
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: HelmRepository
+metadata:
+  name: prometheus-community
+  namespace: flux-system
+spec:
+  interval: 30m
+  url: https://prometheus-community.github.io/helm-charts
+---
+# Grafana
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: HelmRepository
+metadata:
+  name: grafana
+  namespace: flux-system
+spec:
+  interval: 30m
+  url: https://grafana.github.io/helm-charts
+---
+# Bitnami (PostgreSQL)
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: HelmRepository
+metadata:
+  name: bitnami
+  namespace: flux-system
+spec:
+  interval: 30m
+  url: oci://registry-1.docker.io/bitnamicharts
+  type: oci
