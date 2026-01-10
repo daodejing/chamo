@@ -177,6 +177,9 @@ export const translations = {
     "familySetup.inviteeNoticeBody": "管理者が暗号化された招待を作成するまで少しお待ちください。自分で家族グループを作成することもできます。",
     "familySetup.inviteeNoticeWait": "招待を待つ",
     "familySetup.inviteeNoticeCreate": "自分の家族を作成する",
+    "familySetup.accountMenu": "アカウント",
+    "familySetup.accountSettings": "アカウント設定",
+    "familySetup.logout": "ログアウト",
 
     // Invitation List
     "invitesList.title": "招待状一覧",
@@ -372,6 +375,9 @@ export const translations = {
     "settings.promoteToAdmin": "管理者に昇格",
     "settings.promoteConfirm": "{name}を管理者に昇格しますか？メンバーの管理や招待が可能になります。",
     "settings.promoteSuccess": "{name}を管理者に昇格しました",
+    "settings.deleteFamily": "ファミリーを削除",
+    "settings.deleteFamilyDescription": "このファミリーを完全に削除します。すべてのメンバーが退会になります。",
+    "settings.deleteFamilyButton": "ファミリーを削除",
     "settings.deleteFamilyConfirm": "{familyName}を削除しますか？すべてのメンバーが退会になります。メッセージは保存されますが、ファミリーにはアクセスできなくなります。",
     "settings.deleteFamilySuccess": "ファミリー「{familyName}」を削除しました",
     "user.deleted": "削除されたユーザー",
@@ -625,6 +631,9 @@ export const translations = {
     "familySetup.inviteeNoticeBody": "Let your family admin finish encrypting your invite, or create your own family below if you want to start one.",
     "familySetup.inviteeNoticeWait": "I'll wait for the invite",
     "familySetup.inviteeNoticeCreate": "Create my own family",
+    "familySetup.accountMenu": "Account",
+    "familySetup.accountSettings": "Account Settings",
+    "familySetup.logout": "Log Out",
 
     // Invitation List
     "invitesList.title": "Invitations",
@@ -834,6 +843,9 @@ export const translations = {
     "settings.promoteToAdmin": "Promote to Admin",
     "settings.promoteConfirm": "Promote {name} to admin? They will be able to manage members and send invites.",
     "settings.promoteSuccess": "Promoted {name} to admin",
+    "settings.deleteFamily": "Delete Family",
+    "settings.deleteFamilyDescription": "Permanently delete this family. All members will be removed.",
+    "settings.deleteFamilyButton": "Delete Family",
     "settings.deleteFamilyConfirm": "Delete {familyName}? All members will be removed. Messages will be retained but the family will no longer be accessible.",
     "settings.deleteFamilySuccess": "Family \"{familyName}\" has been deleted",
     "user.deleted": "Deleted User",

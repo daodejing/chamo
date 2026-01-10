@@ -13,12 +13,12 @@ import {
   Card,
   CardContent,
   CardDescription,
-  CardFooter,
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Plus, X, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react';
+import { MainHeader } from '@/components/main-header';
 import { useMutation, useLazyQuery } from '@apollo/client/react';
 import {
   CreatePendingInviteDocument,
@@ -37,7 +37,7 @@ interface MemberInvite {
 
 export default function FamilySetupPage() {
   const router = useRouter();
-  const { createFamily, joinFamilyExisting, user } = useAuth();
+  const { createFamily, joinFamilyExisting, logout, user } = useAuth();
   const { language } = useLanguage();
 
   const [createPendingInvite] = useMutation(CreatePendingInviteDocument);
@@ -60,6 +60,7 @@ export default function FamilySetupPage() {
 
   // Join family state
   const [inviteCode, setInviteCode] = useState('');
+
 
   useEffect(() => {
     if (isInviteeFlowActive()) {
@@ -285,6 +286,16 @@ export default function FamilySetupPage() {
     setShowInviteeNotice(false);
   };
 
+  const handleLogout = async () => {
+    try {
+      await logout();
+      toast.success(t('toast.logoutSuccess', language));
+      router.push('/login');
+    } catch (error) {
+      console.error('Logout error:', error);
+    }
+  };
+
   useEffect(() => {
     if (!user) {
       router.push('/login');
@@ -296,7 +307,14 @@ export default function FamilySetupPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background p-4">
+    <div className="min-h-screen flex flex-col bg-background">
+      <MainHeader
+        currentView="family-settings"
+        language={language}
+        onLogoutClick={handleLogout}
+        onSettingsClick={() => router.push('/settings')}
+      />
+      <div className="flex-1 flex items-center justify-center p-4">
       <Card className="w-full max-w-md shadow-xl rounded-[20px]">
         <CardHeader className="text-center space-y-4">
           <div className="flex justify-center">
@@ -482,16 +500,8 @@ export default function FamilySetupPage() {
             </TabsContent>
           </Tabs>
         </CardContent>
-        <CardFooter className="flex justify-center">
-          <button
-            type="button"
-            onClick={() => router.push('/login')}
-            className="text-sm text-muted-foreground hover:text-foreground transition-colors"
-          >
-            {t('familySetup.backToLogin', language)}
-          </button>
-        </CardFooter>
       </Card>
+      </div>
     </div>
   );
 }

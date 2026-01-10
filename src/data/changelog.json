@@ -2,9 +2,10 @@
   "versions": [
     {
       "version": "1.0.0",
-      "date": "2025-12-21",
+      "date": "2026-01-03",
       "changes": {
         "features": [
+          "Story 1.15 admin transfer prep and BMAD workflow reorganization",
           "Implement user deregistration and remove family member (story-1.14)",
           "Enable multi-user messaging test (AC3) (e2e)",
           "Allow resending registration invites with rate limiting (invite)",
@@ -12,6 +13,7 @@
           "Implement sticky header and fix scroll behavior (Story 5.5) (ui)"
         ],
         "fixes": [
+          "Bypass Apollo cache for admin status check",
           "Add missing findFirst mock to integration tests (backend)",
           "Display correct family member count in chat header",
           "Resolve 7 testing issues from Story 1.14 manual testing",

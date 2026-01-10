@@ -27,24 +27,24 @@ interface UserFamilyMembership {
 export type MainHeaderView = "chat" | "settings" | "about" | "family-settings" | "family-invitations";
 
 interface MainHeaderProps {
-  // Family info
-  familyName: string;
-  familyAvatar: string;
-  memberCount: number;
+  // Family info (optional - when user has no active family)
+  familyName?: string;
+  familyAvatar?: string;
+  memberCount?: number;
 
   // Current view
   currentView: MainHeaderView;
 
   // Multi-family support
-  memberships: UserFamilyMembership[];
+  memberships?: UserFamilyMembership[];
   activeFamilyId?: string | null;
-  onSwitchFamily: (familyId: string) => void;
+  onSwitchFamily?: (familyId: string) => void;
 
   // Navigation callbacks
-  onChatClick: () => void;
-  onSettingsClick: () => void;
+  onChatClick?: () => void;
+  onSettingsClick?: () => void;
   onLogoutClick: () => void;
-  onInviteClick: () => void;
+  onInviteClick?: () => void;
 
   // Chat view state
   showPhotos?: boolean;
@@ -65,7 +65,7 @@ export function MainHeader({
   familyAvatar,
   memberCount,
   currentView,
-  memberships,
+  memberships = [],
   activeFamilyId,
   onSwitchFamily,
   onChatClick,
@@ -84,62 +84,79 @@ export function MainHeader({
 }: MainHeaderProps) {
   const router = useRouter();
 
+  const hasFamily = !!familyName;
   const isInChatView = currentView === "chat";
-  const showChatControls = isInChatView && !showCalendar && !showPhotos;
+  const showChatControls = isInChatView && !showCalendar && !showPhotos && hasFamily;
 
   return (
     <div className="border-b bg-card px-4 py-3 flex items-center justify-between flex-shrink-0 z-40">
-      {/* Left side: Family info */}
+      {/* Left side: Family info or app branding */}
       <div className="flex items-center gap-3">
-        <Avatar className="w-10 h-10">
-          <AvatarImage src={familyAvatar} />
-          <AvatarFallback className="bg-gradient-to-br from-[#8B38BA] to-[#5518C1] text-white">
-            {familyName.substring(0, 2)}
-          </AvatarFallback>
-        </Avatar>
-        <div>
-          <h2 className="text-card-foreground">{familyName}</h2>
-          <p className="text-xs text-muted-foreground">
-            {memberCount} {t(memberCount === 1 ? "chat.member" : "chat.members", language)}
-          </p>
-        </div>
+        {hasFamily ? (
+          <>
+            <Avatar className="w-10 h-10">
+              <AvatarImage src={familyAvatar} />
+              <AvatarFallback className="bg-gradient-to-br from-[#8B38BA] to-[#5518C1] text-white">
+                {familyName.substring(0, 2)}
+              </AvatarFallback>
+            </Avatar>
+            <div>
+              <h2 className="text-card-foreground">{familyName}</h2>
+              <p className="text-xs text-muted-foreground">
+                {memberCount} {t(memberCount === 1 ? "chat.member" : "chat.members", language)}
+              </p>
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="w-10 h-10 bg-gradient-to-br from-[#B5179E] to-[#5518C1] rounded-[12px] flex items-center justify-center">
+              <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+              </svg>
+            </div>
+            <div>
+              <h2 className="text-card-foreground font-medium">{t("login.title", language)}</h2>
+            </div>
+          </>
+        )}
       </div>
 
       {/* Right side: Action buttons */}
       <div className="flex items-center gap-1">
-        {/* Chat button - leftmost, always visible */}
+        {/* Chat button - disabled when no family */}
         <Button
           variant="ghost"
           size="icon"
-          onClick={onChatClick}
-          className={`text-card-foreground ${isInChatView ? "bg-accent" : ""}`}
+          onClick={hasFamily ? onChatClick : undefined}
+          disabled={!hasFamily}
+          className={`text-card-foreground ${isInChatView && hasFamily ? "bg-accent" : ""} ${!hasFamily ? "opacity-50" : ""}`}
         >
           <MessageCircle className="w-5 h-5" />
         </Button>
 
-        {/* Gallery button - always visible, disabled when not in chat */}
+        {/* Gallery button - disabled when no family or not in chat */}
         <Button
           variant="ghost"
           size="icon"
-          onClick={isInChatView ? onPhotosClick : undefined}
-          disabled={!isInChatView}
-          className={`text-card-foreground ${showPhotos && isInChatView ? "bg-accent" : ""} ${!isInChatView ? "opacity-50" : ""}`}
+          onClick={hasFamily && isInChatView ? onPhotosClick : undefined}
+          disabled={!hasFamily || !isInChatView}
+          className={`text-card-foreground ${showPhotos && isInChatView && hasFamily ? "bg-accent" : ""} ${!hasFamily || !isInChatView ? "opacity-50" : ""}`}
         >
           <ImageIcon className="w-5 h-5" />
         </Button>
 
-        {/* Calendar button - always visible, disabled when not in chat */}
+        {/* Calendar button - disabled when no family or not in chat */}
         <Button
           variant="ghost"
           size="icon"
-          onClick={isInChatView ? onCalendarClick : undefined}
-          disabled={!isInChatView}
-          className={`text-card-foreground ${showCalendar && isInChatView ? "bg-accent" : ""} ${!isInChatView ? "opacity-50" : ""}`}
+          onClick={hasFamily && isInChatView ? onCalendarClick : undefined}
+          disabled={!hasFamily || !isInChatView}
+          className={`text-card-foreground ${showCalendar && isInChatView && hasFamily ? "bg-accent" : ""} ${!hasFamily || !isInChatView ? "opacity-50" : ""}`}
         >
           <Calendar className="w-5 h-5" />
         </Button>
 
-        {/* Languages popover - always visible, disabled when not in chat or when in gallery/calendar mode */}
+        {/* Languages popover - disabled when no family or not in chat */}
         <Popover>
           <PopoverTrigger asChild>
             <Button
@@ -179,7 +196,7 @@ export function MainHeader({
           )}
         </Popover>
 
-        {/* Family switcher - always visible */}
+        {/* Family switcher - always visible, shows empty state when no memberships */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button
@@ -212,7 +229,7 @@ export function MainHeader({
                 <DropdownMenuItem
                   key={membership.id}
                   disabled={isActive}
-                  onClick={() => onSwitchFamily(membership.familyId)}
+                  onClick={() => onSwitchFamily?.(membership.familyId)}
                   className="flex items-center gap-3"
                 >
                   <Avatar className="h-8 w-8">
@@ -241,18 +258,19 @@ export function MainHeader({
           </DropdownMenuContent>
         </DropdownMenu>
 
-        {/* Invite button - always visible */}
+        {/* Invite button - disabled when no family */}
         <Button
           variant="ghost"
           size="icon"
-          onClick={onInviteClick}
-          className="text-card-foreground"
+          onClick={hasFamily ? onInviteClick : undefined}
+          disabled={!hasFamily}
+          className={`text-card-foreground ${!hasFamily ? "opacity-50" : ""}`}
           aria-label={t("settings.invite", language)}
         >
           <UserPlus className="w-5 h-5" />
         </Button>
 
-        {/* Settings button - highlight when in settings view */}
+        {/* Settings button - always navigates to settings */}
         <Button
           variant="ghost"
           size="icon"

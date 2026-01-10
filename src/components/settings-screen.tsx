@@ -40,12 +40,16 @@ interface SettingsScreenProps {
   userName: string;
   userEmail: string;
   userAvatar: string;
-  familyName: string;
-  familyAvatar: string;
-  familyMembers: FamilyMember[];
-  maxMembers: number;
-  channels: Channel[];
-  inviteCode: string;
+  // Family props - optional, only present when user has a family
+  familyName?: string;
+  familyAvatar?: string;
+  familyMembers?: FamilyMember[];
+  maxMembers?: number;
+  channels?: Channel[];
+  inviteCode?: string;
+  familyId?: string;
+  currentUserRole?: "admin" | "member";
+  // Settings props
   isDarkMode: boolean;
   fontSize: "small" | "medium" | "large";
   language: Language;
@@ -56,25 +60,28 @@ interface SettingsScreenProps {
   googleEmail: string | null;
   lastSyncTime: Date | null;
   autoSync: boolean;
+  // Required callbacks
   onBack: () => void;
   onDeleteAccount: () => void;
   onThemeToggle: () => void;
   onFontSizeChange: (size: "small" | "medium" | "large") => void;
-  onFamilyNameChange: (name: string) => void;
-  onFamilyAvatarChange: (avatar: string) => void;
-  onMaxMembersChange: (max: number) => void;
   onQuietHoursToggle: (enabled: boolean) => void;
   onQuietHoursStartChange: (time: string) => void;
   onQuietHoursEndChange: (time: string) => void;
-  onRemoveMember: (memberId: string) => void;
-  onPromoteMember?: (memberId: string) => void;
-  currentUserRole?: "admin" | "member";
-  onCreateChannel: (channel: Channel) => void;
-  onDeleteChannel: (channelId: string) => void;
   onConnectGoogle: () => void;
   onDisconnectGoogle: () => void;
   onSyncGoogle: () => void;
   onAutoSyncToggle: (enabled: boolean) => void;
+  // Family callbacks - optional, only used when user has a family
+  onFamilyNameChange?: (name: string) => void;
+  onFamilyAvatarChange?: (avatar: string) => void;
+  onMaxMembersChange?: (max: number) => void;
+  onRemoveMember?: (memberId: string) => void;
+  onPromoteMember?: (memberId: string) => void;
+  onDeleteFamily?: () => void;
+  onCreateChannel?: (channel: Channel) => void;
+  onDeleteChannel?: (channelId: string) => void;
+  // Translation preferences
   preferredTranslationLanguage?: TranslationLanguage;
   onPreferredTranslationLanguageChange?: (lang: TranslationLanguage) => void;
   // New props for persistent header integration
@@ -84,13 +91,17 @@ interface SettingsScreenProps {
   onAboutClose?: () => void;
 }
 
-export function SettingsScreen({ userName, userEmail, userAvatar, familyName, familyAvatar, familyMembers, maxMembers, channels, inviteCode, isDarkMode, fontSize, language, quietHoursEnabled, quietHoursStart, quietHoursEnd, googleConnected, googleEmail, lastSyncTime, autoSync, onBack, onDeleteAccount, onThemeToggle, onFontSizeChange, onFamilyNameChange, /* onFamilyAvatarChange - reserved for future */ onMaxMembersChange, onQuietHoursToggle, onQuietHoursStartChange, onQuietHoursEndChange, onRemoveMember, onPromoteMember, currentUserRole = "member", onCreateChannel, onDeleteChannel, onConnectGoogle, onDisconnectGoogle, onSyncGoogle, onAutoSyncToggle, preferredTranslationLanguage = "en", onPreferredTranslationLanguageChange, hideHeader = false, showAbout: propShowAbout, onAboutOpen, onAboutClose }: SettingsScreenProps) {
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export function SettingsScreen({ userName, userEmail, userAvatar, familyName, familyAvatar, familyMembers = [], maxMembers = 10, channels = [], inviteCode, isDarkMode, fontSize, language, quietHoursEnabled, quietHoursStart, quietHoursEnd, googleConnected, googleEmail, lastSyncTime, autoSync, onBack, onDeleteAccount, onThemeToggle, onFontSizeChange, onFamilyNameChange, /* onFamilyAvatarChange - reserved for future */ onMaxMembersChange, onQuietHoursToggle, onQuietHoursStartChange, onQuietHoursEndChange, onRemoveMember, onPromoteMember, onDeleteFamily, currentUserRole = "member", familyId, onCreateChannel, onDeleteChannel, onConnectGoogle, onDisconnectGoogle, onSyncGoogle, onAutoSyncToggle, preferredTranslationLanguage = "en", onPreferredTranslationLanguageChange, hideHeader = false, showAbout: propShowAbout, onAboutOpen, onAboutClose }: SettingsScreenProps) {
   const [internalShowAbout, setInternalShowAbout] = useState(false);
 
   // Use prop if provided (for lifted state), otherwise use internal state
   const showAbout = propShowAbout ?? internalShowAbout;
   const handleAboutOpen = onAboutOpen ?? (() => setInternalShowAbout(true));
   const handleAboutClose = onAboutClose ?? (() => setInternalShowAbout(false));
+
+  // Check if user has a family
+  const hasFamily = !!familyName;
 
   // Show About screen when active
   if (showAbout) {
@@ -123,7 +134,7 @@ export function SettingsScreen({ userName, userEmail, userAvatar, familyName, fa
       createdBy: "1",
     };
     
-    onCreateChannel(newChannel);
+    onCreateChannel?.(newChannel);
   };
 
   return (
@@ -175,7 +186,8 @@ export function SettingsScreen({ userName, userEmail, userAvatar, familyName, fa
             </CardContent>
           </Card>
 
-          {/* Family Group Section */}
+          {/* Family Group Section - only show when user has a family */}
+          {hasFamily && (
           <Card className="rounded-[20px] shadow-lg overflow-hidden">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -211,7 +223,7 @@ export function SettingsScreen({ userName, userEmail, userAvatar, familyName, fa
                 <Input 
                   id="familyName" 
                   value={familyName} 
-                  onChange={(e) => onFamilyNameChange(e.target.value)}
+                  onChange={(e) => onFamilyNameChange?.(e.target.value)}
                   className="rounded-xl" 
                   placeholder={t("settings.groupNamePlaceholder", language)}
                 />
@@ -275,7 +287,7 @@ export function SettingsScreen({ userName, userEmail, userAvatar, familyName, fa
                           <Button
                             onClick={() => {
                               if (confirm(t("settings.removeMemberConfirm", language, { name: member.name, familyName }))) {
-                                onRemoveMember(member.id);
+                                onRemoveMember?.(member.id);
                               }
                             }}
                             variant="ghost"
@@ -295,7 +307,7 @@ export function SettingsScreen({ userName, userEmail, userAvatar, familyName, fa
                 <Label htmlFor="maxMembers">{t("settings.maxMembers", language)}</Label>
                 <Select 
                   value={maxMembers.toString()} 
-                  onValueChange={(value) => onMaxMembersChange(parseInt(value))}
+                  onValueChange={(value) => onMaxMembersChange?.(parseInt(value))}
                 >
                   <SelectTrigger id="maxMembers" className="rounded-xl">
                     <SelectValue />
@@ -312,10 +324,37 @@ export function SettingsScreen({ userName, userEmail, userAvatar, familyName, fa
                   {t("settings.maxMembersDescription", language)}
                 </p>
               </div>
+              {/* Delete Family - Admin only */}
+              {currentUserRole === "admin" && onDeleteFamily && (
+                <>
+                  <Separator />
+                  <div className="space-y-2">
+                    <Label className="text-destructive">{t("settings.deleteFamily", language)}</Label>
+                    <p className="text-sm text-muted-foreground">
+                      {t("settings.deleteFamilyDescription", language)}
+                    </p>
+                    <Button
+                      onClick={() => {
+                        if (confirm(t("settings.deleteFamilyConfirm", language, { familyName }))) {
+                          onDeleteFamily();
+                        }
+                      }}
+                      variant="destructive"
+                      size="sm"
+                      className="rounded-xl"
+                    >
+                      <Trash className="w-4 h-4 mr-2" />
+                      {t("settings.deleteFamilyButton", language)}
+                    </Button>
+                  </div>
+                </>
+              )}
             </CardContent>
           </Card>
+          )}
 
-          {/* Channels Section */}
+          {/* Channels Section - only show when user has a family */}
+          {hasFamily && (
           <Card className="rounded-[20px] shadow-lg overflow-hidden">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -362,7 +401,7 @@ export function SettingsScreen({ userName, userEmail, userAvatar, familyName, fa
                       <Button
                         onClick={() => {
                           if (confirm(t("settings.deleteChannelConfirm", language, { name: getChannelName(channel) }))) {
-                            onDeleteChannel(channel.id);
+                            onDeleteChannel?.(channel.id);
                           }
                         }}
                         variant="ghost"
@@ -377,6 +416,7 @@ export function SettingsScreen({ userName, userEmail, userAvatar, familyName, fa
               </div>
             </CardContent>
           </Card>
+          )}
 
           {/* Google Calendar Integration */}
           <Card className="rounded-[20px] shadow-lg overflow-hidden">
@@ -725,23 +765,28 @@ export function SettingsScreen({ userName, userEmail, userAvatar, familyName, fa
               <CardDescription>{t("settings.securityDescription", language)}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label>{t("settings.inviteCode", language)}</Label>
-                <div className="flex flex-col gap-3">
-                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-                    <Input
-                      value={inviteCode}
-                      readOnly
-                      className="rounded-xl font-mono sm:flex-1"
-                      onFocus={(event) => event.target.select()}
-                    />
+              {/* Invite code - only show when user has a family */}
+              {hasFamily && (
+                <>
+                  <div className="space-y-2">
+                    <Label>{t("settings.inviteCode", language)}</Label>
+                    <div className="flex flex-col gap-3">
+                      <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                        <Input
+                          value={inviteCode}
+                          readOnly
+                          className="rounded-xl font-mono sm:flex-1"
+                          onFocus={(event) => event.target.select()}
+                        />
+                      </div>
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      {t("settings.inviteCodeDescription", language)}
+                    </p>
                   </div>
-                </div>
-                <p className="text-sm text-muted-foreground">
-                  {t("settings.inviteCodeDescription", language)}
-                </p>
-              </div>
-              <Separator />
+                  <Separator />
+                </>
+              )}
               <Button variant="outline" className="w-full rounded-xl">
                 {t("settings.setPasscode", language)}
               </Button>

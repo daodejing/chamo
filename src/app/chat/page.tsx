@@ -757,10 +757,9 @@ export default function ChatPage() {
     setShowCalendar(false);
   };
 
-  // Handler: Settings click - always goes to settings
+  // Handler: Settings click - navigate to settings page
   const handleSettingsClick = () => {
-    setCurrentView('settings');
-    setIsSettingsOpen(true);
+    router.push('/settings');
   };
 
   // Handler: About screen navigation (from SettingsScreen)
@@ -871,6 +870,35 @@ export default function ChatPage() {
 
         // Refetch family members if needed
         refetchFamilyMembers();
+      } else {
+        toast.error(result.data?.deleteFamily?.message || 'Failed to delete family');
+      }
+    } catch (error) {
+      console.error('Delete family error:', error);
+      const message = error instanceof Error ? error.message : 'Failed to delete family';
+      toast.error(message);
+    }
+  };
+
+  // Handle deleting the current family from settings (confirmation already handled by SettingsScreen)
+  const handleDeleteFamilyFromSettings = async () => {
+    const currentFamilyId = family?.id || user?.activeFamilyId;
+    const currentFamilyName = family?.name || familyName;
+
+    if (!currentFamilyId) {
+      toast.error('No family to delete');
+      return;
+    }
+
+    try {
+      const result = await deleteFamilyMutation({
+        variables: { input: { familyId: currentFamilyId } },
+      });
+
+      if (result.data?.deleteFamily?.success) {
+        toast.success(t('settings.deleteFamilySuccess', language, { familyName: currentFamilyName }));
+        // Redirect to family-setup since user no longer has an active family
+        router.push('/family-setup');
       } else {
         toast.error(result.data?.deleteFamily?.message || 'Failed to delete family');
       }
@@ -1212,7 +1240,9 @@ export default function ChatPage() {
             onQuietHoursEndChange={handleQuietHoursEndChange}
             onRemoveMember={handleRemoveMember}
             onPromoteMember={handlePromoteMember}
+            onDeleteFamily={handleDeleteFamilyFromSettings}
             currentUserRole={(user?.memberships?.find(m => m.familyId === (family?.id || user?.activeFamilyId))?.role as 'admin' | 'member') || 'member'}
+            familyId={family?.id || user?.activeFamilyId || undefined}
             onCreateChannel={handleCreateChannel}
             onDeleteChannel={handleDeleteChannel}
             onConnectGoogle={handleConnectGoogle}

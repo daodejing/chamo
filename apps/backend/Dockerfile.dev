@@ -3,6 +3,10 @@ FROM node:20-alpine
 # Install pnpm and tzdata for timezone support
 RUN apk add --no-cache tzdata && npm install -g pnpm
 
+# Set timezone to Asia/Tokyo
+ENV TZ=Asia/Tokyo
+RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
+
 # Set working directory
 WORKDIR /app
 
