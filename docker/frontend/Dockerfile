@@ -32,6 +32,7 @@ COPY --from=deps /app/packages ./packages
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY src/ ./src/
 COPY public/ ./public/
+COPY scripts/ ./scripts/
 COPY next.config.js ./
 COPY tsconfig.json ./
 COPY tailwind.config.ts ./

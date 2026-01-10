@@ -13,7 +13,7 @@ spec:
   http:
     - route:
         - destination:
-            host: ourchat-frontend.ourchat.svc.cluster.local
+            host: ourchat-ourchat-frontend.ourchat.svc.cluster.local
             port:
               number: 3000
 ---
@@ -31,7 +31,7 @@ spec:
   http:
     - route:
         - destination:
-            host: ourchat-backend.ourchat.svc.cluster.local
+            host: ourchat-ourchat-backend.ourchat.svc.cluster.local
             port:
               number: 4000
 ---
