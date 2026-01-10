@@ -1,0 +1,23 @@
+# =============================================================================
+# Infrastructure Overlay for Oracle Cloud
+# =============================================================================
+# This overlay references the shared base infrastructure and adds
+# Oracle-specific configurations (no postgres, nip.io domains).
+# =============================================================================
+
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  # Shared base infrastructure
+  - ../base/observability
+  - ../base/ingress
+  # Oracle-specific resources
+  - namespaces.yaml
+
+patches:
+  # Patch gateway hosts for nip.io domain
+  - path: ingress-patches/gateway-hosts.yaml
+    target:
+      kind: Gateway
+      name: main-gateway

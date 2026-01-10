@@ -1,0 +1,42 @@
+# =============================================================================
+# Backend HelmRelease Patch for Oracle Cloud
+# =============================================================================
+# Updates image repository to OCIR and adds production configuration.
+#
+# Note: Replace <region> and <namespace> with actual values after
+# running `tofu apply`. The image automation will update the tag.
+# =============================================================================
+
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: ourchat-backend
+  namespace: flux-system
+spec:
+  values:
+    image:
+      # OCIR format: <region>.ocir.io/<namespace>/ourchat/backend
+      # This will be automatically updated by Flux image automation
+      repository: us-phoenix-1.ocir.io/placeholder/ourchat/backend # {"$imagepolicy": "flux-system:ourchat-backend:name"}
+      tag: latest # {"$imagepolicy": "flux-system:ourchat-backend:tag"}
+    imagePullSecrets:
+      - name: ocir-pull-secret
+    # Production environment - use secrets
+    envFrom:
+      - secretRef:
+          name: ourchat-secrets
+    env:
+      - name: NODE_ENV
+        value: "production"
+      - name: PORT
+        value: "4000"
+      # Email configuration for staging (use real SMTP in production)
+      - name: EMAIL_FROM
+        value: "OurChat <noreply@ourchat.app>"
+      - name: VERIFICATION_URL
+        value: "http://ourchat.PLACEHOLDER.nip.io/verify-email"
+      # SMTP - configure for actual email service
+      - name: SMTP_HOST
+        value: ""
+      - name: SMTP_PORT
+        value: "587"

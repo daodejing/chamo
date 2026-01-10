@@ -1,0 +1,98 @@
+# =============================================================================
+# Flux Image Automation for Oracle Cloud (OCIR)
+# =============================================================================
+# Scans OCIR for new image tags and automatically updates HelmReleases.
+#
+# Note: Replace <region> and <namespace> with actual values from
+# OpenTofu outputs after running `tofu apply`.
+# =============================================================================
+
+---
+# Image Repository - Frontend
+apiVersion: image.toolkit.fluxcd.io/v1beta2
+kind: ImageRepository
+metadata:
+  name: ourchat-frontend
+  namespace: flux-system
+spec:
+  # OCIR registry URL - update after tofu apply
+  image: us-phoenix-1.ocir.io/placeholder/ourchat/frontend
+  interval: 5m
+  # OCIR authentication
+  secretRef:
+    name: ocir-registry-credentials
+
+---
+# Image Repository - Backend
+apiVersion: image.toolkit.fluxcd.io/v1beta2
+kind: ImageRepository
+metadata:
+  name: ourchat-backend
+  namespace: flux-system
+spec:
+  # OCIR registry URL - update after tofu apply
+  image: us-phoenix-1.ocir.io/placeholder/ourchat/backend
+  interval: 5m
+  # OCIR authentication
+  secretRef:
+    name: ocir-registry-credentials
+
+---
+# Image Policy - Frontend (select latest semver or timestamp tag)
+apiVersion: image.toolkit.fluxcd.io/v1beta2
+kind: ImagePolicy
+metadata:
+  name: ourchat-frontend
+  namespace: flux-system
+spec:
+  imageRepositoryRef:
+    name: ourchat-frontend
+  policy:
+    alphabetical:
+      order: desc
+
+---
+# Image Policy - Backend
+apiVersion: image.toolkit.fluxcd.io/v1beta2
+kind: ImagePolicy
+metadata:
+  name: ourchat-backend
+  namespace: flux-system
+spec:
+  imageRepositoryRef:
+    name: ourchat-backend
+  policy:
+    alphabetical:
+      order: desc
+
+---
+# Image Update Automation
+apiVersion: image.toolkit.fluxcd.io/v1beta2
+kind: ImageUpdateAutomation
+metadata:
+  name: flux-system
+  namespace: flux-system
+spec:
+  interval: 30m
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+  git:
+    checkout:
+      ref:
+        branch: main
+    commit:
+      author:
+        email: fluxcdbot@users.noreply.github.com
+        name: fluxcdbot
+      messageTemplate: |
+        Auto-update Oracle images
+
+        {{ range .Changed.Changes -}}
+        - {{ .OldValue }} -> {{ .NewValue }}
+        {{ end -}}
+    push:
+      branch: main
+  update:
+    path: ./apps/oracle
+    strategy: Setters

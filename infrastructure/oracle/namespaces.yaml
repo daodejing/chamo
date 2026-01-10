@@ -1,0 +1,44 @@
+# =============================================================================
+# Namespaces for Oracle Cloud Environment
+# =============================================================================
+
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ourchat
+  labels:
+    istio-injection: enabled
+    app.kubernetes.io/part-of: ourchat
+
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: observability
+  labels:
+    istio-injection: enabled
+
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: cert-manager
+  labels:
+    app.kubernetes.io/name: cert-manager
+
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: istio-system
+  labels:
+    app.kubernetes.io/name: istio
+
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: istio-ingress
+  labels:
+    istio-injection: enabled

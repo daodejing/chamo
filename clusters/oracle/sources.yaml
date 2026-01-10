@@ -1,0 +1,77 @@
+# =============================================================================
+# Helm Repositories and OCI Sources for Oracle Cloud
+# =============================================================================
+
+---
+# Jetstack (cert-manager)
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: HelmRepository
+metadata:
+  name: jetstack
+  namespace: flux-system
+spec:
+  interval: 24h
+  url: https://charts.jetstack.io
+
+---
+# Istio
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: HelmRepository
+metadata:
+  name: istio
+  namespace: flux-system
+spec:
+  interval: 24h
+  url: https://istio-release.storage.googleapis.com/charts
+
+---
+# Prometheus Community
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: HelmRepository
+metadata:
+  name: prometheus-community
+  namespace: flux-system
+spec:
+  interval: 24h
+  url: https://prometheus-community.github.io/helm-charts
+
+---
+# Grafana
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: HelmRepository
+metadata:
+  name: grafana
+  namespace: flux-system
+spec:
+  interval: 24h
+  url: https://grafana.github.io/helm-charts
+
+---
+# Bitnami (for common charts)
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: HelmRepository
+metadata:
+  name: bitnami
+  namespace: flux-system
+spec:
+  interval: 24h
+  url: https://charts.bitnami.com/bitnami
+
+---
+# Local Helm charts (OCI registry - uses generic-service chart)
+# Note: For Oracle, we push the chart to OCIR or use the local chart
+apiVersion: source.toolkit.fluxcd.io/v1beta2
+kind: OCIRepository
+metadata:
+  name: platform-charts
+  namespace: flux-system
+spec:
+  interval: 10m
+  # This URL will be updated after chart is pushed to OCIR
+  # For now, we'll use HelmRelease with local chart path
+  url: oci://ghcr.io/daodejing/chamo/charts
+  ref:
+    tag: latest
+  ignore: |
+    # Ignore signature verification for local development
+    *.sig

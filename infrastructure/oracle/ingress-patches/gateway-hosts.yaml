@@ -1,0 +1,38 @@
+# =============================================================================
+# Gateway Host Patch for Oracle Cloud (nip.io)
+# =============================================================================
+# This patch updates the gateway to accept traffic for nip.io domains.
+# The actual IP will be from the Oracle Load Balancer.
+#
+# Example domains (assuming LB IP is 129.146.123.45):
+#   - ourchat.129-146-123-45.nip.io
+#   - api.ourchat.129-146-123-45.nip.io
+#   - grafana.129-146-123-45.nip.io
+# =============================================================================
+
+apiVersion: networking.istio.io/v1
+kind: Gateway
+metadata:
+  name: main-gateway
+  namespace: istio-ingress
+spec:
+  selector:
+    istio: gateway
+  servers:
+    # HTTP - accept all nip.io subdomains
+    - port:
+        number: 80
+        name: http
+        protocol: HTTP
+      hosts:
+        - "*.nip.io"
+    # HTTPS - for future TLS with cert-manager
+    - port:
+        number: 443
+        name: https
+        protocol: HTTPS
+      hosts:
+        - "*.nip.io"
+      tls:
+        mode: SIMPLE
+        credentialName: ourchat-tls

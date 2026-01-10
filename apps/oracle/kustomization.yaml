@@ -1,0 +1,31 @@
+# =============================================================================
+# Applications Overlay for Oracle Cloud
+# =============================================================================
+# This overlay references the shared base applications and adds
+# Oracle-specific configurations (OCIR registry, production settings).
+# =============================================================================
+
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  # Shared base applications
+  - ../base/ourchat
+  # Oracle-specific resources
+  - image-scanning.yaml
+  - virtual-services.yaml
+
+# Note: We don't include mailhog in production/staging
+# Email will be sent via actual SMTP service
+
+patches:
+  # Patch frontend HelmRelease for OCIR
+  - path: image-patches/frontend-image.yaml
+    target:
+      kind: HelmRelease
+      name: ourchat-frontend
+  # Patch backend HelmRelease for OCIR
+  - path: image-patches/backend-image.yaml
+    target:
+      kind: HelmRelease
+      name: ourchat-backend

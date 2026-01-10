@@ -1,0 +1,67 @@
+# =============================================================================
+# Virtual Services for Oracle Cloud (nip.io)
+# =============================================================================
+# Routes traffic from Istio Gateway to application services.
+# Uses nip.io wildcard DNS - the actual IP will be from the LB.
+#
+# Example: If LB IP is 129.146.123.45, domains will be:
+#   - ourchat.129-146-123-45.nip.io
+#   - api.ourchat.129-146-123-45.nip.io
+# =============================================================================
+
+---
+# Frontend - ourchat.*.nip.io
+apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  name: frontend
+  namespace: istio-ingress
+spec:
+  hosts:
+    - "ourchat.*.nip.io"
+  gateways:
+    - main-gateway
+  http:
+    - route:
+        - destination:
+            host: ourchat-ourchat-frontend.ourchat.svc.cluster.local
+            port:
+              number: 3000
+
+---
+# Backend API - api.ourchat.*.nip.io
+apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  name: backend
+  namespace: istio-ingress
+spec:
+  hosts:
+    - "api.ourchat.*.nip.io"
+  gateways:
+    - main-gateway
+  http:
+    - route:
+        - destination:
+            host: ourchat-ourchat-backend.ourchat.svc.cluster.local
+            port:
+              number: 4000
+
+---
+# Grafana - grafana.*.nip.io (for monitoring)
+apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  name: grafana
+  namespace: istio-ingress
+spec:
+  hosts:
+    - "grafana.*.nip.io"
+  gateways:
+    - main-gateway
+  http:
+    - route:
+        - destination:
+            host: grafana.observability.svc.cluster.local
+            port:
+              number: 80

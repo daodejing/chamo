@@ -1,0 +1,17 @@
+# =============================================================================
+# OurChat - Oracle Cloud Flux Cluster Configuration
+# =============================================================================
+# This is the root kustomization for the Oracle Cloud staging environment.
+# Flux will reconcile this directory and apply all referenced resources.
+# =============================================================================
+
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  # Helm repositories and OCI sources
+  - sources.yaml
+  # Infrastructure kustomization (controllers, observability, ingress)
+  - infrastructure.yaml
+  # Application kustomization (ourchat services)
+  - apps.yaml

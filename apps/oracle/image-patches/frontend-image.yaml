@@ -1,0 +1,29 @@
+# =============================================================================
+# Frontend HelmRelease Patch for Oracle Cloud
+# =============================================================================
+# Updates image repository to OCIR and adds pull secrets.
+#
+# Note: Replace <region> and <namespace> with actual values after
+# running `tofu apply`. The image automation will update the tag.
+# =============================================================================
+
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: ourchat-frontend
+  namespace: flux-system
+spec:
+  values:
+    image:
+      # OCIR format: <region>.ocir.io/<namespace>/ourchat/frontend
+      # This will be automatically updated by Flux image automation
+      repository: us-phoenix-1.ocir.io/placeholder/ourchat/frontend # {"$imagepolicy": "flux-system:ourchat-frontend:name"}
+      tag: latest # {"$imagepolicy": "flux-system:ourchat-frontend:tag"}
+    imagePullSecrets:
+      - name: ocir-pull-secret
+    # Production environment variables
+    env:
+      - name: NEXT_PUBLIC_GRAPHQL_HTTP_URL
+        value: "http://api.ourchat.PLACEHOLDER.nip.io/graphql"
+      - name: NEXT_PUBLIC_GRAPHQL_WS_URL
+        value: "ws://api.ourchat.PLACEHOLDER.nip.io/graphql"

@@ -63,6 +63,22 @@ Screenshot*.png
 *.zip
 *.pdf
 
+# Terraform / OpenTofu
+terraform.tfvars
+*.tfstate
+*.tfstate.*
+.terraform/
+.terraform.lock.hcl
+crash.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+
+# Kubernetes
+*.kubeconfig
+~/.kube/ourchat-*.yaml
+
 # Generated files
 **/generated/
 **/__generated__/

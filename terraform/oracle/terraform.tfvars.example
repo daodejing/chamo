@@ -1,0 +1,67 @@
+# =============================================================================
+# Oracle Cloud Infrastructure Configuration
+# =============================================================================
+# Copy this file to terraform.tfvars and fill in your values
+# DO NOT commit terraform.tfvars to version control!
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# OCI Authentication
+# -----------------------------------------------------------------------------
+# Get these values from OCI Console > User Settings > API Keys
+
+tenancy_ocid     = "ocid1.tenancy.oc1..aaaaaaaaxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+user_ocid        = "ocid1.user.oc1..aaaaaaaaxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+fingerprint      = "xx:xx:xx:xx:xx:xx:xx:xx:xx:xx:xx:xx:xx:xx:xx:xx"
+private_key_path = "~/.oci/oci_api_key.pem"
+
+# -----------------------------------------------------------------------------
+# Region and Compartment
+# -----------------------------------------------------------------------------
+# List of regions: https://docs.oracle.com/en-us/iaas/Content/General/Concepts/regions.htm
+# For Always Free, resources must be in your home region
+
+region = "us-phoenix-1"
+
+# Leave empty to use tenancy root, or specify a compartment OCID
+compartment_ocid = ""
+
+# -----------------------------------------------------------------------------
+# SSH Access
+# -----------------------------------------------------------------------------
+# Your SSH public key for VM access
+# Generate with: ssh-keygen -t ed25519 -C "ourchat-oracle"
+
+ssh_public_key = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX your-email@example.com"
+
+# -----------------------------------------------------------------------------
+# Database
+# -----------------------------------------------------------------------------
+# Password requirements:
+# - Minimum 12 characters
+# - At least 1 uppercase letter
+# - At least 1 lowercase letter
+# - At least 1 number
+# - Cannot contain the word "admin"
+
+db_admin_password = "YourSecurePassword123!"
+
+# -----------------------------------------------------------------------------
+# Optional: Resource Customization
+# -----------------------------------------------------------------------------
+# Uncomment to customize (defaults shown)
+
+# project_name = "ourchat"
+# environment  = "staging"
+
+# VM resources (max for free tier: 4 OCPU, 24GB)
+# vm_ocpus          = 4
+# vm_memory_gb      = 24
+# vm_boot_volume_gb = 100
+
+# -----------------------------------------------------------------------------
+# GitHub (for Flux GitOps)
+# -----------------------------------------------------------------------------
+
+github_owner      = "daodejing"
+github_repository = "chamo"
