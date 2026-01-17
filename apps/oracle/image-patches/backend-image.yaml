@@ -19,6 +19,14 @@ spec:
       tag: 0111d27-1768637062 # {"$imagepolicy": "flux-system:ourchat-backend:tag"}
     imagePullSecrets:
       - name: ocir-secret
+    # Increase memory for NestJS + Prisma + GraphQL
+    resources:
+      limits:
+        cpu: 500m
+        memory: 768Mi
+      requests:
+        cpu: 200m
+        memory: 512Mi
     # Production environment - use secrets
     envFrom:
       - secretRef:
