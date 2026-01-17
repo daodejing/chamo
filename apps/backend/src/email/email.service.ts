@@ -1,5 +1,4 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
-import * as Brevo from '@getbrevo/brevo';
 import * as nodemailer from 'nodemailer';
 import type { Transporter } from 'nodemailer';
 import {
@@ -16,83 +15,124 @@ import {
   VerificationEmailTranslation,
 } from './templates/verification-email.translations';
 
+interface SmtpConfig {
+  host: string;
+  port: number;
+  secure: boolean;
+  auth?: {
+    user: string;
+    pass: string;
+  };
+}
+
 @Injectable()
 export class EmailService implements OnModuleInit {
   private readonly logger = new Logger(EmailService.name);
-  private apiInstance: Brevo.TransactionalEmailsApi | null = null;
-  private smtpTransporter: Transporter | null = null;
-  private readonly useSmtp: boolean;
+  private readonly transporter: Transporter;
   private readonly emailFrom: string;
   private readonly emailFromName: string;
   private readonly emailVerificationUrl: string;
   private readonly appBaseUrl: string;
 
   constructor() {
-    // Check if SMTP is configured (for test environments with MailHog)
-    const smtpHost = process.env.SMTP_HOST;
-    const smtpPort = process.env.SMTP_PORT;
-    this.useSmtp = Boolean(smtpHost && smtpPort);
+    // Validate required configuration - fail fast
+    const config = this.validateAndGetConfig();
 
-    const emailFrom = process.env.EMAIL_FROM;
-    if (!emailFrom) {
-      throw new Error(
-        'EMAIL_FROM is required. Please add it to your .env file.',
-      );
-    }
-    this.emailFrom = emailFrom;
+    this.emailFrom = config.emailFrom;
+    this.emailFromName = config.emailFromName;
+    this.emailVerificationUrl = config.emailVerificationUrl;
+    this.appBaseUrl = config.appBaseUrl;
 
-    this.emailFromName = process.env.EMAIL_FROM_NAME || 'Chamo';
-
-    const emailVerificationUrl = process.env.EMAIL_VERIFICATION_URL;
-    if (!emailVerificationUrl) {
-      throw new Error(
-        'EMAIL_VERIFICATION_URL is required. Please add it to your .env file.',
-      );
-    }
-    this.emailVerificationUrl = emailVerificationUrl;
-    this.appBaseUrl =
-      process.env.APP_BASE_URL ||
-      emailVerificationUrl.replace(/\/verify-email.*$/, '') ||
-      'http://localhost:3002';
-
-    if (this.useSmtp) {
-      // Use nodemailer with SMTP (for MailHog in tests)
-      this.smtpTransporter = nodemailer.createTransport({
-        host: smtpHost,
-        port: parseInt(smtpPort!, 10),
-        secure: false, // MailHog doesn't use TLS
-      });
-    } else {
-      // Use Brevo API for production
-      const brevoApiKey = process.env.BREVO_API_KEY;
-      if (!brevoApiKey) {
-        throw new Error(
-          'BREVO_API_KEY is required. Please add it to your .env file. See docs/BREVO_SETUP.md for setup instructions.',
-        );
-      }
-
-      this.apiInstance = new Brevo.TransactionalEmailsApi();
-      this.apiInstance.setApiKey(
-        Brevo.TransactionalEmailsApiApiKeys.apiKey,
-        brevoApiKey,
-      );
-    }
+    this.transporter = nodemailer.createTransport(config.smtp);
   }
 
-  onModuleInit() {
-    this.logger.log('EmailService initialized successfully');
-    this.logger.log(`Email sender: ${this.emailFromName} <${this.emailFrom}>`);
-    this.logger.log(
-      `Verification URL: ${this.emailVerificationUrl.replace(/\?.*$/, '')}`,
-    );
-    this.logger.log(
-      `Transport: ${this.useSmtp ? `SMTP (${process.env.SMTP_HOST}:${process.env.SMTP_PORT})` : 'Brevo API'}`,
-    );
+  private validateAndGetConfig(): {
+    smtp: SmtpConfig;
+    emailFrom: string;
+    emailFromName: string;
+    emailVerificationUrl: string;
+    appBaseUrl: string;
+  } {
+    const missing: string[] = [];
+
+    const smtpHost = process.env.SMTP_HOST;
+    const smtpPort = process.env.SMTP_PORT;
+    const emailFrom = process.env.EMAIL_FROM;
+    const emailVerificationUrl = process.env.EMAIL_VERIFICATION_URL;
+
+    if (!smtpHost) missing.push('SMTP_HOST');
+    if (!smtpPort) missing.push('SMTP_PORT');
+    if (!emailFrom) missing.push('EMAIL_FROM');
+    if (!emailVerificationUrl) missing.push('EMAIL_VERIFICATION_URL');
+
+    if (missing.length > 0) {
+      throw new Error(
+        `Missing required email configuration: ${missing.join(', ')}. ` +
+          'All email settings must be explicitly configured.',
+      );
+    }
+
+    const port = parseInt(smtpPort!, 10);
+    if (isNaN(port) || port < 1 || port > 65535) {
+      throw new Error(
+        `Invalid SMTP_PORT: "${smtpPort}". Must be a valid port number (1-65535).`,
+      );
+    }
+
+    // Auth is optional (not needed for local mailhog/mailpit)
+    const smtpUser = process.env.SMTP_USER;
+    const smtpPass = process.env.SMTP_PASS;
+
+    // If one auth credential is provided, both must be provided
+    if ((smtpUser && !smtpPass) || (!smtpUser && smtpPass)) {
+      throw new Error(
+        'SMTP authentication incomplete: both SMTP_USER and SMTP_PASS must be set, or neither.',
+      );
+    }
+
+    const smtp: SmtpConfig = {
+      host: smtpHost!,
+      port,
+      secure: port === 465, // TLS on port 465, STARTTLS on 587
+    };
+
+    if (smtpUser && smtpPass) {
+      smtp.auth = { user: smtpUser, pass: smtpPass };
+    }
+
+    return {
+      smtp,
+      emailFrom: emailFrom!,
+      emailFromName: process.env.EMAIL_FROM_NAME || 'Chamo',
+      emailVerificationUrl: emailVerificationUrl!,
+      appBaseUrl:
+        process.env.APP_BASE_URL ||
+        emailVerificationUrl!.replace(/\/verify-email.*$/, '') ||
+        'http://localhost:3002',
+    };
+  }
+
+  async onModuleInit() {
+    this.logger.log('EmailService initialized');
+    this.logger.log(`Sender: ${this.emailFromName} <${this.emailFrom}>`);
+    this.logger.log(`Verification URL: ${this.emailVerificationUrl}`);
+
+    // Verify SMTP connection on startup
+    try {
+      await this.transporter.verify();
+      this.logger.log(
+        `SMTP connected: ${process.env.SMTP_HOST}:${process.env.SMTP_PORT}`,
+      );
+    } catch (error) {
+      this.logger.error(
+        `SMTP connection failed: ${error.message}. Emails will not be sent.`,
+      );
+      // Don't throw - allow app to start, but log the error clearly
+    }
   }
 
   /**
    * Validate email format
-   * Returns true if valid, false otherwise
    */
   private isValidEmail(email: string): boolean {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -100,9 +140,50 @@ export class EmailService implements OnModuleInit {
   }
 
   /**
+   * Send email with retry logic (1 retry on network failure)
+   */
+  private async sendEmail(options: {
+    to: string;
+    subject: string;
+    html: string;
+    text: string;
+  }): Promise<void> {
+    const mailOptions = {
+      from: `"${this.emailFromName}" <${this.emailFrom}>`,
+      to: options.to,
+      subject: options.subject,
+      html: options.html,
+      text: options.text,
+    };
+
+    try {
+      await this.transporter.sendMail(mailOptions);
+    } catch (error) {
+      // Retry once on transient errors
+      if (this.isRetryableError(error)) {
+        this.logger.warn(`Email send failed, retrying: ${error.message}`);
+        await this.delay(1000);
+        await this.transporter.sendMail(mailOptions);
+      } else {
+        throw error;
+      }
+    }
+  }
+
+  private isRetryableError(error: any): boolean {
+    return (
+      error.code === 'ECONNRESET' ||
+      error.code === 'ETIMEDOUT' ||
+      error.code === 'ECONNREFUSED'
+    );
+  }
+
+  private delay(ms: number): Promise<void> {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+  }
+
+  /**
    * Send verification email with token
-   * Fires and forgets - logs errors but doesn't throw
-   * @param language - Optional language code for localized email (defaults to 'en')
    */
   async sendVerificationEmail(
     email: string,
@@ -110,9 +191,7 @@ export class EmailService implements OnModuleInit {
     language: string = 'en',
   ): Promise<void> {
     if (!this.isValidEmail(email)) {
-      this.logger.error(
-        `Invalid email format: ${email}. Skipping verification email.`,
-      );
+      this.logger.error(`Invalid email format: ${email}`);
       return;
     }
 
@@ -120,73 +199,42 @@ export class EmailService implements OnModuleInit {
     const translations = getVerificationEmailTranslation(language);
 
     try {
-      const sendSmtpEmail = new Brevo.SendSmtpEmail();
-      sendSmtpEmail.sender = {
-        email: this.emailFrom,
-        name: this.emailFromName,
-      };
-      sendSmtpEmail.to = [{ email }];
-      sendSmtpEmail.subject = translations.subject;
-      sendSmtpEmail.htmlContent = this.getVerificationEmailHtml(
-        verificationLink,
-        translations,
-      );
-      sendSmtpEmail.textContent = this.getVerificationEmailText(
-        verificationLink,
-        translations,
-      );
-
-      await this.sendEmailWithRetry(sendSmtpEmail);
-      this.logger.debug(
-        `Verification email sent successfully to ${email} in language ${language} (token: ${token.substring(0, 8)}...)`,
-      );
+      await this.sendEmail({
+        to: email,
+        subject: translations.subject,
+        html: this.getVerificationEmailHtml(verificationLink, translations),
+        text: this.getVerificationEmailText(verificationLink, translations),
+      });
+      this.logger.debug(`Verification email sent to ${email}`);
     } catch (error) {
-      this.logger.error(
-        `Failed to send verification email to ${email}: ${error.message}`,
-        error.stack,
-      );
+      this.logger.error(`Failed to send verification email to ${email}: ${error.message}`);
     }
   }
 
   /**
    * Send welcome email after successful verification
-   * Fires and forgets - logs errors but doesn't throw
    */
   async sendWelcomeEmail(email: string, userName: string): Promise<void> {
     if (!this.isValidEmail(email)) {
-      this.logger.error(
-        `Invalid email format: ${email}. Skipping welcome email.`,
-      );
+      this.logger.error(`Invalid email format: ${email}`);
       return;
     }
 
     try {
-      const sendSmtpEmail = new Brevo.SendSmtpEmail();
-      sendSmtpEmail.sender = {
-        email: this.emailFrom,
-        name: this.emailFromName,
-      };
-      sendSmtpEmail.to = [{ email }];
-      sendSmtpEmail.subject = 'Welcome to Chamo!';
-      sendSmtpEmail.htmlContent = this.getWelcomeEmailHtml(userName);
-      sendSmtpEmail.textContent = this.getWelcomeEmailText(userName);
-
-      await this.sendEmailWithRetry(sendSmtpEmail);
-      this.logger.debug(
-        `Welcome email sent successfully to ${email} (user: ${userName})`,
-      );
+      await this.sendEmail({
+        to: email,
+        subject: 'Welcome to Chamo!',
+        html: this.getWelcomeEmailHtml(userName),
+        text: this.getWelcomeEmailText(userName),
+      });
+      this.logger.debug(`Welcome email sent to ${email}`);
     } catch (error) {
-      this.logger.error(
-        `Failed to send welcome email to ${email}: ${error.message}`,
-        error.stack,
-      );
+      this.logger.error(`Failed to send welcome email to ${email}: ${error.message}`);
     }
   }
 
   /**
-   * Send invite notification (future use for Story 1.5)
-   * Fires and forgets - logs errors but doesn't throw
-   * @param language - Optional language code for localized email (defaults to 'en')
+   * Send invite notification
    */
   async sendInviteNotification(
     email: string,
@@ -195,57 +243,29 @@ export class EmailService implements OnModuleInit {
     language: string = 'en',
   ): Promise<void> {
     if (!this.isValidEmail(email)) {
-      this.logger.error(
-        `Invalid email format: ${email}. Skipping invite notification.`,
-      );
+      this.logger.error(`Invalid email format: ${email}`);
       return;
     }
 
     const translations = getInviteNotificationTranslation(language);
     const replacements = { familyName };
+    const acceptUrl = `${this.getAppBaseUrl()}/accept-invite?code=${encodeURIComponent(inviteCode)}`;
 
     try {
-      const sendSmtpEmail = new Brevo.SendSmtpEmail();
-      sendSmtpEmail.sender = {
-        email: this.emailFrom,
-        name: this.emailFromName,
-      };
-      sendSmtpEmail.to = [{ email }];
-      const acceptUrl = `${this.getAppBaseUrl()}/accept-invite?code=${encodeURIComponent(
-        inviteCode,
-      )}`;
-      sendSmtpEmail.subject = formatTranslation(
-        translations.subject,
-        replacements,
-      );
-      sendSmtpEmail.htmlContent = this.getInviteNotificationHtml(
-        familyName,
-        inviteCode,
-        acceptUrl,
-        translations,
-      );
-      sendSmtpEmail.textContent = this.getInviteNotificationText(
-        familyName,
-        inviteCode,
-        acceptUrl,
-        translations,
-      );
-
-      await this.sendEmailWithRetry(sendSmtpEmail);
-      this.logger.debug(
-        `Invite notification sent successfully to ${email} (family: ${familyName}, language: ${language})`,
-      );
+      await this.sendEmail({
+        to: email,
+        subject: formatTranslation(translations.subject, replacements),
+        html: this.getInviteNotificationHtml(familyName, inviteCode, acceptUrl, translations),
+        text: this.getInviteNotificationText(familyName, inviteCode, acceptUrl, translations),
+      });
+      this.logger.debug(`Invite notification sent to ${email}`);
     } catch (error) {
-      this.logger.error(
-        `Failed to send invite notification to ${email}: ${error.message}`,
-        error.stack,
-      );
+      this.logger.error(`Failed to send invite notification to ${email}: ${error.message}`);
     }
   }
 
   /**
-   * Send registration invitation to unregistered users when an admin adds them
-   * Story 1.13: Added language parameter for localized email content
+   * Send registration invitation to unregistered users
    */
   async sendRegistrationInviteEmail(
     inviteeEmail: string,
@@ -254,55 +274,29 @@ export class EmailService implements OnModuleInit {
     language: string = 'en',
   ): Promise<void> {
     if (!this.isValidEmail(inviteeEmail)) {
-      this.logger.error(
-        `Invalid email format: ${inviteeEmail}. Skipping registration invite.`,
-      );
+      this.logger.error(`Invalid email format: ${inviteeEmail}`);
       return;
     }
 
-    const registerUrl = `${this.getAppBaseUrl()}/login?mode=create&lockMode=invitee&email=${encodeURIComponent(
-      inviteeEmail,
-    )}&lang=${encodeURIComponent(language)}`;
-
-    // Story 1.13: Get translations for the specified language (with English fallback)
+    const registerUrl = `${this.getAppBaseUrl()}/login?mode=create&lockMode=invitee&email=${encodeURIComponent(inviteeEmail)}&lang=${encodeURIComponent(language)}`;
     const translations = getInviteEmailTranslation(language);
     const replacements = { familyName, inviterName };
 
     try {
-      const sendSmtpEmail = new Brevo.SendSmtpEmail();
-      sendSmtpEmail.sender = {
-        email: this.emailFrom,
-        name: this.emailFromName,
-      };
-      sendSmtpEmail.to = [{ email: inviteeEmail }];
-      sendSmtpEmail.subject = formatTranslation(translations.subject, replacements);
-      sendSmtpEmail.htmlContent = this.getRegistrationInviteHtml(
-        familyName,
-        inviterName,
-        registerUrl,
-        translations,
-      );
-      sendSmtpEmail.textContent = this.getRegistrationInviteText(
-        familyName,
-        inviterName,
-        registerUrl,
-        translations,
-      );
-
-      await this.sendEmailWithRetry(sendSmtpEmail);
-      this.logger.debug(
-        `Registration invite email sent to ${inviteeEmail} for family ${familyName} in language ${language}`,
-      );
+      await this.sendEmail({
+        to: inviteeEmail,
+        subject: formatTranslation(translations.subject, replacements),
+        html: this.getRegistrationInviteHtml(familyName, inviterName, registerUrl, translations),
+        text: this.getRegistrationInviteText(familyName, inviterName, registerUrl, translations),
+      });
+      this.logger.debug(`Registration invite sent to ${inviteeEmail}`);
     } catch (error) {
-      this.logger.error(
-        `Failed to send registration invite to ${inviteeEmail}: ${error.message}`,
-        error.stack,
-      );
+      this.logger.error(`Failed to send registration invite to ${inviteeEmail}: ${error.message}`);
     }
   }
 
   /**
-   * Notify inviter that the pending invitee has completed registration
+   * Notify inviter that invitee has completed registration
    */
   async sendInviteeRegistrationNotification(
     inviterEmail: string,
@@ -310,118 +304,23 @@ export class EmailService implements OnModuleInit {
     familyName: string,
   ): Promise<void> {
     if (!this.isValidEmail(inviterEmail)) {
-      this.logger.error(
-        `Invalid inviter email format: ${inviterEmail}. Skipping notification.`,
-      );
+      this.logger.error(`Invalid inviter email format: ${inviterEmail}`);
       return;
     }
 
+    const reviewUrl = `${this.getAppBaseUrl()}/login?returnUrl=${encodeURIComponent(`/family/settings?completeInvite=${encodeURIComponent(inviteeEmail)}`)}`;
+
     try {
-      const sendSmtpEmail = new Brevo.SendSmtpEmail();
-      sendSmtpEmail.sender = {
-        email: this.emailFrom,
-        name: this.emailFromName,
-      };
-      sendSmtpEmail.to = [{ email: inviterEmail }];
-      const reviewUrl = `${this.getAppBaseUrl()}/login?returnUrl=${encodeURIComponent(
-        `/family/settings?completeInvite=${encodeURIComponent(inviteeEmail)}`,
-      )}`;
-      sendSmtpEmail.subject = `${inviteeEmail} is ready to join ${familyName}`;
-      sendSmtpEmail.htmlContent = this.getInviteeRegisteredHtml(
-        inviteeEmail,
-        familyName,
-        reviewUrl,
-      );
-      sendSmtpEmail.textContent = this.getInviteeRegisteredText(
-        inviteeEmail,
-        familyName,
-        reviewUrl,
-      );
-
-      await this.sendEmailWithRetry(sendSmtpEmail);
-      this.logger.debug(
-        `Registration notification sent to inviter ${inviterEmail} about ${inviteeEmail}`,
-      );
+      await this.sendEmail({
+        to: inviterEmail,
+        subject: `${inviteeEmail} is ready to join ${familyName}`,
+        html: this.getInviteeRegisteredHtml(inviteeEmail, familyName, reviewUrl),
+        text: this.getInviteeRegisteredText(inviteeEmail, familyName, reviewUrl),
+      });
+      this.logger.debug(`Registration notification sent to ${inviterEmail}`);
     } catch (error) {
-      this.logger.error(
-        `Failed to send registration notification to ${inviterEmail}: ${error.message}`,
-        error.stack,
-      );
+      this.logger.error(`Failed to send registration notification to ${inviterEmail}: ${error.message}`);
     }
-  }
-
-  /**
-   * Send email with retry logic (1 retry on network failure)
-   * Supports both SMTP (for MailHog in tests) and Brevo API (for production)
-   */
-  private async sendEmailWithRetry(
-    sendSmtpEmail: Brevo.SendSmtpEmail,
-    retryCount = 0,
-  ): Promise<void> {
-    try {
-      if (this.useSmtp && this.smtpTransporter) {
-        // Use nodemailer for SMTP (MailHog in tests)
-        await this.smtpTransporter.sendMail({
-          from: `"${sendSmtpEmail.sender?.name}" <${sendSmtpEmail.sender?.email}>`,
-          to: sendSmtpEmail.to?.map((t) => t.email).join(', '),
-          subject: sendSmtpEmail.subject,
-          html: sendSmtpEmail.htmlContent,
-          text: sendSmtpEmail.textContent,
-        });
-      } else if (this.apiInstance) {
-        // Use Brevo API for production
-        await this.apiInstance.sendTransacEmail(sendSmtpEmail);
-      } else {
-        throw new Error('No email transport configured');
-      }
-    } catch (error) {
-      // Check for rate limit error (429) - Brevo specific
-      if (error.response?.status === 429) {
-        this.logger.error(
-          'Brevo rate limit exceeded (300 emails/day on free tier). Consider upgrading to a paid plan.',
-        );
-        throw error;
-      }
-
-      // Check for invalid API key (401) - Brevo specific
-      if (error.response?.status === 401) {
-        this.logger.error(
-          'Invalid Brevo API key. Please check your BREVO_API_KEY environment variable.',
-        );
-        throw error;
-      }
-
-      // Retry once on transient network errors
-      if (retryCount === 0 && this.isRetryableError(error)) {
-        this.logger.warn(
-          `Network error sending email, retrying... (${error.message})`,
-        );
-        await this.delay(1000); // Wait 1 second before retry
-        return this.sendEmailWithRetry(sendSmtpEmail, retryCount + 1);
-      }
-
-      this.logger.error(
-        `Failed to send transactional email: ${error.message}`,
-        error.stack,
-      );
-      return;
-    }
-  }
-
-  /**
-   * Check if error is retryable (network/timeout errors)
-   */
-  private isRetryableError(error: any): boolean {
-    const retryableStatuses = [408, 500, 502, 503, 504]; // Timeout, server errors
-    return (
-      retryableStatuses.includes(error.response?.status) ||
-      error.code === 'ECONNRESET' ||
-      error.code === 'ETIMEDOUT'
-    );
-  }
-
-  private delay(ms: number): Promise<void> {
-    return new Promise((resolve) => setTimeout(resolve, ms));
   }
 
   // =============================================================================
@@ -529,13 +428,6 @@ ${translations.ignoreNote}
       <p style="margin: 10px 0;"><strong>🌍 Translation</strong><br/>Break language barriers with automatic translation</p>
     </div>
 
-    <div style="text-align: center; margin: 30px 0;">
-      <a href="http://localhost:3002"
-         style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 14px 28px; text-decoration: none; border-radius: 6px; font-weight: 600; display: inline-block;">
-        Start Chatting with Your Family
-      </a>
-    </div>
-
     <p style="margin-top: 30px; font-size: 14px; color: #666;">
       Need help? Just reply to this email and we'll get back to you.
     </p>
@@ -568,8 +460,6 @@ Keep everyone updated on important events
 
 🌍 Translation
 Break language barriers with automatic translation
-
-Visit http://localhost:3002 to start chatting with your family!
 
 Need help? Just reply to this email and we'll get back to you.
 

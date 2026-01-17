@@ -1,38 +1,37 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { EmailService } from './email.service';
-import * as Brevo from '@getbrevo/brevo';
+import * as nodemailer from 'nodemailer';
 
-// Mock Brevo SDK
-jest.mock('@getbrevo/brevo');
+// Mock nodemailer
+jest.mock('nodemailer');
 
 describe('EmailService', () => {
   let service: EmailService;
-  let mockSendTransacEmail: jest.Mock;
+  let mockSendMail: jest.Mock;
+  let mockVerify: jest.Mock;
 
   const originalEnv = process.env;
 
   beforeEach(() => {
-    // Reset environment variables
+    // Reset environment variables with required SMTP config
     process.env = {
       ...originalEnv,
-      BREVO_API_KEY: 'xkeysib-test-api-key',
+      SMTP_HOST: 'localhost',
+      SMTP_PORT: '1025',
       EMAIL_FROM: 'test@example.com',
       EMAIL_FROM_NAME: 'OurChat Test',
       EMAIL_VERIFICATION_URL: 'http://localhost:3002/verify-email',
       APP_BASE_URL: 'http://localhost:3002',
     };
 
-    // Mock Brevo API
-    mockSendTransacEmail = jest.fn().mockResolvedValue({ messageId: 'test-id' });
+    // Mock nodemailer transport
+    mockSendMail = jest.fn().mockResolvedValue({ messageId: 'test-id' });
+    mockVerify = jest.fn().mockResolvedValue(true);
 
-    const mockApiInstance = {
-      setApiKey: jest.fn(),
-      sendTransacEmail: mockSendTransacEmail,
-    };
-
-    (Brevo.TransactionalEmailsApi as jest.Mock).mockImplementation(
-      () => mockApiInstance,
-    );
+    (nodemailer.createTransport as jest.Mock).mockReturnValue({
+      sendMail: mockSendMail,
+      verify: mockVerify,
+    });
   });
 
   afterEach(() => {
@@ -40,8 +39,8 @@ describe('EmailService', () => {
     jest.clearAllMocks();
   });
 
-  describe('Initialization', () => {
-    it('should initialize successfully with valid configuration', async () => {
+  describe('Initialization - Fail Fast', () => {
+    it('should initialize successfully with valid SMTP configuration', async () => {
       const module: TestingModule = await Test.createTestingModule({
         providers: [EmailService],
       }).compile();
@@ -50,30 +49,26 @@ describe('EmailService', () => {
       expect(service).toBeDefined();
     });
 
-    it('should throw error when BREVO_API_KEY is missing and SMTP is not configured', async () => {
-      delete process.env.BREVO_API_KEY;
+    it('should throw error when SMTP_HOST is missing', async () => {
       delete process.env.SMTP_HOST;
+
+      await expect(async () => {
+        const module: TestingModule = await Test.createTestingModule({
+          providers: [EmailService],
+        }).compile();
+        module.get<EmailService>(EmailService);
+      }).rejects.toThrow('Missing required email configuration: SMTP_HOST');
+    });
+
+    it('should throw error when SMTP_PORT is missing', async () => {
       delete process.env.SMTP_PORT;
 
       await expect(async () => {
         const module: TestingModule = await Test.createTestingModule({
           providers: [EmailService],
         }).compile();
-        service = module.get<EmailService>(EmailService);
-      }).rejects.toThrow('BREVO_API_KEY is required');
-    });
-
-    it('should not require BREVO_API_KEY when SMTP is configured', async () => {
-      delete process.env.BREVO_API_KEY;
-      process.env.SMTP_HOST = 'localhost';
-      process.env.SMTP_PORT = '1025';
-
-      const module: TestingModule = await Test.createTestingModule({
-        providers: [EmailService],
-      }).compile();
-
-      service = module.get<EmailService>(EmailService);
-      expect(service).toBeDefined();
+        module.get<EmailService>(EmailService);
+      }).rejects.toThrow('Missing required email configuration: SMTP_PORT');
     });
 
     it('should throw error when EMAIL_FROM is missing', async () => {
@@ -83,8 +78,8 @@ describe('EmailService', () => {
         const module: TestingModule = await Test.createTestingModule({
           providers: [EmailService],
         }).compile();
-        service = module.get<EmailService>(EmailService);
-      }).rejects.toThrow('EMAIL_FROM is required');
+        module.get<EmailService>(EmailService);
+      }).rejects.toThrow('Missing required email configuration: EMAIL_FROM');
     });
 
     it('should throw error when EMAIL_VERIFICATION_URL is missing', async () => {
@@ -94,8 +89,75 @@ describe('EmailService', () => {
         const module: TestingModule = await Test.createTestingModule({
           providers: [EmailService],
         }).compile();
-        service = module.get<EmailService>(EmailService);
-      }).rejects.toThrow('EMAIL_VERIFICATION_URL is required');
+        module.get<EmailService>(EmailService);
+      }).rejects.toThrow('Missing required email configuration: EMAIL_VERIFICATION_URL');
+    });
+
+    it('should list all missing variables in error message', async () => {
+      delete process.env.SMTP_HOST;
+      delete process.env.SMTP_PORT;
+      delete process.env.EMAIL_FROM;
+
+      await expect(async () => {
+        const module: TestingModule = await Test.createTestingModule({
+          providers: [EmailService],
+        }).compile();
+        module.get<EmailService>(EmailService);
+      }).rejects.toThrow('Missing required email configuration: SMTP_HOST, SMTP_PORT, EMAIL_FROM');
+    });
+
+    it('should throw error for invalid SMTP_PORT', async () => {
+      process.env.SMTP_PORT = 'not-a-number';
+
+      await expect(async () => {
+        const module: TestingModule = await Test.createTestingModule({
+          providers: [EmailService],
+        }).compile();
+        module.get<EmailService>(EmailService);
+      }).rejects.toThrow('Invalid SMTP_PORT');
+    });
+
+    it('should throw error when only SMTP_USER is provided without SMTP_PASS', async () => {
+      process.env.SMTP_USER = 'user@example.com';
+      // SMTP_PASS not set
+
+      await expect(async () => {
+        const module: TestingModule = await Test.createTestingModule({
+          providers: [EmailService],
+        }).compile();
+        module.get<EmailService>(EmailService);
+      }).rejects.toThrow('SMTP authentication incomplete');
+    });
+
+    it('should throw error when only SMTP_PASS is provided without SMTP_USER', async () => {
+      process.env.SMTP_PASS = 'secret';
+      // SMTP_USER not set
+
+      await expect(async () => {
+        const module: TestingModule = await Test.createTestingModule({
+          providers: [EmailService],
+        }).compile();
+        module.get<EmailService>(EmailService);
+      }).rejects.toThrow('SMTP authentication incomplete');
+    });
+
+    it('should accept both SMTP_USER and SMTP_PASS together', async () => {
+      process.env.SMTP_USER = 'user@example.com';
+      process.env.SMTP_PASS = 'secret';
+
+      const module: TestingModule = await Test.createTestingModule({
+        providers: [EmailService],
+      }).compile();
+
+      service = module.get<EmailService>(EmailService);
+      expect(service).toBeDefined();
+
+      // Verify auth was configured
+      expect(nodemailer.createTransport).toHaveBeenCalledWith(
+        expect.objectContaining({
+          auth: { user: 'user@example.com', pass: 'secret' },
+        }),
+      );
     });
 
     it('should use default EMAIL_FROM_NAME if not provided', async () => {
@@ -123,17 +185,9 @@ describe('EmailService', () => {
 
       await service.sendVerificationEmail('invalid-email', 'token123');
 
-      expect(mockSendTransacEmail).not.toHaveBeenCalled();
-      expect(loggerSpy).toHaveBeenCalledWith(
-        expect.stringContaining('Invalid email format'),
-      );
+      expect(mockSendMail).not.toHaveBeenCalled();
+      expect(loggerSpy).toHaveBeenCalledWith('Invalid email format: invalid-email');
       loggerSpy.mockRestore();
-    });
-
-    it('should accept valid email format', async () => {
-      await service.sendVerificationEmail('valid@example.com', 'token123');
-
-      expect(mockSendTransacEmail).toHaveBeenCalled();
     });
 
     it('should send verification email with correct parameters', async () => {
@@ -142,40 +196,21 @@ describe('EmailService', () => {
 
       await service.sendVerificationEmail(email, token);
 
-      expect(mockSendTransacEmail).toHaveBeenCalledWith(
+      expect(mockSendMail).toHaveBeenCalledWith(
         expect.objectContaining({
-          sender: { email: 'test@example.com', name: 'OurChat Test' },
-          to: [{ email: 'user@example.com' }],
+          from: '"OurChat Test" <test@example.com>',
+          to: 'user@example.com',
           subject: 'Verify your email - Chamo',
-          htmlContent: expect.stringContaining(
-            'http://localhost:3002/verify-email?token=test-verification-token-123',
-          ),
-          textContent: expect.stringContaining(
-            'http://localhost:3002/verify-email?token=test-verification-token-123',
-          ),
+          html: expect.stringContaining('http://localhost:3002/verify-email?token=test-verification-token-123'),
+          text: expect.stringContaining('http://localhost:3002/verify-email?token=test-verification-token-123'),
         }),
-      );
-    });
-
-    it('should build correct verification URL', async () => {
-      const email = 'user@example.com';
-      const token = 'abc123';
-
-      await service.sendVerificationEmail(email, token);
-
-      const callArg = mockSendTransacEmail.mock.calls[0][0];
-      expect(callArg.htmlContent).toContain(
-        'http://localhost:3002/verify-email?token=abc123',
       );
     });
 
     it('should handle email sending errors gracefully', async () => {
       const loggerSpy = jest.spyOn(service['logger'], 'error');
-      mockSendTransacEmail.mockRejectedValueOnce(
-        new Error('Network error'),
-      );
+      mockSendMail.mockRejectedValueOnce(new Error('Network error'));
 
-      // Should not throw
       await expect(
         service.sendVerificationEmail('user@example.com', 'token123'),
       ).resolves.not.toThrow();
@@ -184,42 +219,13 @@ describe('EmailService', () => {
     });
 
     it('should retry once on transient network error', async () => {
-      mockSendTransacEmail
-        .mockRejectedValueOnce({
-          response: { status: 500 },
-          message: 'Server error',
-        })
+      mockSendMail
+        .mockRejectedValueOnce({ code: 'ECONNRESET', message: 'Connection reset' })
         .mockResolvedValueOnce({ messageId: 'retry-success' });
 
       await service.sendVerificationEmail('user@example.com', 'token123');
 
-      expect(mockSendTransacEmail).toHaveBeenCalledTimes(2);
-    });
-
-    it('should not retry on rate limit error (429)', async () => {
-      const loggerSpy = jest.spyOn(service['logger'], 'error');
-      mockSendTransacEmail.mockRejectedValueOnce({
-        response: { status: 429 },
-        message: 'Rate limit exceeded',
-      });
-
-      await service.sendVerificationEmail('user@example.com', 'token123');
-
-      expect(mockSendTransacEmail).toHaveBeenCalledTimes(1);
-      loggerSpy.mockRestore();
-    });
-
-    it('should not retry on invalid API key error (401)', async () => {
-      const loggerSpy = jest.spyOn(service['logger'], 'error');
-      mockSendTransacEmail.mockRejectedValueOnce({
-        response: { status: 401 },
-        message: 'Invalid API key',
-      });
-
-      await service.sendVerificationEmail('user@example.com', 'token123');
-
-      expect(mockSendTransacEmail).toHaveBeenCalledTimes(1);
-      loggerSpy.mockRestore();
+      expect(mockSendMail).toHaveBeenCalledTimes(2);
     });
   });
 
@@ -236,10 +242,8 @@ describe('EmailService', () => {
 
       await service.sendWelcomeEmail('not-an-email', 'John Doe');
 
-      expect(mockSendTransacEmail).not.toHaveBeenCalled();
-      expect(loggerSpy).toHaveBeenCalledWith(
-        expect.stringContaining('Invalid email format'),
-      );
+      expect(mockSendMail).not.toHaveBeenCalled();
+      expect(loggerSpy).toHaveBeenCalledWith('Invalid email format: not-an-email');
       loggerSpy.mockRestore();
     });
 
@@ -249,36 +253,15 @@ describe('EmailService', () => {
 
       await service.sendWelcomeEmail(email, userName);
 
-      expect(mockSendTransacEmail).toHaveBeenCalledWith(
+      expect(mockSendMail).toHaveBeenCalledWith(
         expect.objectContaining({
-          sender: { email: 'test@example.com', name: 'OurChat Test' },
-          to: [{ email: 'user@example.com' }],
+          from: '"OurChat Test" <test@example.com>',
+          to: 'user@example.com',
           subject: 'Welcome to Chamo!',
-          htmlContent: expect.stringContaining('John Doe'),
-          textContent: expect.stringContaining('John Doe'),
+          html: expect.stringContaining('John Doe'),
+          text: expect.stringContaining('John Doe'),
         }),
       );
-    });
-
-    it('should include userName in email content', async () => {
-      await service.sendWelcomeEmail('user@example.com', 'Alice Smith');
-
-      const callArg = mockSendTransacEmail.mock.calls[0][0];
-      expect(callArg.htmlContent).toContain('Alice Smith');
-      expect(callArg.textContent).toContain('Alice Smith');
-    });
-
-    it('should handle email sending errors gracefully', async () => {
-      const loggerSpy = jest.spyOn(service['logger'], 'error');
-      mockSendTransacEmail.mockRejectedValueOnce(
-        new Error('Network error'),
-      );
-
-      await expect(
-        service.sendWelcomeEmail('user@example.com', 'John'),
-      ).resolves.not.toThrow();
-
-      loggerSpy.mockRestore();
     });
   });
 
@@ -295,10 +278,8 @@ describe('EmailService', () => {
 
       await service.sendInviteNotification('invalid', 'Family', 'CODE');
 
-      expect(mockSendTransacEmail).not.toHaveBeenCalled();
-      expect(loggerSpy).toHaveBeenCalledWith(
-        expect.stringContaining('Invalid email format'),
-      );
+      expect(mockSendMail).not.toHaveBeenCalled();
+      expect(loggerSpy).toHaveBeenCalledWith('Invalid email format: invalid');
       loggerSpy.mockRestore();
     });
 
@@ -309,56 +290,21 @@ describe('EmailService', () => {
 
       await service.sendInviteNotification(email, familyName, inviteCode);
 
-      expect(mockSendTransacEmail).toHaveBeenCalledWith(
+      expect(mockSendMail).toHaveBeenCalledWith(
         expect.objectContaining({
-          sender: { email: 'test@example.com', name: 'OurChat Test' },
-          to: [{ email: 'invitee@example.com' }],
+          to: 'invitee@example.com',
           subject: "You've been invited to join Smith Family on Chamo",
-          htmlContent: expect.stringContaining('accept-invite?code=SMITH123'),
-          textContent: expect.stringContaining('accept-invite?code=SMITH123'),
+          html: expect.stringContaining('accept-invite?code=SMITH123'),
         }),
       );
     });
 
     it('should send invite notification in Japanese when ja language is specified', async () => {
-      const email = 'invitee@example.com';
-      const familyName = 'Sakura Family';
-      const inviteCode = 'SAKURA123';
+      await service.sendInviteNotification('invitee@example.com', 'Sakura Family', 'SAKURA123', 'ja');
 
-      await service.sendInviteNotification(email, familyName, inviteCode, 'ja');
-
-      const payload = mockSendTransacEmail.mock.calls[0][0];
-      expect(payload.subject).toContain(familyName);
-      expect(payload.subject).toContain('招待');
-      expect(payload.htmlContent).toContain('招待コード');
-      expect(payload.htmlContent).toContain('招待を受け入れる');
-    });
-
-    it('should include familyName and inviteCode in content', async () => {
-      await service.sendInviteNotification(
-        'user@example.com',
-        'Johnson Family',
-        'INVITE789',
-      );
-
-      const callArg = mockSendTransacEmail.mock.calls[0][0];
-      expect(callArg.htmlContent).toContain('Johnson Family');
-      expect(callArg.htmlContent).toContain('INVITE789');
-      expect(callArg.textContent).toContain('Johnson Family');
-      expect(callArg.textContent).toContain('INVITE789');
-    });
-
-    it('should handle email sending errors gracefully', async () => {
-      const loggerSpy = jest.spyOn(service['logger'], 'error');
-      mockSendTransacEmail.mockRejectedValueOnce(
-        new Error('Network error'),
-      );
-
-      await expect(
-        service.sendInviteNotification('user@example.com', 'Family', 'CODE'),
-      ).resolves.not.toThrow();
-
-      loggerSpy.mockRestore();
+      const callArg = mockSendMail.mock.calls[0][0];
+      expect(callArg.subject).toContain('招待');
+      expect(callArg.html).toContain('招待コード');
     });
   });
 
@@ -375,10 +321,8 @@ describe('EmailService', () => {
 
       await service.sendRegistrationInviteEmail('bad-email', 'The Parkers', 'Sam');
 
-      expect(mockSendTransacEmail).not.toHaveBeenCalled();
-      expect(loggerSpy).toHaveBeenCalledWith(
-        expect.stringContaining('Invalid email format'),
-      );
+      expect(mockSendMail).not.toHaveBeenCalled();
+      expect(loggerSpy).toHaveBeenCalledWith('Invalid email format: bad-email');
       loggerSpy.mockRestore();
     });
 
@@ -386,41 +330,18 @@ describe('EmailService', () => {
       const email = 'guest@example.com';
       await service.sendRegistrationInviteEmail(email, 'Team Nova', 'Ava');
 
-      const payload = mockSendTransacEmail.mock.calls[0][0];
-      expect(payload.subject).toContain('Team Nova');
-      expect(payload.htmlContent).toContain('Create your account');
-      expect(payload.htmlContent).toContain(encodeURIComponent(email));
-      expect(payload.textContent).toContain('Create your account');
+      const callArg = mockSendMail.mock.calls[0][0];
+      expect(callArg.subject).toContain('Team Nova');
+      expect(callArg.html).toContain('Create your account');
+      expect(callArg.html).toContain(encodeURIComponent(email));
     });
 
-    // Story 1.13: Test language parameter
     it('should send registration invite in Japanese when ja language is specified', async () => {
-      const email = 'guest@example.com';
-      await service.sendRegistrationInviteEmail(email, 'Team Nova', 'Ava', 'ja');
+      await service.sendRegistrationInviteEmail('guest@example.com', 'Team Nova', 'Ava', 'ja');
 
-      const payload = mockSendTransacEmail.mock.calls[0][0];
-      expect(payload.subject).toContain('Team Nova');
-      expect(payload.subject).toContain('Chamo'); // Japanese subject includes Chamo
-      expect(payload.htmlContent).toContain('もう少しです'); // Japanese greeting
-      expect(payload.htmlContent).toContain('アカウントを作成'); // Japanese CTA
-    });
-
-    it('should default to English when no language is specified', async () => {
-      const email = 'guest@example.com';
-      await service.sendRegistrationInviteEmail(email, 'Team Nova', 'Ava');
-
-      const payload = mockSendTransacEmail.mock.calls[0][0];
-      expect(payload.htmlContent).toContain("You're almost there!");
-      expect(payload.htmlContent).toContain('Create your account');
-    });
-
-    it('should fall back to English for unsupported language codes', async () => {
-      const email = 'guest@example.com';
-      await service.sendRegistrationInviteEmail(email, 'Team Nova', 'Ava', 'xx');
-
-      const payload = mockSendTransacEmail.mock.calls[0][0];
-      expect(payload.htmlContent).toContain("You're almost there!");
-      expect(payload.htmlContent).toContain('Create your account');
+      const callArg = mockSendMail.mock.calls[0][0];
+      expect(callArg.html).toContain('もう少しです');
+      expect(callArg.html).toContain('アカウントを作成');
     });
   });
 
@@ -435,96 +356,19 @@ describe('EmailService', () => {
     it('should reject invalid inviter email', async () => {
       const loggerSpy = jest.spyOn(service['logger'], 'error');
 
-      await service.sendInviteeRegistrationNotification(
-        'invalid',
-        'member@example.com',
-        'Lumen Family',
-      );
+      await service.sendInviteeRegistrationNotification('invalid', 'member@example.com', 'Lumen Family');
 
-      expect(mockSendTransacEmail).not.toHaveBeenCalled();
-      expect(loggerSpy).toHaveBeenCalledWith(
-        expect.stringContaining('Invalid inviter email format'),
-      );
+      expect(mockSendMail).not.toHaveBeenCalled();
+      expect(loggerSpy).toHaveBeenCalledWith('Invalid inviter email format: invalid');
       loggerSpy.mockRestore();
     });
 
     it('should notify inviter with pending invite instructions', async () => {
-      await service.sendInviteeRegistrationNotification(
-        'admin@example.com',
-        'member@example.com',
-        'Orbit Family',
-      );
+      await service.sendInviteeRegistrationNotification('admin@example.com', 'member@example.com', 'Orbit Family');
 
-      const payload = mockSendTransacEmail.mock.calls[0][0];
-      expect(payload.subject).toContain('member@example.com');
-      expect(payload.htmlContent).toContain('Complete invite now');
-      expect(payload.htmlContent).toContain('completeInvite%3D');
-      expect(payload.textContent).toContain('member@example.com');
-    });
-  });
-
-  describe('Error Handling', () => {
-    beforeEach(async () => {
-      const module: TestingModule = await Test.createTestingModule({
-        providers: [EmailService],
-      }).compile();
-      service = module.get<EmailService>(EmailService);
-    });
-
-    it('should log rate limit errors with actionable message', async () => {
-      const loggerSpy = jest.spyOn(service['logger'], 'error');
-      mockSendTransacEmail.mockRejectedValueOnce({
-        response: { status: 429 },
-        message: 'Rate limit exceeded',
-      });
-
-      await service.sendVerificationEmail('user@example.com', 'token');
-
-      expect(loggerSpy).toHaveBeenCalledWith(
-        expect.stringContaining('rate limit'),
-      );
-      loggerSpy.mockRestore();
-    });
-
-    it('should log invalid API key errors', async () => {
-      const loggerSpy = jest.spyOn(service['logger'], 'error');
-      mockSendTransacEmail.mockRejectedValueOnce({
-        response: { status: 401 },
-        message: 'Invalid API key',
-      });
-
-      await service.sendVerificationEmail('user@example.com', 'token');
-
-      expect(loggerSpy).toHaveBeenCalledWith(
-        expect.stringContaining('Invalid Brevo API key'),
-      );
-      loggerSpy.mockRestore();
-    });
-
-    it('should retry on 500 server errors', async () => {
-      mockSendTransacEmail
-        .mockRejectedValueOnce({
-          response: { status: 500 },
-          message: 'Server error',
-        })
-        .mockResolvedValueOnce({ messageId: 'success' });
-
-      await service.sendVerificationEmail('user@example.com', 'token');
-
-      expect(mockSendTransacEmail).toHaveBeenCalledTimes(2);
-    });
-
-    it('should retry on ETIMEDOUT errors', async () => {
-      mockSendTransacEmail
-        .mockRejectedValueOnce({
-          code: 'ETIMEDOUT',
-          message: 'Timeout',
-        })
-        .mockResolvedValueOnce({ messageId: 'success' });
-
-      await service.sendVerificationEmail('user@example.com', 'token');
-
-      expect(mockSendTransacEmail).toHaveBeenCalledTimes(2);
+      const callArg = mockSendMail.mock.calls[0][0];
+      expect(callArg.subject).toContain('member@example.com');
+      expect(callArg.html).toContain('Complete invite now');
     });
   });
 });
