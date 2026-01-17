@@ -24,6 +24,6 @@ spec:
     # Production environment variables
     env:
       - name: NEXT_PUBLIC_GRAPHQL_HTTP_URL
-        value: "http://api.ourchat.138-2-48-165.nip.io/graphql"
+        value: "https://api.ourchat.138-2-48-165.nip.io/graphql"
       - name: NEXT_PUBLIC_GRAPHQL_WS_URL
-        value: "ws://api.ourchat.138-2-48-165.nip.io/graphql"
+        value: "wss://api.ourchat.138-2-48-165.nip.io/graphql"
