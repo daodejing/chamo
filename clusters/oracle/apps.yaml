@@ -20,6 +20,11 @@ spec:
   path: ./apps/oracle
   prune: true
   wait: true
+  # SOPS decryption for encrypted secrets
+  decryption:
+    provider: sops
+    secretRef:
+      name: sops-age
   # Post-build variable substitution for dynamic values
   postBuild:
     substituteFrom:

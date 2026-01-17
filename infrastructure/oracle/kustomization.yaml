@@ -16,6 +16,7 @@ resources:
   # Oracle-specific resources
   - namespaces.yaml
   - postgres.yaml
+  - cert-manager.yaml
 
 patches:
   # Patch gateway hosts for nip.io domain

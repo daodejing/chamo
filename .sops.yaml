@@ -1,0 +1,22 @@
+# =============================================================================
+# SOPS Configuration for OurChat
+# =============================================================================
+# This file configures SOPS encryption for Kubernetes secrets.
+# Secrets matching the creation_rules are encrypted with the specified age key.
+#
+# Usage:
+#   Encrypt: sops -e secret.yaml > secret.enc.yaml
+#   Decrypt: sops -d secret.enc.yaml
+#   Edit:    sops secret.enc.yaml
+# =============================================================================
+
+creation_rules:
+  # Oracle cluster secrets
+  - path_regex: apps/oracle/secrets/.*\.yaml$
+    encrypted_regex: "^(data|stringData)$"
+    age: age16a8nqctg868rxvpafsvremquhnecp0d9xh5ws98asqh7ayy5a5qsq6thv7
+
+  # Future: Local cluster secrets (if needed)
+  # - path_regex: apps/local/secrets/.*\.yaml$
+  #   encrypted_regex: "^(data|stringData)$"
+  #   age: <different-key-for-local>

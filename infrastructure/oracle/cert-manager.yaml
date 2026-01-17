@@ -1,0 +1,56 @@
+# =============================================================================
+# Let's Encrypt ClusterIssuer and Certificate for Oracle Cloud
+# =============================================================================
+# Uses HTTP-01 challenge via Istio gateway for TLS certificate provisioning.
+# =============================================================================
+
+---
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: letsencrypt-prod
+spec:
+  acme:
+    server: https://acme-v02.api.letsencrypt.org/directory
+    email: admin@ourchat.app
+    privateKeySecretRef:
+      name: letsencrypt-prod-key
+    solvers:
+      - http01:
+          ingress:
+            class: istio
+
+---
+# Staging issuer for testing (higher rate limits)
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: letsencrypt-staging
+spec:
+  acme:
+    server: https://acme-staging-v02.api.letsencrypt.org/directory
+    email: admin@ourchat.app
+    privateKeySecretRef:
+      name: letsencrypt-staging-key
+    solvers:
+      - http01:
+          ingress:
+            class: istio
+
+---
+# Certificate for ourchat nip.io domains
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: ourchat-tls
+  namespace: istio-ingress
+spec:
+  secretName: ourchat-tls
+  issuerRef:
+    name: letsencrypt-prod
+    kind: ClusterIssuer
+  # nip.io wildcard not supported by Let's Encrypt HTTP-01
+  # Must list specific subdomains
+  dnsNames:
+    - "ourchat.138-2-48-165.nip.io"
+    - "api.ourchat.138-2-48-165.nip.io"
