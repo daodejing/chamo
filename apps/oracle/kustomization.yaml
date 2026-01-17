@@ -16,10 +16,14 @@ resources:
   # - image-scanning.yaml
   - virtual-services.yaml
 
-# Note: We don't include mailhog in production/staging
-# Email will be sent via actual SMTP service
+# For staging, use mailpit (ARM64-compatible mailhog alternative)
 
 patches:
+  # Patch mailhog deployment to use ARM64-compatible image
+  - path: mailhog-patch.yaml
+    target:
+      kind: Deployment
+      name: ourchat-mailhog
   # Patch frontend HelmRelease for OCIR
   - path: image-patches/frontend-image.yaml
     target:

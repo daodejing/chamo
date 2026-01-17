@@ -37,8 +37,8 @@ spec:
         value: "OurChat <noreply@ourchat.app>"
       - name: EMAIL_VERIFICATION_URL
         value: "http://ourchat.138-2-48-165.nip.io/verify-email"
-      # SMTP - configure for actual email service
+      # SMTP - use mailpit for staging (ARM64-compatible mailhog)
       - name: SMTP_HOST
-        value: ""
+        value: "ourchat-mailhog"
       - name: SMTP_PORT
-        value: "587"
+        value: "1025"
