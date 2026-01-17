@@ -55,8 +55,15 @@ RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY apps/backend/package.json ./apps/backend/
 
-# Copy all node_modules from builder (includes Prisma CLI and all dependencies)
+# Copy all node_modules from builder and dereference pnpm symlinks
+# pnpm uses symlinks which break when copied, so we dereference them
 COPY --from=builder /app/node_modules ./node_modules
+RUN cd node_modules && \
+    for link in $(find . -maxdepth 1 -type l); do \
+      target=$(readlink "$link") && \
+      rm "$link" && \
+      cp -r "$target" "$link" 2>/dev/null || true; \
+    done
 
 # Copy built application
 COPY --from=builder /app/apps/backend/dist ./apps/backend/dist
