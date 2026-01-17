@@ -49,8 +49,10 @@ ourchat/
 │   └── oracle-k8s-connect.sh   # SSH tunnel & kubeconfig management
 ├── docker/frontend/
 │   ├── Dockerfile
-│   ├── .env.local              # Build args for local k3d
-│   └── .env.oracle             # Build args for Oracle Cloud
+│   ├── .env.local.example      # Template for local k3d builds
+│   ├── .env.local              # Build args for local k3d (gitignored)
+│   ├── .env.oracle.example     # Template for Oracle Cloud builds
+│   └── .env.oracle             # Build args for Oracle Cloud (gitignored)
 ├── clusters/oracle/            # Flux cluster config
 │   ├── kustomization.yaml
 │   ├── sources.yaml            # HelmRepositories (including OCI)
@@ -65,10 +67,11 @@ ourchat/
 │   └── httproutes.yaml         # Frontend/Backend routes
 ├── apps/oracle/                # Application overlay
 │   ├── kustomization.yaml
-│   ├── mailhog-patch.yaml      # Disabled (using real SMTP)
+│   ├── image-scanning.yaml     # Flux ImageRepository, ImagePolicy, ImageUpdateAutomation
+│   ├── mailhog-patch.yaml      # ARM64 mailpit image
 │   ├── image-patches/
-│   │   ├── backend-image.yaml
-│   │   └── frontend-image.yaml
+│   │   ├── backend-image.yaml  # OCIR image + setter markers
+│   │   └── frontend-image.yaml # OCIR image + setter markers
 │   └── secrets/
 │       └── ourchat-secrets.yaml  # SOPS encrypted
 └── charts/generic-service/     # Helm chart (pushed to OCIR)
@@ -342,7 +345,61 @@ docker buildx build --platform linux/arm64 \
 
 **Common mistake**: Building frontend without specifying build args uses Dockerfile defaults (localhost URLs), causing CORS errors when deployed.
 
-### 11. Flux Reconciliation Commands
+### 11. Flux Image Automation
+
+Flux automatically detects new container images in OCIR and updates deployments, using the same pattern as local k3d.
+
+**Components:**
+- `image-reflector-controller` - Scans OCIR for new tags
+- `image-automation-controller` - Updates git repo with new tags
+
+**Tag Format:** `<git-sha>-<timestamp>` (e.g., `682ecd6-1768628193`)
+
+The build script generates this format automatically:
+```bash
+tag="$(git rev-parse --short HEAD)-$(date +%s)"
+```
+
+**Configuration files:**
+```
+apps/oracle/
+├── image-scanning.yaml      # ImageRepository, ImagePolicy, ImageUpdateAutomation
+└── image-patches/
+    ├── backend-image.yaml   # Contains setter markers
+    └── frontend-image.yaml  # Contains setter markers
+```
+
+**Setter markers** tell Flux where to update image tags:
+```yaml
+# apps/oracle/image-patches/backend-image.yaml
+spec:
+  values:
+    image:
+      repository: ap-osaka-1.ocir.io/axeavx1flryv/ourchat/backend # {"$imagepolicy": "flux-system:ourchat-backend:name"}
+      tag: 2bb6d41-1768627910 # {"$imagepolicy": "flux-system:ourchat-backend:tag"}
+```
+
+**Check image automation status:**
+```bash
+flux get images all -A
+```
+
+**Deploy key permissions:**
+For Flux to auto-commit tag updates, the Git deploy key needs **write access**. If read-only, you'll see:
+```
+failed to push to remote: ERROR: The key you are authenticating with has been marked as read only.
+```
+
+**Workaround for read-only key:** Manually update tags in image patches and push:
+```bash
+# After building new images
+git add apps/oracle/image-patches/
+git commit -m "chore: Update image tags"
+git push
+flux reconcile source git flux-system
+```
+
+### 12. Flux Reconciliation Commands
 
 **Force reconciliation after git push:**
 ```bash
@@ -404,9 +461,12 @@ kubectl logs -n ourchat <pod-name> -c <container-name>
 | Backend crash: INVITE_SECRET | Not 64 characters | Use `openssl rand -hex 32` (not base64) |
 | Backend crash: missing env var | Incomplete config | Check all required env vars |
 | HelmRelease not updating | Cached config | Delete HelmRelease, trigger reconciliation |
-| `409 Conflict` on docker push | Attestation manifest | Use `--provenance=false --sbom=false` |
+| `409 Conflict` on docker push | OCIR doesn't support buildx attestation manifests | Use `--provenance=false --sbom=false` in buildx |
+| `mismatched image rootfs and manifest layers` | Corrupt image from 409 during push | Rebuild image with `--provenance=false --sbom=false` |
 | CORS errors in browser | Frontend built with wrong API URLs | Rebuild with `./scripts/oracle-lab.sh build-push` |
 | Mixed content blocking | Frontend using http:// on https:// site | Update `docker/frontend/.env.oracle` to use https:// |
+| Flux image automation not pushing | Deploy key is read-only | Grant write access or manually update image tags |
+| Health probe 429 errors | Health endpoint rate limited | Add `@SkipThrottle()` decorator to health endpoint |
 
 ---
 
