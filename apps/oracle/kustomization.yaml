@@ -12,7 +12,8 @@ resources:
   # Shared base applications
   - ../base/ourchat
   # Oracle-specific resources
-  - image-scanning.yaml
+  # TODO: Enable image-scanning after installing Flux image-automation-controller
+  # - image-scanning.yaml
   - virtual-services.yaml
 
 # Note: We don't include mailhog in production/staging
