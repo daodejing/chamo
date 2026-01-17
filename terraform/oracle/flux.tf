@@ -22,7 +22,7 @@
 # =============================================================================
 
 # -----------------------------------------------------------------------------
-# Provider Configuration (conditional on flux_enabled)
+# Provider Configuration
 # -----------------------------------------------------------------------------
 
 provider "kubernetes" {
@@ -36,12 +36,29 @@ provider "github" {
 
 # -----------------------------------------------------------------------------
 # SSH Key for Flux (deploy key)
+# Always created so provider can reference it, but only used when flux_enabled
 # -----------------------------------------------------------------------------
 
 resource "tls_private_key" "flux" {
-  count     = var.flux_enabled ? 1 : 0
-  algorithm = "ECDSA"
+  algorithm   = "ECDSA"
   ecdsa_curve = "P256"
+}
+
+# -----------------------------------------------------------------------------
+# Flux Provider Configuration
+# -----------------------------------------------------------------------------
+
+provider "flux" {
+  kubernetes = {
+    config_path = "~/.kube/ourchat-oracle.yaml"
+  }
+  git = {
+    url = "ssh://git@github.com/${var.github_owner}/${var.github_repository}.git"
+    ssh = {
+      username    = "git"
+      private_key = tls_private_key.flux.private_key_pem
+    }
+  }
 }
 
 # -----------------------------------------------------------------------------
@@ -52,7 +69,7 @@ resource "github_repository_deploy_key" "flux" {
   count      = var.flux_enabled ? 1 : 0
   title      = "flux-${var.environment}"
   repository = var.github_repository
-  key        = tls_private_key.flux[0].public_key_openssh
+  key        = tls_private_key.flux.public_key_openssh
   read_only  = false  # Required for image automation to commit changes
 }
 
@@ -81,7 +98,7 @@ resource "flux_bootstrap_git" "this" {
 
 output "flux_deploy_key_fingerprint" {
   description = "Fingerprint of the Flux deploy key"
-  value       = var.flux_enabled ? tls_private_key.flux[0].public_key_fingerprint_sha256 : null
+  value       = var.flux_enabled ? tls_private_key.flux.public_key_fingerprint_sha256 : null
 }
 
 output "flux_status" {
