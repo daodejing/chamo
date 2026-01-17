@@ -67,6 +67,9 @@ COPY --from=builder /app/apps/backend/dist ./apps/backend/dist
 COPY --from=builder /app/node_modules/.pnpm/@prisma+client@*/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder /app/node_modules/.pnpm/@prisma+client@*/node_modules/@prisma ./node_modules/@prisma
 
+# Copy Prisma CLI for migrations (needed for prisma migrate deploy)
+COPY --from=builder /app/node_modules/.pnpm/prisma@*/node_modules/prisma ./node_modules/prisma
+
 # Copy Prisma schema for migrations
 COPY apps/backend/prisma ./apps/backend/prisma
 
