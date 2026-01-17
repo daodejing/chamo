@@ -19,7 +19,7 @@ metadata:
 spec:
   type: NodePort
   selector:
-    istio.io/gateway-name: ourchat-gateway
+    gateway.networking.k8s.io/gateway-name: ourchat-gateway
   ports:
     - name: status-port
       port: 15021
