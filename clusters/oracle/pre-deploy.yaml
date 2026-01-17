@@ -1,34 +1,30 @@
 # =============================================================================
-# Applications Kustomization for Oracle Cloud
+# Pre-Deploy Kustomization for Oracle Cloud
+# =============================================================================
+# Runs database migrations before application deployment.
+# The apps Kustomization depends on this completing successfully.
 # =============================================================================
 
----
 apiVersion: kustomize.toolkit.fluxcd.io/v1
 kind: Kustomization
 metadata:
-  name: apps
+  name: pre-deploy
   namespace: flux-system
 spec:
   dependsOn:
     - name: infrastructure
-    - name: pre-deploy
   interval: 10m
   retryInterval: 1m
   timeout: 5m
   sourceRef:
     kind: GitRepository
     name: flux-system
-  path: ./apps/oracle
+  path: ./apps/oracle/pre-deploy
   prune: true
   wait: true
-  # SOPS decryption for encrypted secrets
+  force: true
+  # SOPS decryption for DATABASE_URL secret access
   decryption:
     provider: sops
     secretRef:
       name: sops-age
-  # Post-build variable substitution for dynamic values
-  postBuild:
-    substituteFrom:
-      - kind: ConfigMap
-        name: cluster-config
-        optional: true

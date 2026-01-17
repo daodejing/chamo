@@ -1,0 +1,61 @@
+# =============================================================================
+# Database Migration Job for Oracle Cloud
+# =============================================================================
+# Runs Prisma migrations before application deployment.
+# Uses the same image as the backend to ensure schema compatibility.
+#
+# Key features:
+# - Istio annotation to wait for sidecar before starting
+# - Image automation marker to stay in sync with backend
+# - Idempotent: safe to run on every deployment
+# =============================================================================
+
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: db-migrate
+  namespace: ourchat
+  annotations:
+    # Force Flux to recreate the Job when image changes
+    # The job name includes a hash that changes with the image tag
+    kustomize.toolkit.fluxcd.io/force: enabled
+spec:
+  backoffLimit: 3
+  ttlSecondsAfterFinished: 300
+  template:
+    metadata:
+      annotations:
+        # Istio: wait for sidecar proxy before starting migration
+        proxy.istio.io/config: '{"holdApplicationUntilProxyStarts": true}'
+        # Istio: allow sidecar to terminate when job completes
+        sidecar.istio.io/rewriteAppHTTPProbers: "false"
+    spec:
+      restartPolicy: Never
+      imagePullSecrets:
+        - name: ocir-secret
+      containers:
+        - name: migrate
+          # Image policy marker for Flux automation - stays in sync with backend
+          image: ap-osaka-1.ocir.io/axeavx1flryv/ourchat/backend:2bb6d41-1768627910 # {"$imagepolicy": "flux-system:ourchat-backend"}
+          command:
+            - sh
+            - -c
+            - |
+              set -e
+              echo "Starting database migration..."
+              echo "Database: $DATABASE_URL" | sed 's/:[^:@]*@/:***@/'
+              npx prisma migrate deploy
+              echo "Migration completed successfully"
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: ourchat-secrets
+                  key: DATABASE_URL
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi

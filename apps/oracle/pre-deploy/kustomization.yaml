@@ -1,0 +1,12 @@
+# =============================================================================
+# Pre-Deploy Kustomization for Oracle Cloud
+# =============================================================================
+# Contains resources that must run before application deployment,
+# such as database migrations.
+# =============================================================================
+
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - migration-job.yaml

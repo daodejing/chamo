@@ -13,5 +13,7 @@ resources:
   - sources.yaml
   # Infrastructure kustomization (controllers, observability, ingress)
   - infrastructure.yaml
+  # Pre-deploy kustomization (database migrations)
+  - pre-deploy.yaml
   # Application kustomization (ourchat services)
   - apps.yaml
