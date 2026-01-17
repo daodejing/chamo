@@ -1,18 +1,8 @@
-# Patch MailHog to use ARM64-compatible mailpit image
+# Disable MailHog for Oracle - using real SMTP (Brevo)
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: ourchat-mailhog
   namespace: ourchat
 spec:
-  template:
-    spec:
-      containers:
-        - name: mailhog
-          # Use mailpit instead of mailhog - supports ARM64
-          image: axllent/mailpit:latest
-          ports:
-            - name: smtp
-              containerPort: 1025
-            - name: web
-              containerPort: 8025
+  replicas: 0
