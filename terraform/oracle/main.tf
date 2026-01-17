@@ -3,16 +3,20 @@
 # =============================================================================
 
 provider "oci" {
-  tenancy_ocid     = var.tenancy_ocid
-  user_ocid        = var.user_ocid
-  fingerprint      = var.fingerprint
-  private_key_path = var.private_key_path
-  region           = var.region
+  # Use API key authentication (doesn't expire)
+  config_file_profile = "DEFAULT"
+  region              = var.region
+}
+
+# Read tenancy OCID from OCI config file
+data "external" "oci_config" {
+  program = ["bash", "-c", "echo '{\"tenancy\": \"'$(grep tenancy ~/.oci/config | cut -d= -f2)'\"}'"]
 }
 
 # Use tenancy as compartment if not specified
 locals {
-  compartment_ocid = var.compartment_ocid != "" ? var.compartment_ocid : var.tenancy_ocid
+  tenancy_ocid     = var.tenancy_ocid != "" ? var.tenancy_ocid : data.external.oci_config.result.tenancy
+  compartment_ocid = var.compartment_ocid != "" ? var.compartment_ocid : local.tenancy_ocid
 
   common_tags = {
     Project     = var.project_name
@@ -23,10 +27,10 @@ locals {
 
 # Get availability domains
 data "oci_identity_availability_domains" "ads" {
-  compartment_id = var.tenancy_ocid
+  compartment_id = local.tenancy_ocid
 }
 
 # Get tenancy namespace for OCIR
 data "oci_objectstorage_namespace" "ns" {
-  compartment_id = var.tenancy_ocid
+  compartment_id = local.tenancy_ocid
 }

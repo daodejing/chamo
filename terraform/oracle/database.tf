@@ -32,15 +32,23 @@ resource "oci_database_autonomous_database" "main" {
   license_model = "LICENSE_INCLUDED"
 
   # Auto-scaling disabled for free tier
-  is_auto_scaling_enabled         = false
-  is_auto_scaling_for_storage_enabled = false
+  is_auto_scaling_enabled = false
 
   freeform_tags = local.common_tags
 
   lifecycle {
     ignore_changes = [
-      # Ignore changes that Oracle may make automatically
+      # Ignore all changes after creation - free tier has limited update support
       defined_tags,
+      db_name,
+      admin_password,
+      cpu_core_count,
+      data_storage_size_in_tbs,
+      is_auto_scaling_enabled,
+      is_mtls_connection_required,
+      whitelisted_ips,
+      license_model,
+      freeform_tags,
     ]
   }
 }

@@ -19,7 +19,7 @@ resource "oci_load_balancer_load_balancer" "main" {
   freeform_tags = local.common_tags
 }
 
-# Backend Set for k3s Istio Ingress (HTTP)
+# Backend Set for k3s Istio Ingress (HTTP via NodePort)
 resource "oci_load_balancer_backend_set" "http" {
   load_balancer_id = oci_load_balancer_load_balancer.main.id
   name             = "http-backend"
@@ -27,14 +27,14 @@ resource "oci_load_balancer_backend_set" "http" {
 
   health_checker {
     protocol          = "TCP"
-    port              = 80
+    port              = 30080
     interval_ms       = 10000
     timeout_in_millis = 3000
     retries           = 3
   }
 }
 
-# Backend Set for HTTPS
+# Backend Set for HTTPS (via NodePort)
 resource "oci_load_balancer_backend_set" "https" {
   load_balancer_id = oci_load_balancer_load_balancer.main.id
   name             = "https-backend"
@@ -42,28 +42,28 @@ resource "oci_load_balancer_backend_set" "https" {
 
   health_checker {
     protocol          = "TCP"
-    port              = 443
+    port              = 30443
     interval_ms       = 10000
     timeout_in_millis = 3000
     retries           = 3
   }
 }
 
-# Backend - k3s node for HTTP
+# Backend - k3s node for HTTP (NodePort 30080)
 resource "oci_load_balancer_backend" "k3s_http" {
   load_balancer_id = oci_load_balancer_load_balancer.main.id
   backendset_name  = oci_load_balancer_backend_set.http.name
   ip_address       = data.oci_core_vnic.k3s.private_ip_address
-  port             = 80
+  port             = 30080
   weight           = 1
 }
 
-# Backend - k3s node for HTTPS
+# Backend - k3s node for HTTPS (NodePort 30443)
 resource "oci_load_balancer_backend" "k3s_https" {
   load_balancer_id = oci_load_balancer_load_balancer.main.id
   backendset_name  = oci_load_balancer_backend_set.https.name
   ip_address       = data.oci_core_vnic.k3s.private_ip_address
-  port             = 443
+  port             = 30443
   weight           = 1
 }
 

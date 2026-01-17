@@ -1,32 +1,19 @@
 # =============================================================================
 # OCI Provider Variables
 # =============================================================================
+# Note: Using session token authentication (oci session authenticate)
+# User/fingerprint/key read from ~/.oci/config automatically
 
 variable "tenancy_ocid" {
-  description = "OCID of the tenancy"
+  description = "OCID of the tenancy (read from ~/.oci/config if not set)"
   type        = string
-}
-
-variable "user_ocid" {
-  description = "OCID of the user"
-  type        = string
-}
-
-variable "fingerprint" {
-  description = "Fingerprint of the API key"
-  type        = string
-}
-
-variable "private_key_path" {
-  description = "Path to the private key file"
-  type        = string
-  default     = "~/.oci/oci_api_key.pem"
+  default     = ""
 }
 
 variable "region" {
   description = "OCI region"
   type        = string
-  default     = "us-phoenix-1"
+  default     = "ap-osaka-1"
 }
 
 variable "compartment_ocid" {

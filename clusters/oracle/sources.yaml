@@ -58,20 +58,13 @@ spec:
   url: https://charts.bitnami.com/bitnami
 
 ---
-# Local Helm charts (OCI registry - uses generic-service chart)
-# Note: For Oracle, we push the chart to OCIR or use the local chart
-apiVersion: source.toolkit.fluxcd.io/v1beta2
-kind: OCIRepository
+# Platform Helm charts from OCIR (OCI registry)
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: HelmRepository
 metadata:
   name: platform-charts
   namespace: flux-system
 spec:
+  type: oci
   interval: 10m
-  # This URL will be updated after chart is pushed to OCIR
-  # For now, we'll use HelmRelease with local chart path
-  url: oci://ghcr.io/daodejing/chamo/charts
-  ref:
-    tag: latest
-  ignore: |
-    # Ignore signature verification for local development
-    *.sig
+  url: oci://ap-osaka-1.ocir.io/axeavx1flryv/ourchat/charts
