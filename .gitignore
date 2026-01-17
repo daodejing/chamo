@@ -86,3 +86,4 @@ override.tf.json
 # Prototype (reference only, has own git repo)
 frontend-proto/
 out/
+terraform/oracle/tfplan

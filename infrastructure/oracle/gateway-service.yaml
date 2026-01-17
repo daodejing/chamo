@@ -1,0 +1,37 @@
+# =============================================================================
+# Gateway Service with Fixed NodePorts
+# =============================================================================
+# Pre-create the service that Istio's Gateway API implementation will use.
+# By defining it before the Gateway, Istio adopts this service instead of
+# creating one with random NodePorts.
+#
+# This ensures stable NodePort assignments that match the Oracle Load Balancer
+# backend set configuration in Terraform.
+# =============================================================================
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: ourchat-gateway-istio
+  namespace: istio-ingress
+  labels:
+    gateway.istio.io/managed: istio.io-gateway-controller
+spec:
+  type: NodePort
+  selector:
+    istio.io/gateway-name: ourchat-gateway
+  ports:
+    - name: status-port
+      port: 15021
+      targetPort: 15021
+      protocol: TCP
+    - name: http
+      port: 80
+      targetPort: 80
+      protocol: TCP
+      nodePort: 30080  # Matches Oracle LB http-backend
+    - name: https
+      port: 443
+      targetPort: 443
+      protocol: TCP
+      nodePort: 30443  # Matches Oracle LB https-backend

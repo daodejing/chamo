@@ -1,8 +1,62 @@
 # =============================================================================
-# Let's Encrypt ClusterIssuer and Certificate for Oracle Cloud
+# Let's Encrypt ClusterIssuer with Gateway API HTTP-01 Solver
 # =============================================================================
-# Uses HTTP-01 challenge via Istio gateway for TLS certificate provisioning.
+# Uses Kubernetes Gateway API for HTTP-01 challenges with Istio.
 # =============================================================================
+
+---
+# Gateway for ACME HTTP-01 challenges (and production traffic)
+# Note: Use specific hostnames, not wildcards, for HTTP-01 challenges
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: ourchat-gateway
+  namespace: istio-ingress
+spec:
+  gatewayClassName: istio
+  listeners:
+    # HTTP listener for frontend (and ACME challenges)
+    - name: http-frontend
+      port: 80
+      protocol: HTTP
+      hostname: "ourchat.138-2-48-165.nip.io"
+      allowedRoutes:
+        namespaces:
+          from: All
+    # HTTP listener for backend API (and ACME challenges)
+    - name: http-api
+      port: 80
+      protocol: HTTP
+      hostname: "api.ourchat.138-2-48-165.nip.io"
+      allowedRoutes:
+        namespaces:
+          from: All
+    # HTTPS listener for frontend
+    - name: https-frontend
+      port: 443
+      protocol: HTTPS
+      hostname: "ourchat.138-2-48-165.nip.io"
+      allowedRoutes:
+        namespaces:
+          from: All
+      tls:
+        mode: Terminate
+        certificateRefs:
+          - name: ourchat-tls
+            kind: Secret
+    # HTTPS listener for backend API
+    - name: https-api
+      port: 443
+      protocol: HTTPS
+      hostname: "api.ourchat.138-2-48-165.nip.io"
+      allowedRoutes:
+        namespaces:
+          from: All
+      tls:
+        mode: Terminate
+        certificateRefs:
+          - name: ourchat-tls
+            kind: Secret
 
 ---
 apiVersion: cert-manager.io/v1
@@ -17,8 +71,11 @@ spec:
       name: letsencrypt-prod-key
     solvers:
       - http01:
-          ingress:
-            class: istio
+          gatewayHTTPRoute:
+            parentRefs:
+              - name: ourchat-gateway
+                namespace: istio-ingress
+                kind: Gateway
 
 ---
 # Staging issuer for testing (higher rate limits)
@@ -34,8 +91,11 @@ spec:
       name: letsencrypt-staging-key
     solvers:
       - http01:
-          ingress:
-            class: istio
+          gatewayHTTPRoute:
+            parentRefs:
+              - name: ourchat-gateway
+                namespace: istio-ingress
+                kind: Gateway
 
 ---
 # Certificate for ourchat nip.io domains
@@ -49,8 +109,6 @@ spec:
   issuerRef:
     name: letsencrypt-prod
     kind: ClusterIssuer
-  # nip.io wildcard not supported by Let's Encrypt HTTP-01
-  # Must list specific subdomains
   dnsNames:
     - "ourchat.138-2-48-165.nip.io"
     - "api.ourchat.138-2-48-165.nip.io"

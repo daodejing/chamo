@@ -1,8 +1,9 @@
 # =============================================================================
 # Infrastructure Overlay for Oracle Cloud
 # =============================================================================
-# This overlay references the shared base infrastructure and adds
-# Oracle-specific configurations (no postgres, nip.io domains).
+# Uses Kubernetes Gateway API for ingress with TLS termination via
+# cert-manager and Let's Encrypt. Does not use base/ingress (which uses
+# legacy Istio Gateway API).
 # =============================================================================
 
 apiVersion: kustomize.config.k8s.io/v1beta1
@@ -12,15 +13,11 @@ resources:
   # Shared base infrastructure
   # TODO: Re-enable observability after OurChat is deployed
   # - ../base/observability
-  - ../base/ingress
+  # NOTE: Not using ../base/ingress - we use Kubernetes Gateway API instead
   # Oracle-specific resources
   - namespaces.yaml
   - postgres.yaml
+  # Gateway API + TLS (must be in order: service -> gateway -> routes)
+  - gateway-service.yaml
   - cert-manager.yaml
-
-patches:
-  # Patch gateway hosts for nip.io domain
-  - path: ingress-patches/gateway-hosts.yaml
-    target:
-      kind: Gateway
-      name: main-gateway
+  - httproutes.yaml

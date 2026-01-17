@@ -14,7 +14,7 @@ resources:
   # Oracle-specific resources
   # TODO: Enable image-scanning after installing Flux image-automation-controller
   # - image-scanning.yaml
-  - virtual-services.yaml
+  # NOTE: Not using virtual-services.yaml - we use HTTPRoutes in infrastructure/oracle instead
   # Encrypted secrets (decrypted by Flux with SOPS)
   - secrets/ourchat-secrets.yaml
 
