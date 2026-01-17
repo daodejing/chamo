@@ -17,8 +17,10 @@ spec:
   install:
     createNamespace: true
     crds: Create
+    disableOpenAPIValidation: true
   upgrade:
     crds: CreateReplace
+    disableOpenAPIValidation: true
   values:
     # Grafana is deployed separately
     grafana:
