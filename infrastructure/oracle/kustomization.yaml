@@ -15,6 +15,7 @@ resources:
   - ../base/ingress
   # Oracle-specific resources
   - namespaces.yaml
+  - postgres.yaml
 
 patches:
   # Patch gateway hosts for nip.io domain
