@@ -68,3 +68,5 @@ spec:
   type: oci
   interval: 10m
   url: oci://ap-osaka-1.ocir.io/axeavx1flryv/ourchat/charts
+  secretRef:
+    name: ocir-secret
