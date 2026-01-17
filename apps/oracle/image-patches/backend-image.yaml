@@ -35,7 +35,7 @@ spec:
       # Email configuration for staging (use real SMTP in production)
       - name: EMAIL_FROM
         value: "OurChat <noreply@ourchat.app>"
-      - name: VERIFICATION_URL
+      - name: EMAIL_VERIFICATION_URL
         value: "http://ourchat.138-2-48-165.nip.io/verify-email"
       # SMTP - configure for actual email service
       - name: SMTP_HOST
