@@ -50,7 +50,9 @@ export function InviteMemberDialog({
     language === 'ja' || language === 'en' ? language : 'en'
   );
 
-  const [getUserPublicKey] = useLazyQuery(GetUserPublicKeyDocument);
+  const [getUserPublicKey] = useLazyQuery(GetUserPublicKeyDocument, {
+    fetchPolicy: 'network-only', // Always fetch fresh to check registration status
+  });
   const [createEncryptedInvite, { loading: isCreatingInvite }] = useMutation(
     CreateEncryptedInviteDocument
   );

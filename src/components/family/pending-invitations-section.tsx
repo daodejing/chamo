@@ -37,7 +37,9 @@ export function PendingInvitationsSection({ familyId, autoCompleteEmail }: Pendi
     skip: !familyId,
   });
 
-  const [getUserPublicKey] = useLazyQuery(GetUserPublicKeyDocument);
+  const [getUserPublicKey] = useLazyQuery(GetUserPublicKeyDocument, {
+    fetchPolicy: 'network-only', // Always fetch fresh to check registration status
+  });
   const [createEncryptedInvite] = useMutation(CreateEncryptedInviteDocument);
 
   const pendingInvites = data?.getPendingInvites || [];
