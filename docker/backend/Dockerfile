@@ -13,7 +13,6 @@ RUN apk add --no-cache python3 make g++ && npm install -g pnpm
 # Copy package files
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY apps/backend/package.json ./apps/backend/
-COPY packages/ ./packages/
 
 # Install all dependencies (including devDependencies for build)
 RUN pnpm install --frozen-lockfile
@@ -28,7 +27,6 @@ RUN npm install -g pnpm
 # Copy dependencies
 COPY --from=deps /app/node_modules ./node_modules
 COPY --from=deps /app/apps/backend/node_modules ./apps/backend/node_modules
-COPY --from=deps /app/packages ./packages
 
 # Copy source code
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
