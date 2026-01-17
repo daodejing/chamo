@@ -58,7 +58,7 @@ jobs:
         uses: docker/login-action@v3
         with:
           registry: ${{ env.OCIR_REGISTRY }}
-          username: ${{ env.OCIR_NAMESPACE }}/oracleidentitycloudservice/${{ secrets.OCIR_USERNAME }}
+          username: ${{ env.OCIR_NAMESPACE }}/${{ secrets.OCIR_USERNAME }}
           password: ${{ secrets.OCIR_AUTH_TOKEN }}
 
       - name: Generate image tag
