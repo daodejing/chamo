@@ -31,6 +31,12 @@ variable "ssh_public_key" {
   type        = string
 }
 
+variable "admin_cidr_blocks" {
+  description = "CIDR blocks allowed for SSH and k8s API access (e.g., your IP/32)"
+  type        = list(string)
+  default     = ["131.147.163.106/32"]
+}
+
 variable "vm_ocpus" {
   description = "Number of OCPUs for the ARM VM (max 4 for free tier)"
   type        = number

@@ -49,16 +49,19 @@ resource "oci_core_security_list" "public" {
     stateless   = false
   }
 
-  # Ingress - SSH
-  ingress_security_rules {
-    protocol    = "6" # TCP
-    source      = "0.0.0.0/0"
-    stateless   = false
-    description = "SSH access"
+  # Ingress - SSH (restricted to admin IPs)
+  dynamic "ingress_security_rules" {
+    for_each = var.admin_cidr_blocks
+    content {
+      protocol    = "6" # TCP
+      source      = ingress_security_rules.value
+      stateless   = false
+      description = "SSH access from ${ingress_security_rules.value}"
 
-    tcp_options {
-      min = 22
-      max = 22
+      tcp_options {
+        min = 22
+        max = 22
+      }
     }
   }
 
@@ -88,16 +91,19 @@ resource "oci_core_security_list" "public" {
     }
   }
 
-  # Ingress - Kubernetes API
-  ingress_security_rules {
-    protocol    = "6" # TCP
-    source      = "0.0.0.0/0"
-    stateless   = false
-    description = "Kubernetes API access"
+  # Ingress - Kubernetes API (restricted to admin IPs)
+  dynamic "ingress_security_rules" {
+    for_each = var.admin_cidr_blocks
+    content {
+      protocol    = "6" # TCP
+      source      = ingress_security_rules.value
+      stateless   = false
+      description = "Kubernetes API access from ${ingress_security_rules.value}"
 
-    tcp_options {
-      min = 6443
-      max = 6443
+      tcp_options {
+        min = 6443
+        max = 6443
+      }
     }
   }
 
