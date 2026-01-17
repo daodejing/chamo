@@ -10,7 +10,7 @@
 # =============================================================================
 
 ---
-# Frontend - ourchat.*.nip.io
+# Frontend - ourchat.138-2-48-165.nip.io
 apiVersion: networking.istio.io/v1
 kind: VirtualService
 metadata:
@@ -18,7 +18,7 @@ metadata:
   namespace: istio-ingress
 spec:
   hosts:
-    - "ourchat.*.nip.io"
+    - "ourchat.138-2-48-165.nip.io"
   gateways:
     - main-gateway
   http:
@@ -29,7 +29,7 @@ spec:
               number: 3000
 
 ---
-# Backend API - api.ourchat.*.nip.io
+# Backend API - api.ourchat.138-2-48-165.nip.io
 apiVersion: networking.istio.io/v1
 kind: VirtualService
 metadata:
@@ -37,7 +37,7 @@ metadata:
   namespace: istio-ingress
 spec:
   hosts:
-    - "api.ourchat.*.nip.io"
+    - "api.ourchat.138-2-48-165.nip.io"
   gateways:
     - main-gateway
   http:
@@ -47,21 +47,4 @@ spec:
             port:
               number: 4000
 
----
-# Grafana - grafana.*.nip.io (for monitoring)
-apiVersion: networking.istio.io/v1
-kind: VirtualService
-metadata:
-  name: grafana
-  namespace: istio-ingress
-spec:
-  hosts:
-    - "grafana.*.nip.io"
-  gateways:
-    - main-gateway
-  http:
-    - route:
-        - destination:
-            host: grafana.observability.svc.cluster.local
-            port:
-              number: 80
+# Grafana removed - observability is disabled for now
