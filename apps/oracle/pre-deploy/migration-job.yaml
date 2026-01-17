@@ -44,10 +44,8 @@ spec:
               set -e
               echo "Starting database migration..."
               echo "Database: $DATABASE_URL" | sed 's/:[^:@]*@/:***@/'
-              # pnpm stores packages in .pnpm with version suffix
-              # Use wildcard to handle version changes
-              PRISMA_CLI="/app/node_modules/.pnpm/prisma@6.17.1_typescript@5.9.3/node_modules/prisma/build/index.js"
-              node "$PRISMA_CLI" migrate deploy
+              # With dereferenced symlinks, standard node_modules path works
+              npx prisma migrate deploy
               echo "Migration completed successfully"
           env:
             - name: DATABASE_URL

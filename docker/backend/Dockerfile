@@ -55,15 +55,11 @@ RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY apps/backend/package.json ./apps/backend/
 
-# Copy all node_modules from builder and dereference pnpm symlinks
-# pnpm uses symlinks which break when copied, so we dereference them
-COPY --from=builder /app/node_modules ./node_modules
-RUN cd node_modules && \
-    for link in $(find . -maxdepth 1 -type l); do \
-      target=$(readlink "$link") && \
-      rm "$link" && \
-      cp -r "$target" "$link" 2>/dev/null || true; \
-    done
+# Copy node_modules from builder and dereference ALL pnpm symlinks
+# pnpm uses symlinks extensively which break when Docker copies them
+# Solution: copy with dereferencing (-L flag) to a temp dir, then move back
+COPY --from=builder /app/node_modules ./node_modules_linked
+RUN cp -rL node_modules_linked node_modules && rm -rf node_modules_linked
 
 # Copy built application
 COPY --from=builder /app/apps/backend/dist ./apps/backend/dist
