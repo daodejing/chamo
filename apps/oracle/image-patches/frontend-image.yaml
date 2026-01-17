@@ -17,13 +17,13 @@ spec:
     image:
       # OCIR format: <region>.ocir.io/<namespace>/ourchat/frontend
       # This will be automatically updated by Flux image automation
-      repository: us-phoenix-1.ocir.io/placeholder/ourchat/frontend # {"$imagepolicy": "flux-system:ourchat-frontend:name"}
-      tag: latest # {"$imagepolicy": "flux-system:ourchat-frontend:tag"}
+      repository: ap-osaka-1.ocir.io/axeavx1flryv/ourchat/frontend
+      tag: latest
     imagePullSecrets:
-      - name: ocir-pull-secret
+      - name: ocir-secret
     # Production environment variables
     env:
       - name: NEXT_PUBLIC_GRAPHQL_HTTP_URL
-        value: "http://api.ourchat.PLACEHOLDER.nip.io/graphql"
+        value: "http://api.ourchat.138-2-48-165.nip.io/graphql"
       - name: NEXT_PUBLIC_GRAPHQL_WS_URL
-        value: "ws://api.ourchat.PLACEHOLDER.nip.io/graphql"
+        value: "ws://api.ourchat.138-2-48-165.nip.io/graphql"

@@ -17,10 +17,10 @@ spec:
     image:
       # OCIR format: <region>.ocir.io/<namespace>/ourchat/backend
       # This will be automatically updated by Flux image automation
-      repository: us-phoenix-1.ocir.io/placeholder/ourchat/backend # {"$imagepolicy": "flux-system:ourchat-backend:name"}
-      tag: latest # {"$imagepolicy": "flux-system:ourchat-backend:tag"}
+      repository: ap-osaka-1.ocir.io/axeavx1flryv/ourchat/backend
+      tag: latest
     imagePullSecrets:
-      - name: ocir-pull-secret
+      - name: ocir-secret
     # Production environment - use secrets
     envFrom:
       - secretRef:
@@ -34,7 +34,7 @@ spec:
       - name: EMAIL_FROM
         value: "OurChat <noreply@ourchat.app>"
       - name: VERIFICATION_URL
-        value: "http://ourchat.PLACEHOLDER.nip.io/verify-email"
+        value: "http://ourchat.138-2-48-165.nip.io/verify-email"
       # SMTP - configure for actual email service
       - name: SMTP_HOST
         value: ""
