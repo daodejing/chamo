@@ -12,7 +12,6 @@ RUN npm install -g pnpm
 
 # Copy package files
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
-COPY packages/ ./packages/
 
 # Install dependencies
 RUN pnpm install --frozen-lockfile
@@ -26,7 +25,6 @@ RUN npm install -g pnpm
 
 # Copy dependencies from deps stage
 COPY --from=deps /app/node_modules ./node_modules
-COPY --from=deps /app/packages ./packages
 
 # Copy source files
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
