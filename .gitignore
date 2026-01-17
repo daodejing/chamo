@@ -26,6 +26,7 @@ next-env.d.ts
 # Environment variables
 .env
 .env*.local
+.env.oracle
 .envrc
 
 # Staging credentials and secrets

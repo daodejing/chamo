@@ -238,6 +238,22 @@ cmd_build_push() {
     log_info "Building images for ARM64..."
     log_info "Tag: ${tag}"
 
+    # Load frontend build environment variables
+    local frontend_env_file="${PROJECT_ROOT}/docker/frontend/.env.oracle"
+    if [[ ! -f "${frontend_env_file}" ]]; then
+        log_error "Frontend env file not found: ${frontend_env_file}"
+        log_info "Create it with NEXT_PUBLIC_GRAPHQL_HTTP_URL and NEXT_PUBLIC_GRAPHQL_WS_URL"
+        exit 1
+    fi
+
+    # Read build args from env file
+    local graphql_http_url=$(grep -E '^NEXT_PUBLIC_GRAPHQL_HTTP_URL=' "${frontend_env_file}" | cut -d= -f2-)
+    local graphql_ws_url=$(grep -E '^NEXT_PUBLIC_GRAPHQL_WS_URL=' "${frontend_env_file}" | cut -d= -f2-)
+
+    log_info "Frontend build args:"
+    log_info "  NEXT_PUBLIC_GRAPHQL_HTTP_URL=${graphql_http_url}"
+    log_info "  NEXT_PUBLIC_GRAPHQL_WS_URL=${graphql_ws_url}"
+
     # Check if logged into OCIR
     if ! docker manifest inspect "${frontend_image}:latest" &>/dev/null 2>&1; then
         log_warn "You may need to login to OCIR first:"
@@ -246,11 +262,13 @@ cmd_build_push() {
         log_info "  Password: <auth-token from OCI Console>"
     fi
 
-    # Build frontend
+    # Build frontend with environment-specific build args
     log_info "Building frontend..."
     docker buildx build \
         --platform linux/arm64 \
         -f docker/frontend/Dockerfile \
+        --build-arg "NEXT_PUBLIC_GRAPHQL_HTTP_URL=${graphql_http_url}" \
+        --build-arg "NEXT_PUBLIC_GRAPHQL_WS_URL=${graphql_ws_url}" \
         -t "${frontend_image}:${tag}" \
         -t "${frontend_image}:latest" \
         --push \

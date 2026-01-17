@@ -16,9 +16,11 @@ Deploy OurChat to Oracle Cloud's Always Free tier as a staging environment, comp
 
 | Service | URL |
 |---------|-----|
-| Frontend | http://ourchat.138-2-48-165.nip.io |
-| Backend API | http://api.ourchat.138-2-48-165.nip.io |
-| Health Check | http://api.ourchat.138-2-48-165.nip.io/health |
+| Frontend | https://ourchat.138-2-48-165.nip.io |
+| Backend API | https://api.ourchat.138-2-48-165.nip.io |
+| Health Check | https://api.ourchat.138-2-48-165.nip.io/health |
+
+> **TLS**: Valid Let's Encrypt certificate auto-renewed by cert-manager.
 
 ## Oracle Cloud Free Tier Resources
 
@@ -43,24 +45,32 @@ ourchat/
 │   ├── loadbalancer.tf
 │   └── outputs.tf
 ├── scripts/
+│   ├── oracle-lab.sh           # Deployment automation (build-push, etc.)
 │   └── oracle-k8s-connect.sh   # SSH tunnel & kubeconfig management
+├── docker/frontend/
+│   ├── Dockerfile
+│   ├── .env.local              # Build args for local k3d
+│   └── .env.oracle             # Build args for Oracle Cloud
 ├── clusters/oracle/            # Flux cluster config
 │   ├── kustomization.yaml
 │   ├── sources.yaml            # HelmRepositories (including OCI)
 │   ├── infrastructure.yaml
-│   └── apps.yaml
+│   └── apps.yaml               # SOPS decryption config
 ├── infrastructure/oracle/      # Infrastructure overlay
 │   ├── kustomization.yaml
 │   ├── namespaces.yaml
 │   ├── postgres.yaml           # In-cluster PostgreSQL
-│   └── ingress-patches/
+│   ├── gateway-service.yaml    # Fixed NodePorts for LB
+│   ├── cert-manager.yaml       # TLS Gateway + Certificate
+│   └── httproutes.yaml         # Frontend/Backend routes
 ├── apps/oracle/                # Application overlay
 │   ├── kustomization.yaml
-│   ├── virtual-services.yaml
-│   ├── mailhog-patch.yaml      # ARM64 mailpit patch
-│   └── image-patches/
-│       ├── backend-image.yaml
-│       └── frontend-image.yaml
+│   ├── mailhog-patch.yaml      # Disabled (using real SMTP)
+│   ├── image-patches/
+│   │   ├── backend-image.yaml
+│   │   └── frontend-image.yaml
+│   └── secrets/
+│       └── ourchat-secrets.yaml  # SOPS encrypted
 └── charts/generic-service/     # Helm chart (pushed to OCIR)
 ```
 
@@ -266,7 +276,73 @@ export KUBECONFIG=/tmp/oracle-k3s-kubeconfig
 kubectl get pods -A
 ```
 
-### 9. Flux Reconciliation Commands
+### 9. TLS with Let's Encrypt (Kubernetes Gateway API)
+
+The Oracle deployment uses Kubernetes Gateway API with Istio for ingress, with TLS certificates from Let's Encrypt.
+
+**Architecture:**
+```
+Oracle LB (138.2.48.165)
+  ├── Port 80  → NodePort 30080 → ourchat-gateway → HTTPRoutes
+  └── Port 443 → NodePort 30443 → ourchat-gateway (TLS termination) → HTTPRoutes
+```
+
+**Key files:**
+- `infrastructure/oracle/gateway-service.yaml` - Service with fixed NodePorts (30080/30443)
+- `infrastructure/oracle/cert-manager.yaml` - Gateway, ClusterIssuers, Certificate
+- `infrastructure/oracle/httproutes.yaml` - HTTPRoutes for frontend/backend
+
+**Certificate renewal is automatic** via cert-manager and HTTP-01 challenges.
+
+**Why Kubernetes Gateway API instead of Istio Gateway?**
+- cert-manager's HTTP-01 solver supports `gatewayHTTPRoute` but not Istio-specific Gateway
+- Kubernetes Gateway API is the standard, Istio implements it via `gatewayClassName: istio`
+
+### 10. Frontend Build Configuration (Critical)
+
+**The Problem**: Next.js `NEXT_PUBLIC_*` environment variables are baked at **build time**, not runtime. This means the frontend Docker image must be built with the correct API URLs for each environment.
+
+**Build configuration files:**
+```
+docker/frontend/
+├── .env.local    # For local k3d builds (http://api.ourchat.localhost)
+└── .env.oracle   # For Oracle Cloud builds (https://api.ourchat.138-2-48-165.nip.io)
+```
+
+**Environment file format:**
+```bash
+# docker/frontend/.env.oracle
+NEXT_PUBLIC_GRAPHQL_HTTP_URL=https://api.ourchat.138-2-48-165.nip.io/graphql
+NEXT_PUBLIC_GRAPHQL_WS_URL=wss://api.ourchat.138-2-48-165.nip.io/graphql
+```
+
+**Building with the correct environment:**
+
+For Oracle Cloud:
+```bash
+./scripts/oracle-lab.sh build-push
+# Automatically reads from docker/frontend/.env.oracle
+```
+
+For Local k3d:
+```bash
+./scripts/local-lab.sh build
+# Automatically reads from docker/frontend/.env.local
+```
+
+**Manual build with build args:**
+```bash
+docker buildx build --platform linux/arm64 \
+  -f docker/frontend/Dockerfile \
+  --build-arg "NEXT_PUBLIC_GRAPHQL_HTTP_URL=https://api.ourchat.138-2-48-165.nip.io/graphql" \
+  --build-arg "NEXT_PUBLIC_GRAPHQL_WS_URL=wss://api.ourchat.138-2-48-165.nip.io/graphql" \
+  -t ap-osaka-1.ocir.io/axeavx1flryv/ourchat/frontend:latest \
+  --push .
+```
+
+**Common mistake**: Building frontend without specifying build args uses Dockerfile defaults (localhost URLs), causing CORS errors when deployed.
+
+### 11. Flux Reconciliation Commands
 
 **Force reconciliation after git push:**
 ```bash
@@ -329,6 +405,8 @@ kubectl logs -n ourchat <pod-name> -c <container-name>
 | Backend crash: missing env var | Incomplete config | Check all required env vars |
 | HelmRelease not updating | Cached config | Delete HelmRelease, trigger reconciliation |
 | `409 Conflict` on docker push | Attestation manifest | Use `--provenance=false --sbom=false` |
+| CORS errors in browser | Frontend built with wrong API URLs | Rebuild with `./scripts/oracle-lab.sh build-push` |
+| Mixed content blocking | Frontend using http:// on https:// site | Update `docker/frontend/.env.oracle` to use https:// |
 
 ---
 
@@ -341,16 +419,10 @@ kubectl logs -n ourchat <pod-name> -c <container-name>
 # 2. Verify cluster
 kubectl get nodes
 
-# 3. Build and push ARM64 images
-docker buildx build --platform linux/arm64 --provenance=false --sbom=false \
-  -t ap-osaka-1.ocir.io/axeavx1flryv/ourchat/backend:latest \
-  -f apps/backend/Dockerfile --push .
+# 3. Build and push ARM64 images (reads from docker/frontend/.env.oracle)
+./scripts/oracle-lab.sh build-push
 
-docker buildx build --platform linux/arm64 --provenance=false --sbom=false \
-  -t ap-osaka-1.ocir.io/axeavx1flryv/ourchat/frontend:latest \
-  -f apps/frontend/Dockerfile --push .
-
-# 4. Push Helm chart
+# 4. Push Helm chart (if updated)
 cd charts/generic-service
 helm package .
 helm push generic-service-*.tgz oci://ap-osaka-1.ocir.io/axeavx1flryv/ourchat/charts
@@ -366,8 +438,8 @@ kubectl annotate --overwrite -n flux-system gitrepository/flux-system \
 
 # 7. Verify
 kubectl get pods -n ourchat
-curl http://ourchat.138-2-48-165.nip.io
-curl http://api.ourchat.138-2-48-165.nip.io/health
+curl https://ourchat.138-2-48-165.nip.io
+curl https://api.ourchat.138-2-48-165.nip.io/health
 ```
 
 ### Connection Script Commands

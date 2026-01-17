@@ -378,10 +378,28 @@ build_images() {
 
     log_info "Using image tag: $image_tag"
 
-    # Build frontend
+    # Load frontend build environment variables
+    local frontend_env_file="${PROJECT_ROOT}/docker/frontend/.env.local"
+    if [[ ! -f "${frontend_env_file}" ]]; then
+        log_error "Frontend env file not found: ${frontend_env_file}"
+        log_info "Create it with NEXT_PUBLIC_GRAPHQL_HTTP_URL and NEXT_PUBLIC_GRAPHQL_WS_URL"
+        exit 1
+    fi
+
+    # Read build args from env file
+    local graphql_http_url=$(grep -E '^NEXT_PUBLIC_GRAPHQL_HTTP_URL=' "${frontend_env_file}" | cut -d= -f2-)
+    local graphql_ws_url=$(grep -E '^NEXT_PUBLIC_GRAPHQL_WS_URL=' "${frontend_env_file}" | cut -d= -f2-)
+
+    log_info "Frontend build args:"
+    log_info "  NEXT_PUBLIC_GRAPHQL_HTTP_URL=${graphql_http_url}"
+    log_info "  NEXT_PUBLIC_GRAPHQL_WS_URL=${graphql_ws_url}"
+
+    # Build frontend with environment-specific build args
     log_info "Building frontend..."
     docker build \
         -f "$PROJECT_ROOT/docker/frontend/Dockerfile" \
+        --build-arg "NEXT_PUBLIC_GRAPHQL_HTTP_URL=${graphql_http_url}" \
+        --build-arg "NEXT_PUBLIC_GRAPHQL_WS_URL=${graphql_ws_url}" \
         -t "${REGISTRY_NAME}:${REGISTRY_HOST_PORT}/ourchat/frontend:${image_tag}" \
         "$PROJECT_ROOT"
     docker push "${REGISTRY_NAME}:${REGISTRY_HOST_PORT}/ourchat/frontend:${image_tag}"
