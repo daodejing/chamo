@@ -114,7 +114,7 @@ cmd_apply() {
     log_info "Next steps:"
     log_info "  1. Wait 2-3 minutes for k3s to initialize"
     log_info "  2. Run: ./scripts/oracle-lab.sh kubeconfig"
-    log_info "  3. Enable Flux: TF_VAR_flux_enabled=true TF_VAR_github_token=\$(gh auth token) tofu apply"
+    log_info "  3. Bootstrap Flux: TF_VAR_flux_enabled=true TF_VAR_github_token=\$(gh auth token) tofu apply"
 }
 
 cmd_destroy() {
@@ -357,8 +357,10 @@ cmd_help() {
     echo "  logs <svc>     Tail application logs (frontend|backend|all)"
     echo "  help           Show this help message"
     echo ""
-    echo "Note: Flux bootstrap is managed via Terraform (flux.tf)"
-    echo "      Set TF_VAR_flux_enabled=true TF_VAR_github_token=<token> when running apply"
+    echo "Note: Flux bootstrap requires two-phase deployment:"
+    echo "  1. tofu apply                    # Create infrastructure"
+    echo "  2. ./scripts/oracle-lab.sh kubeconfig  # Fetch kubeconfig"
+    echo "  3. TF_VAR_flux_enabled=true TF_VAR_github_token=<token> tofu apply"
 }
 
 # -----------------------------------------------------------------------------

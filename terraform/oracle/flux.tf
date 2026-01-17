@@ -4,16 +4,21 @@
 # Bootstraps Flux on the k3s cluster with image automation support.
 # This replaces the manual `flux bootstrap github` command.
 #
-# Prerequisites:
-#   - kubeconfig at ~/.kube/ourchat-oracle.yaml
-#   - GitHub personal access token with repo scope
+# TWO-PHASE DEPLOYMENT (chicken-and-egg problem):
+# The Kubernetes provider requires a kubeconfig to connect, but the kubeconfig
+# doesn't exist until after the VM is created. Therefore:
 #
-# Usage:
-#   1. First run: tofu apply (creates infra, outputs kubeconfig_command)
-#   2. Run the kubeconfig_command to fetch kubeconfig
-#   3. Set TF_VAR_github_token=<your-token>
-#   4. Set TF_VAR_flux_enabled=true
-#   5. Run: tofu apply (bootstraps Flux)
+#   Phase 1: tofu apply
+#            Creates VM, networking, load balancer (flux_enabled=false by default)
+#
+#   Phase 2: ./scripts/oracle-lab.sh kubeconfig
+#            Fetches kubeconfig from the running VM
+#
+#   Phase 3: TF_VAR_flux_enabled=true TF_VAR_github_token=$(gh auth token) tofu apply
+#            Bootstraps Flux now that kubeconfig exists
+#
+# This is why flux_enabled defaults to false - it must be explicitly enabled
+# after the kubeconfig is available.
 # =============================================================================
 
 # -----------------------------------------------------------------------------

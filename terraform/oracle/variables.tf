@@ -111,7 +111,16 @@ variable "github_token" {
 }
 
 variable "flux_enabled" {
-  description = "Enable Flux bootstrap (requires kubeconfig at ~/.kube/ourchat-oracle.yaml)"
+  description = <<-EOT
+    Enable Flux bootstrap. Defaults to false due to two-phase deployment:
+
+    Phase 1: tofu apply (creates VM, networking - flux_enabled=false)
+    Phase 2: ./scripts/oracle-lab.sh kubeconfig (fetch kubeconfig from VM)
+    Phase 3: TF_VAR_flux_enabled=true tofu apply (bootstrap Flux)
+
+    The Kubernetes provider requires kubeconfig to exist, which only happens
+    after the VM is created and kubeconfig is fetched.
+  EOT
   type        = bool
   default     = false
 }
