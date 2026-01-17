@@ -10,7 +10,8 @@ kind: Kustomization
 
 resources:
   # Shared base infrastructure
-  - ../base/observability
+  # TODO: Re-enable observability after OurChat is deployed
+  # - ../base/observability
   - ../base/ingress
   # Oracle-specific resources
   - namespaces.yaml
