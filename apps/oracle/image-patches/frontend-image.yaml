@@ -15,10 +15,8 @@ metadata:
 spec:
   values:
     image:
-      # OCIR format: <region>.ocir.io/<namespace>/ourchat/frontend
-      # This will be automatically updated by Flux image automation
-      repository: ap-osaka-1.ocir.io/axeavx1flryv/ourchat/frontend
-      tag: latest
+      repository: ap-osaka-1.ocir.io/axeavx1flryv/ourchat/frontend # {"$imagepolicy": "flux-system:ourchat-frontend:name"}
+      tag: 3c3e26f-1768626843 # {"$imagepolicy": "flux-system:ourchat-frontend:tag"}
     imagePullSecrets:
       - name: ocir-secret
     # Production environment variables
