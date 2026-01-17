@@ -1,0 +1,120 @@
+# =============================================================================
+# Build and Push Images to Oracle OCIR
+# =============================================================================
+# Builds ARM64 container images and pushes to Oracle Container Image Registry.
+# Flux image automation detects new tags and updates the cluster.
+#
+# Replaces: scripts/oracle-lab.sh build-push
+# =============================================================================
+
+name: Build Oracle Images
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'src/**'
+      - 'apps/backend/**'
+      - 'public/**'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+      - 'docker/**'
+      - '.github/workflows/build-oracle.yml'
+  workflow_dispatch: # Allow manual trigger
+
+# Prevent concurrent builds
+concurrency:
+  group: build-oracle
+  cancel-in-progress: true
+
+env:
+  # Oracle OCIR configuration
+  OCIR_REGION: ap-osaka-1
+  OCIR_NAMESPACE: axeavx1flryv
+  OCIR_REGISTRY: ap-osaka-1.ocir.io
+  # Frontend build args (baked at compile time)
+  NEXT_PUBLIC_GRAPHQL_HTTP_URL: https://api.ourchat.138-2-48-165.nip.io/graphql
+  NEXT_PUBLIC_GRAPHQL_WS_URL: wss://api.ourchat.138-2-48-165.nip.io/graphql
+
+jobs:
+  build-and-push:
+    name: Build & Push Images
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up QEMU (for ARM64 emulation)
+        uses: docker/setup-qemu-action@v3
+        with:
+          platforms: arm64
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Oracle OCIR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.OCIR_REGISTRY }}
+          username: ${{ env.OCIR_NAMESPACE }}/oracleidentitycloudservice/${{ secrets.OCIR_USERNAME }}
+          password: ${{ secrets.OCIR_AUTH_TOKEN }}
+
+      - name: Generate image tag
+        id: tag
+        run: |
+          GIT_SHA=$(git rev-parse --short HEAD)
+          TIMESTAMP=$(date +%s)
+          IMAGE_TAG="${GIT_SHA}-${TIMESTAMP}"
+          echo "tag=${IMAGE_TAG}" >> $GITHUB_OUTPUT
+          echo "Generated image tag: ${IMAGE_TAG}"
+
+      - name: Build and push frontend
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./docker/frontend/Dockerfile
+          platforms: linux/arm64
+          push: true
+          tags: |
+            ${{ env.OCIR_REGISTRY }}/${{ env.OCIR_NAMESPACE }}/ourchat/frontend:${{ steps.tag.outputs.tag }}
+            ${{ env.OCIR_REGISTRY }}/${{ env.OCIR_NAMESPACE }}/ourchat/frontend:latest
+          build-args: |
+            NEXT_PUBLIC_GRAPHQL_HTTP_URL=${{ env.NEXT_PUBLIC_GRAPHQL_HTTP_URL }}
+            NEXT_PUBLIC_GRAPHQL_WS_URL=${{ env.NEXT_PUBLIC_GRAPHQL_WS_URL }}
+          # Disable attestation to avoid OCIR 409 Conflict errors
+          provenance: false
+          sbom: false
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Build and push backend
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./docker/backend/Dockerfile
+          platforms: linux/arm64
+          push: true
+          tags: |
+            ${{ env.OCIR_REGISTRY }}/${{ env.OCIR_NAMESPACE }}/ourchat/backend:${{ steps.tag.outputs.tag }}
+            ${{ env.OCIR_REGISTRY }}/${{ env.OCIR_NAMESPACE }}/ourchat/backend:latest
+          # Disable attestation to avoid OCIR 409 Conflict errors
+          provenance: false
+          sbom: false
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Summary
+        env:
+          IMAGE_TAG: ${{ steps.tag.outputs.tag }}
+        run: |
+          echo "## 🐳 Images Built and Pushed" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Tag:** \`${IMAGE_TAG}\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Images" >> $GITHUB_STEP_SUMMARY
+          echo "- \`${OCIR_REGISTRY}/${OCIR_NAMESPACE}/ourchat/frontend:${IMAGE_TAG}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- \`${OCIR_REGISTRY}/${OCIR_NAMESPACE}/ourchat/backend:${IMAGE_TAG}\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Flux image automation will detect and deploy these images automatically." >> $GITHUB_STEP_SUMMARY
