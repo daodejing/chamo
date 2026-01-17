@@ -263,9 +263,12 @@ cmd_build_push() {
     fi
 
     # Build frontend with environment-specific build args
+    # Note: --provenance=false --sbom=false disables attestation to avoid OCIR 409 Conflict errors
     log_info "Building frontend..."
     docker buildx build \
         --platform linux/arm64 \
+        --provenance=false \
+        --sbom=false \
         -f docker/frontend/Dockerfile \
         --build-arg "NEXT_PUBLIC_GRAPHQL_HTTP_URL=${graphql_http_url}" \
         --build-arg "NEXT_PUBLIC_GRAPHQL_WS_URL=${graphql_ws_url}" \
@@ -275,9 +278,12 @@ cmd_build_push() {
         "${PROJECT_ROOT}"
 
     # Build backend
+    # Note: --provenance=false --sbom=false disables attestation to avoid OCIR 409 Conflict errors
     log_info "Building backend..."
     docker buildx build \
         --platform linux/arm64 \
+        --provenance=false \
+        --sbom=false \
         -f docker/backend/Dockerfile \
         -t "${backend_image}:${tag}" \
         -t "${backend_image}:latest" \
