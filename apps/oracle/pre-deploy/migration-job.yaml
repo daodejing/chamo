@@ -44,8 +44,8 @@ spec:
               set -e
               echo "Starting database migration..."
               echo "Database: $DATABASE_URL" | sed 's/:[^:@]*@/:***@/'
-              # With dereferenced symlinks, standard node_modules path works
-              npx prisma migrate deploy
+              # Production image uses npm flat structure, npx works directly
+              cd /app && npx prisma migrate deploy
               echo "Migration completed successfully"
           env:
             - name: DATABASE_URL

@@ -44,28 +44,29 @@ RUN cd apps/backend && pnpm build
 FROM node:20-alpine AS production
 WORKDIR /app
 
-# Install pnpm and timezone support
-RUN apk add --no-cache tzdata && npm install -g pnpm
+# Install build dependencies for native modules (bcrypt) and timezone support
+RUN apk add --no-cache python3 make g++ tzdata
 
 # Set timezone
 ENV TZ=Asia/Tokyo
 RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
 
-# Copy package files
-COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
-COPY apps/backend/package.json ./apps/backend/
+# Copy package files for npm install
+COPY apps/backend/package.json ./package.json
 
-# Copy node_modules from builder and dereference ALL pnpm symlinks
-# pnpm uses symlinks extensively which break when Docker copies them
-# Solution: copy with dereferencing (-L flag) to a temp dir, then move back
-COPY --from=builder /app/node_modules ./node_modules_linked
-RUN cp -rL node_modules_linked node_modules && rm -rf node_modules_linked
+# Install production dependencies with npm (avoids pnpm symlink issues)
+# npm creates a flat node_modules structure without symlinks
+RUN npm install --omit=dev --ignore-scripts
+
+# Regenerate Prisma client in production image
+COPY apps/backend/prisma ./prisma
+RUN npx prisma generate
+
+# Rebuild native modules for production
+RUN npm rebuild bcrypt
 
 # Copy built application
-COPY --from=builder /app/apps/backend/dist ./apps/backend/dist
-
-# Copy Prisma schema for migrations
-COPY apps/backend/prisma ./apps/backend/prisma
+COPY --from=builder /app/apps/backend/dist ./dist
 
 # Set production environment
 ENV NODE_ENV=production
@@ -79,5 +80,4 @@ HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
   CMD wget --no-verbose --tries=1 --spider http://localhost:4000/health || exit 1
 
 # Run the application
-WORKDIR /app/apps/backend
 CMD ["node", "dist/main.js"]
