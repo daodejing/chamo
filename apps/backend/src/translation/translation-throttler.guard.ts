@@ -29,6 +29,13 @@ export class TranslationThrottlerGuard extends ThrottlerGuard {
 
     if (contextType === 'http') {
       const req = context.switchToHttp().getRequest();
+
+      // Skip throttling for health check endpoint (used by k8s probes)
+      const url = req?.url ?? '';
+      if (url === '/health' || url.startsWith('/health?')) {
+        return true;
+      }
+
       const { messageId, targetLanguage } = req?.body ?? {};
 
       if (messageId && targetLanguage) {
