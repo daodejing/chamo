@@ -38,10 +38,12 @@ ourchat/
 ├── terraform/oracle/           # Infrastructure as code
 │   ├── main.tf
 │   ├── variables.tf
-│   ├── network.tf
+│   ├── network.tf              # Security lists (IP restrictions)
 │   ├── compute.tf
 │   ├── loadbalancer.tf
 │   └── outputs.tf
+├── scripts/
+│   └── oracle-k8s-connect.sh   # SSH tunnel & kubeconfig management
 ├── clusters/oracle/            # Flux cluster config
 │   ├── kustomization.yaml
 │   ├── sources.yaml            # HelmRepositories (including OCI)
@@ -333,17 +335,13 @@ kubectl logs -n ourchat <pod-name> -c <container-name>
 ## Quick Start
 
 ```bash
-# 1. Set up SSH tunnel
-ssh -f -N -L 6443:localhost:6443 ubuntu@141.147.156.8
+# 1. Connect to Oracle cluster (creates tunnel, sets up kubeconfig)
+./scripts/oracle-k8s-connect.sh
 
-# 2. Fetch kubeconfig
-ssh ubuntu@141.147.156.8 "sudo cat /etc/rancher/k3s/k3s.yaml" > /tmp/oracle-k3s-kubeconfig
-export KUBECONFIG=/tmp/oracle-k3s-kubeconfig
-
-# 3. Verify cluster
+# 2. Verify cluster
 kubectl get nodes
 
-# 4. Build and push ARM64 images
+# 3. Build and push ARM64 images
 docker buildx build --platform linux/arm64 --provenance=false --sbom=false \
   -t ap-osaka-1.ocir.io/axeavx1flryv/ourchat/backend:latest \
   -f apps/backend/Dockerfile --push .
@@ -352,24 +350,37 @@ docker buildx build --platform linux/arm64 --provenance=false --sbom=false \
   -t ap-osaka-1.ocir.io/axeavx1flryv/ourchat/frontend:latest \
   -f apps/frontend/Dockerfile --push .
 
-# 5. Push Helm chart
+# 4. Push Helm chart
 cd charts/generic-service
 helm package .
 helm push generic-service-*.tgz oci://ap-osaka-1.ocir.io/axeavx1flryv/ourchat/charts
 
-# 6. Create secrets (if not exist)
+# 5. Create secrets (if not exist)
 kubectl create secret docker-registry ocir-secret -n flux-system ...
 kubectl create secret docker-registry ocir-secret -n ourchat ...
 kubectl create secret generic ourchat-secrets -n ourchat ...
 
-# 7. Trigger Flux reconciliation
+# 6. Trigger Flux reconciliation
 kubectl annotate --overwrite -n flux-system gitrepository/flux-system \
   reconcile.fluxcd.io/requestedAt="$(date +%s)"
 
-# 8. Verify
+# 7. Verify
 kubectl get pods -n ourchat
 curl http://ourchat.138-2-48-165.nip.io
 curl http://api.ourchat.138-2-48-165.nip.io/health
+```
+
+### Connection Script Commands
+
+```bash
+./scripts/oracle-k8s-connect.sh          # Connect (default)
+./scripts/oracle-k8s-connect.sh status   # Check connection status
+./scripts/oracle-k8s-connect.sh disconnect  # Close SSH tunnel
+./scripts/oracle-k8s-connect.sh refresh  # Refresh kubeconfig
+
+# Switch between contexts (works with k9s, Lens, etc.)
+kubectl config use-context oracle-ourchat     # Oracle
+kubectl config use-context k3d-ourchat-local  # Local
 ```
 
 ---
@@ -385,6 +396,65 @@ curl http://api.ourchat.138-2-48-165.nip.io/health
 | Domains | `*.localhost` | `*.<LB-IP>.nip.io` |
 | Email | MailHog | Mailpit (ARM64) |
 | Load Balancer | k3d built-in | OCI Flexible LB |
+
+---
+
+## Security
+
+### Built-in OCI Protections (Free Tier)
+
+| Protection | Description | Status |
+|------------|-------------|--------|
+| Infrastructure DDoS | Layer 3/4 DDoS mitigation at network edge | ✅ Automatic |
+| Security Lists | Stateful firewall rules | ✅ Configured |
+| VCN Flow Logs | Network traffic logging | ✅ Available |
+| Cloud Guard | Threat detection & monitoring | ✅ Free tier included |
+
+### IP Restrictions
+
+SSH and Kubernetes API access are restricted to admin IPs via OCI Security Lists.
+
+**Current configuration** (`terraform/oracle/variables.tf`):
+```hcl
+variable "admin_cidr_blocks" {
+  default = ["131.147.163.106/32"]  # Your IP
+}
+```
+
+| Port | Access |
+|------|--------|
+| SSH (22) | Admin IPs only |
+| k8s API (6443) | Admin IPs only |
+| HTTP (80) | Public |
+| HTTPS (443) | Public |
+
+**To update allowed IPs** (e.g., when your IP changes):
+```bash
+cd terraform/oracle
+
+# Option 1: Update variables.tf default
+# Option 2: Override via command line
+tofu apply -var='admin_cidr_blocks=["NEW.IP.ADDRESS/32"]'
+```
+
+**To find your current IP:**
+```bash
+curl -4 ifconfig.me
+```
+
+### Application-Level Protection
+
+- **Backend rate limiting**: NestJS ThrottlerModule (100 req/min default)
+- **Istio sidecar**: All traffic goes through Envoy proxy
+
+### Recommendations
+
+1. **Keep your IP updated** in terraform when it changes
+2. **Enable Cloud Guard** via OCI Console for threat monitoring
+3. **Consider fail2ban** on the VM for additional SSH protection:
+   ```bash
+   ssh ubuntu@141.147.156.8 "sudo apt install fail2ban -y && sudo systemctl enable fail2ban"
+   ```
 
 ---
 
