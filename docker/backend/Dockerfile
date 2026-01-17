@@ -67,10 +67,13 @@ COPY --from=builder /app/apps/backend/dist ./apps/backend/dist
 COPY --from=builder /app/node_modules/.pnpm/@prisma+client@*/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder /app/node_modules/.pnpm/@prisma+client@*/node_modules/@prisma ./node_modules/@prisma
 
-# Copy Prisma CLI and engines for migrations (needed for prisma migrate deploy)
-# The CLI (prisma) requires @prisma/engines which contains the actual binaries
+# Copy Prisma CLI and all its dependencies for migrations
+# The CLI has internal dependencies: prisma -> @prisma/engines -> @prisma/debug, etc.
 COPY --from=builder /app/node_modules/.pnpm/prisma@*/node_modules/prisma ./node_modules/prisma
 COPY --from=builder /app/node_modules/.pnpm/@prisma+engines@*/node_modules/@prisma/engines ./node_modules/@prisma/engines
+COPY --from=builder /app/node_modules/.pnpm/@prisma+debug@*/node_modules/@prisma/debug ./node_modules/@prisma/debug
+COPY --from=builder /app/node_modules/.pnpm/@prisma+get-platform@*/node_modules/@prisma/get-platform ./node_modules/@prisma/get-platform
+COPY --from=builder /app/node_modules/.pnpm/@prisma+fetch-engine@*/node_modules/@prisma/fetch-engine ./node_modules/@prisma/fetch-engine
 
 # Copy Prisma schema for migrations
 COPY apps/backend/prisma ./apps/backend/prisma
