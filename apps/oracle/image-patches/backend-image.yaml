@@ -45,7 +45,7 @@ spec:
         value: "587"
       # SMTP_USER and SMTP_PASS are in ourchat-secrets (via envFrom)
       - name: EMAIL_FROM
-        value: "noreply@ourchat.app"
+        value: "yoganick@gmail.com"
       - name: EMAIL_FROM_NAME
         value: "OurChat"
       - name: EMAIL_VERIFICATION_URL
