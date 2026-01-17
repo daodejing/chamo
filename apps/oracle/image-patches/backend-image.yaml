@@ -16,7 +16,7 @@ spec:
   values:
     image:
       repository: ap-osaka-1.ocir.io/axeavx1flryv/ourchat/backend # {"$imagepolicy": "flux-system:ourchat-backend:name"}
-      tag: f86acae-1768631467 # {"$imagepolicy": "flux-system:ourchat-backend:tag"}
+      tag: 2871813-1768634272 # {"$imagepolicy": "flux-system:ourchat-backend:tag"}
     imagePullSecrets:
       - name: ocir-secret
     # Production environment - use secrets
