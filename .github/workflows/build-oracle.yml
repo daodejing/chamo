@@ -39,17 +39,12 @@ env:
 jobs:
   build-and-push:
     name: Build & Push Images
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04-arm  # Native ARM64 runner - no QEMU needed
     timeout-minutes: 30
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-
-      - name: Set up QEMU (for ARM64 emulation)
-        uses: docker/setup-qemu-action@v3
-        with:
-          platforms: arm64
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -75,7 +70,6 @@ jobs:
         with:
           context: .
           file: ./docker/frontend/Dockerfile
-          platforms: linux/arm64
           push: true
           tags: |
             ${{ env.OCIR_REGISTRY }}/${{ env.OCIR_NAMESPACE }}/ourchat/frontend:${{ steps.tag.outputs.tag }}
@@ -94,7 +88,6 @@ jobs:
         with:
           context: .
           file: ./docker/backend/Dockerfile
-          platforms: linux/arm64
           push: true
           tags: |
             ${{ env.OCIR_REGISTRY }}/${{ env.OCIR_NAMESPACE }}/ourchat/backend:${{ steps.tag.outputs.tag }}
