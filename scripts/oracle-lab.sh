@@ -12,10 +12,11 @@
 #   status        - Show resource status
 #   ssh           - SSH to k3s node
 #   kubeconfig    - Fetch kubeconfig from k3s node
-#   flux-bootstrap - Bootstrap Flux on the cluster
 #   build-push    - Build and push images to OCIR
 #   secrets       - Create Kubernetes secrets
 #   logs          - Tail application logs
+#
+# Note: Flux bootstrap is now managed via Terraform (flux.tf)
 # =============================================================================
 
 set -euo pipefail
@@ -113,7 +114,7 @@ cmd_apply() {
     log_info "Next steps:"
     log_info "  1. Wait 2-3 minutes for k3s to initialize"
     log_info "  2. Run: ./scripts/oracle-lab.sh kubeconfig"
-    log_info "  3. Run: ./scripts/oracle-lab.sh flux-bootstrap"
+    log_info "  3. Enable Flux: TF_VAR_flux_enabled=true TF_VAR_github_token=\$(gh auth token) tofu apply"
 }
 
 cmd_destroy() {
@@ -189,35 +190,6 @@ cmd_kubeconfig() {
     log_info "To use this cluster:"
     log_info "  export KUBECONFIG=${KUBECONFIG_PATH}"
     log_info "  kubectl get nodes"
-}
-
-cmd_flux_bootstrap() {
-    if [[ -z "${GH_TOKEN:-}" ]]; then
-        log_error "GH_TOKEN environment variable is required"
-        log_info "Run 'gh auth token' or set GH_TOKEN manually"
-        exit 1
-    fi
-
-    if [[ ! -f "${KUBECONFIG_PATH}" ]]; then
-        log_error "Kubeconfig not found. Run 'kubeconfig' first."
-        exit 1
-    fi
-
-    local github_owner=$(get_tf_output "github_owner" 2>/dev/null || echo "daodejing")
-    local github_repo=$(get_tf_output "github_repository" 2>/dev/null || echo "chamo")
-
-    log_info "Bootstrapping Flux on Oracle cluster..."
-    export KUBECONFIG="${KUBECONFIG_PATH}"
-    export GITHUB_TOKEN="${GH_TOKEN}"
-
-    flux bootstrap github \
-        --owner="${github_owner}" \
-        --repository="${github_repo}" \
-        --branch=main \
-        --path=clusters/oracle \
-        --personal
-
-    log_success "Flux bootstrapped successfully!"
 }
 
 cmd_build_push() {
@@ -380,11 +352,13 @@ cmd_help() {
     echo "  status         Show resource status and outputs"
     echo "  ssh            SSH to k3s node"
     echo "  kubeconfig     Fetch kubeconfig from k3s node"
-    echo "  flux-bootstrap Bootstrap Flux on the cluster"
     echo "  build-push     Build and push images to OCIR"
     echo "  secrets        Create Kubernetes secrets"
     echo "  logs <svc>     Tail application logs (frontend|backend|all)"
     echo "  help           Show this help message"
+    echo ""
+    echo "Note: Flux bootstrap is managed via Terraform (flux.tf)"
+    echo "      Set TF_VAR_flux_enabled=true TF_VAR_github_token=<token> when running apply"
 }
 
 # -----------------------------------------------------------------------------
@@ -402,7 +376,6 @@ main() {
         status)         cmd_status ;;
         ssh)            cmd_ssh ;;
         kubeconfig)     cmd_kubeconfig ;;
-        flux-bootstrap) cmd_flux_bootstrap ;;
         build-push)     cmd_build_push ;;
         secrets)        cmd_secrets ;;
         logs)           cmd_logs "$@" ;;

@@ -102,3 +102,16 @@ variable "github_repository" {
   type        = string
   default     = "chamo"
 }
+
+variable "github_token" {
+  description = "GitHub personal access token for Flux (needs repo scope)"
+  type        = string
+  sensitive   = true
+  default     = ""
+}
+
+variable "flux_enabled" {
+  description = "Enable Flux bootstrap (requires kubeconfig at ~/.kube/ourchat-oracle.yaml)"
+  type        = bool
+  default     = false
+}

@@ -126,19 +126,4 @@ output "kubeconfig_command" {
   value       = "ssh ubuntu@${data.oci_core_vnic.k3s.public_ip_address} 'sudo cat /etc/rancher/k3s/k3s.yaml' | sed 's/127.0.0.1/${data.oci_core_vnic.k3s.public_ip_address}/g' > ~/.kube/ourchat-oracle.yaml"
 }
 
-# -----------------------------------------------------------------------------
-# Flux Bootstrap Info
-# -----------------------------------------------------------------------------
-
-output "flux_bootstrap_command" {
-  description = "Flux bootstrap command (set GITHUB_TOKEN first)"
-  value       = <<-EOT
-    export KUBECONFIG=~/.kube/ourchat-oracle.yaml
-    flux bootstrap github \
-      --owner=${var.github_owner} \
-      --repository=${var.github_repository} \
-      --branch=main \
-      --path=clusters/oracle \
-      --personal
-  EOT
-}
+# Note: Flux bootstrap is now managed via flux.tf (set flux_enabled=true)

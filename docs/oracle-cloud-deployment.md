@@ -345,7 +345,34 @@ docker buildx build --platform linux/arm64 \
 
 **Common mistake**: Building frontend without specifying build args uses Dockerfile defaults (localhost URLs), causing CORS errors when deployed.
 
-### 11. Flux Image Automation
+### 11. Flux Bootstrap via Terraform
+
+Flux is bootstrapped via Terraform (`terraform/oracle/flux.tf`) rather than the CLI. This provides:
+- **Single source of truth** for Flux configuration
+- **Read-write deploy key** for image automation
+- **Image automation controllers** included by default
+
+**Bootstrap Flux:**
+```bash
+cd terraform/oracle
+
+# First apply creates infrastructure
+tofu apply
+
+# Fetch kubeconfig
+./scripts/oracle-lab.sh kubeconfig
+
+# Second apply bootstraps Flux
+TF_VAR_flux_enabled=true TF_VAR_github_token=$(gh auth token) tofu apply
+```
+
+**What it creates:**
+- ECDSA SSH key pair for Git access
+- GitHub deploy key with write access
+- Flux components in `clusters/oracle/flux-system/`
+- Image automation controllers
+
+### 12. Flux Image Automation
 
 Flux automatically detects new container images in OCIR and updates deployments, using the same pattern as local k3d.
 
@@ -385,21 +412,25 @@ flux get images all -A
 ```
 
 **Deploy key permissions:**
-For Flux to auto-commit tag updates, the Git deploy key needs **write access**. If read-only, you'll see:
+For Flux to auto-commit tag updates, the Git deploy key needs **write access**. The Terraform-managed Flux bootstrap (`terraform/oracle/flux.tf`) creates a deploy key with write access automatically.
+
+If you see this error, the deploy key may have been created manually with read-only access:
 ```
 failed to push to remote: ERROR: The key you are authenticating with has been marked as read only.
 ```
 
-**Workaround for read-only key:** Manually update tags in image patches and push:
+**Solution:** Delete the existing deploy key from GitHub and re-run Terraform:
 ```bash
-# After building new images
-git add apps/oracle/image-patches/
-git commit -m "chore: Update image tags"
-git push
-flux reconcile source git flux-system
+# Delete existing Flux components and deploy key
+kubectl delete ns flux-system --ignore-not-found
+# Delete deploy key from GitHub Settings → Deploy keys
+
+# Re-bootstrap Flux with write-enabled key
+cd terraform/oracle
+TF_VAR_flux_enabled=true TF_VAR_github_token=$(gh auth token) tofu apply
 ```
 
-### 12. Flux Reconciliation Commands
+### 13. Flux Reconciliation Commands
 
 **Force reconciliation after git push:**
 ```bash
