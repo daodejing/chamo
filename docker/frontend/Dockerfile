@@ -36,6 +36,13 @@ COPY tsconfig.json ./
 COPY tailwind.config.ts ./
 COPY postcss.config.mjs ./
 COPY components.json ./
+COPY codegen.ts ./
+
+# Copy backend schema for GraphQL codegen
+COPY apps/backend/src/schema.gql ./apps/backend/src/schema.gql
+
+# Generate GraphQL types
+RUN pnpm codegen
 
 # Build arguments for environment variables
 ARG NEXT_PUBLIC_GRAPHQL_HTTP_URL
