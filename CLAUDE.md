@@ -2,6 +2,10 @@
 - NEVER hardcode human language strings in UI components. All user-facing text must use the translation system in src/lib/translations.ts
 - The frontend uses Next.js static export (output: 'export'). Never call router.push() or other browser-dependent code during render. Use useEffect for client-side navigation and redirects.
 
+## Deployment
+- **Oracle Cloud**: See `docs/oracle-cloud-deployment.md` for staging environment (ARM64 k3s, Flux GitOps, CI/CD via GitHub Actions)
+- **Local k3d**: Use `./scripts/local-lab.sh` for local Kubernetes development
+
 ## Project Skills
 Located in `.claude/skills/`. Read SKILL.md for usage.
 - restart/start/stop dev env → `manage-local-dev-env`

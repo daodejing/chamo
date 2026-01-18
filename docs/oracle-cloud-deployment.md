@@ -37,6 +37,8 @@ Deploy OurChat to Oracle Cloud's Always Free tier as a staging environment, comp
 
 ```
 ourchat/
+├── .github/workflows/
+│   └── build-oracle.yml        # CI/CD: Build & push ARM64 images to OCIR
 ├── terraform/oracle/           # Infrastructure as code
 │   ├── main.tf
 │   ├── variables.tf
@@ -45,14 +47,10 @@ ourchat/
 │   ├── loadbalancer.tf
 │   └── outputs.tf
 ├── scripts/
-│   ├── oracle-lab.sh           # Deployment automation (build-push, etc.)
 │   └── oracle-k8s-connect.sh   # SSH tunnel & kubeconfig management
-├── docker/frontend/
-│   ├── Dockerfile
-│   ├── .env.local.example      # Template for local k3d builds
-│   ├── .env.local              # Build args for local k3d (gitignored)
-│   ├── .env.oracle.example     # Template for Oracle Cloud builds
-│   └── .env.oracle             # Build args for Oracle Cloud (gitignored)
+├── docker/
+│   ├── frontend/Dockerfile     # Multi-stage frontend build
+│   └── backend/Dockerfile      # Multi-stage backend build
 ├── clusters/oracle/            # Flux cluster config
 │   ├── kustomization.yaml
 │   ├── sources.yaml            # HelmRepositories (including OCI)
@@ -83,8 +81,49 @@ ourchat/
 2. **OCI CLI configured** (`~/.oci/config`)
 3. **OpenTofu installed** (`brew install opentofu`)
 4. **SSH key pair** for VM access
-5. **Docker with ARM64 support** (Colima on macOS)
-6. **OCIR auth token** generated from OCI Console
+5. **OCIR auth token** generated from OCI Console
+
+---
+
+## CI/CD: GitHub Actions
+
+Container images are built and pushed automatically via GitHub Actions when code is pushed to `main`.
+
+### Workflow File
+
+`.github/workflows/build-oracle.yml` handles:
+- Building ARM64 images using native GitHub ARM runners (`ubuntu-24.04-arm`)
+- Pushing to Oracle OCIR
+- Tagging with `<git-sha>-<timestamp>` format for Flux image automation
+
+### Trigger Paths
+
+The workflow runs on pushes to `main` that modify:
+- `src/**` - Frontend source
+- `apps/backend/**` - Backend source
+- `public/**` - Frontend public assets
+- `package.json`, `pnpm-lock.yaml` - Dependencies
+- `docker/**` - Dockerfiles
+- `.github/workflows/build-oracle.yml` - Workflow itself
+
+### Required GitHub Secrets
+
+Configure these in **Repository Settings → Secrets and variables → Actions**:
+
+| Secret | Value | How to Get |
+|--------|-------|------------|
+| `OCIR_USERNAME` | Your OCI email (e.g., `yoganick@gmail.com`) | OCI Console → Identity |
+| `OCIR_AUTH_TOKEN` | Auth token | OCI Console → User Settings → Auth Tokens → Generate |
+
+> **Username Format**: Use just the email address (e.g., `yoganick@gmail.com`), NOT the federated format with `oracleidentitycloudservice/`.
+
+### Manual Trigger
+
+You can manually trigger a build from the GitHub Actions tab using "Run workflow".
+
+### Why Native ARM Runners?
+
+QEMU emulation for ARM64 fails with "Illegal instruction" errors during npm/pnpm operations. GitHub's native ARM runners (`ubuntu-24.04-arm`) provide reliable ARM64 builds without emulation.
 
 ---
 
@@ -94,20 +133,7 @@ ourchat/
 
 The Oracle Free Tier VM uses **ARM64 (aarch64)** architecture. This affects all container images.
 
-**Building ARM64 images with Colima:**
-```bash
-# Ensure Colima is running with ARM support
-colima start --arch aarch64
-
-# Build ARM64 images
-docker buildx build --platform linux/arm64 \
-  --provenance=false --sbom=false \
-  -t ap-osaka-1.ocir.io/<namespace>/ourchat/backend:latest \
-  -f apps/backend/Dockerfile \
-  --push .
-```
-
-> **Important**: Use `--provenance=false --sbom=false` to avoid 409 Conflict errors on OCIR.
+**CI/CD handles this automatically** using native ARM64 GitHub runners. The workflow uses `--provenance=false --sbom=false` to avoid 409 Conflict errors on OCIR.
 
 **MailHog ARM64 Issue:**
 The standard `mailhog/mailhog` image doesn't support ARM64.
@@ -125,22 +151,16 @@ spec:
 
 ### 2. OCIR Authentication
 
-OCIR requires specific username format:
+OCIR authentication is used by:
+1. **GitHub Actions** (via secrets) - for pushing images
+2. **Kubernetes** (via `ocir-secret`) - for pulling images
 
-```
-Server: <region>.ocir.io
-Username: <tenancy-namespace>/<username>
-Password: <auth-token-from-oci-console>
-```
+**Username format for CI/CD (GitHub secrets):**
+- Use just the email: `yoganick@gmail.com`
+- NOT the federated format: ~~`namespace/oracleidentitycloudservice/email`~~
 
-**Username format varies:**
-- Regular OCI: `<namespace>/<email>`
-- Federated (IDCS): `<namespace>/oracleidentitycloudservice/<email>`
-
-**Check your working Docker credentials:**
-```bash
-echo "<region>.ocir.io" | docker-credential-osxkeychain get
-```
+**Username format for Kubernetes secrets:**
+- Use: `<namespace>/<email>` (e.g., `axeavx1flryv/yoganick@gmail.com`)
 
 **Create Kubernetes secrets in BOTH namespaces:**
 ```bash
@@ -305,42 +325,25 @@ Oracle LB (138.2.48.165)
 
 **The Problem**: Next.js `NEXT_PUBLIC_*` environment variables are baked at **build time**, not runtime. This means the frontend Docker image must be built with the correct API URLs for each environment.
 
+**Oracle Cloud (CI/CD):**
+The GitHub Actions workflow (`.github/workflows/build-oracle.yml`) sets the correct Oracle URLs:
+```yaml
+env:
+  NEXT_PUBLIC_GRAPHQL_HTTP_URL: https://api.ourchat.138-2-48-165.nip.io/graphql
+  NEXT_PUBLIC_GRAPHQL_WS_URL: wss://api.ourchat.138-2-48-165.nip.io/graphql
+```
+
+**Local k3d:**
+```bash
+./scripts/local-lab.sh build
+# Reads from docker/frontend/.env.local
+```
+
 **Build configuration files:**
 ```
 docker/frontend/
-├── .env.local    # For local k3d builds (http://api.ourchat.localhost)
-└── .env.oracle   # For Oracle Cloud builds (https://api.ourchat.138-2-48-165.nip.io)
-```
-
-**Environment file format:**
-```bash
-# docker/frontend/.env.oracle
-NEXT_PUBLIC_GRAPHQL_HTTP_URL=https://api.ourchat.138-2-48-165.nip.io/graphql
-NEXT_PUBLIC_GRAPHQL_WS_URL=wss://api.ourchat.138-2-48-165.nip.io/graphql
-```
-
-**Building with the correct environment:**
-
-For Oracle Cloud:
-```bash
-./scripts/oracle-lab.sh build-push
-# Automatically reads from docker/frontend/.env.oracle
-```
-
-For Local k3d:
-```bash
-./scripts/local-lab.sh build
-# Automatically reads from docker/frontend/.env.local
-```
-
-**Manual build with build args:**
-```bash
-docker buildx build --platform linux/arm64 \
-  -f docker/frontend/Dockerfile \
-  --build-arg "NEXT_PUBLIC_GRAPHQL_HTTP_URL=https://api.ourchat.138-2-48-165.nip.io/graphql" \
-  --build-arg "NEXT_PUBLIC_GRAPHQL_WS_URL=wss://api.ourchat.138-2-48-165.nip.io/graphql" \
-  -t ap-osaka-1.ocir.io/axeavx1flryv/ourchat/frontend:latest \
-  --push .
+├── .env.local.example      # Template for local k3d builds
+└── .env.local              # Build args for local k3d (gitignored)
 ```
 
 **Common mistake**: Building frontend without specifying build args uses Dockerfile defaults (localhost URLs), causing CORS errors when deployed.
@@ -503,6 +506,18 @@ kubectl logs -n ourchat <pod-name> -c <container-name>
 
 ## Quick Start
 
+### Deploy Code Changes
+
+Push to `main` → CI/CD builds images → Flux deploys automatically.
+
+```bash
+git push origin main
+# GitHub Actions builds ARM64 images and pushes to OCIR
+# Flux detects new images and updates deployments
+```
+
+### Manual Operations
+
 ```bash
 # 1. Connect to Oracle cluster (creates tunnel, sets up kubeconfig)
 ./scripts/oracle-k8s-connect.sh
@@ -510,8 +525,9 @@ kubectl logs -n ourchat <pod-name> -c <container-name>
 # 2. Verify cluster
 kubectl get nodes
 
-# 3. Build and push ARM64 images (reads from docker/frontend/.env.oracle)
-./scripts/oracle-lab.sh build-push
+# 3. Check deployment status
+kubectl get pods -n ourchat
+flux get images all -A
 
 # 4. Push Helm chart (if updated)
 cd charts/generic-service
@@ -523,12 +539,11 @@ kubectl create secret docker-registry ocir-secret -n flux-system ...
 kubectl create secret docker-registry ocir-secret -n ourchat ...
 kubectl create secret generic ourchat-secrets -n ourchat ...
 
-# 6. Trigger Flux reconciliation
+# 6. Force Flux reconciliation (if needed)
 kubectl annotate --overwrite -n flux-system gitrepository/flux-system \
   reconcile.fluxcd.io/requestedAt="$(date +%s)"
 
 # 7. Verify
-kubectl get pods -n ourchat
 curl https://ourchat.138-2-48-165.nip.io
 curl https://api.ourchat.138-2-48-165.nip.io/health
 ```
