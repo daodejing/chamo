@@ -276,12 +276,20 @@ export function MainHeader({
           size="icon"
           onClick={onSettingsClick}
           className={`text-card-foreground ${currentView === "settings" || currentView === "about" ? "bg-accent" : ""}`}
+          aria-label="settings"
+          data-testid="settings-button"
         >
           <Settings className="w-5 h-5" />
         </Button>
 
         {/* Logout button */}
-        <Button variant="ghost" onClick={onLogoutClick} className="text-card-foreground">
+        <Button
+          variant="ghost"
+          onClick={onLogoutClick}
+          className="text-card-foreground"
+          aria-label="logout"
+          data-testid="logout-button"
+        >
           <LogOut className="w-4 h-4 mr-2" />
           {t("settings.logout", language)}
         </Button>

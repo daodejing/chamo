@@ -28,7 +28,7 @@ test.describe('Story 5.4: Language Settings', () => {
       await page.waitForLoadState('networkidle');
 
       // Navigate to settings
-      await page.click('button:has(.lucide-settings)');
+      await page.click('button[aria-label="settings"]');
       await expect(page.locator(`text=${t('settings.language')}`).first()).toBeVisible({ timeout: 10000 });
 
       // Verify currently on English
@@ -41,7 +41,7 @@ test.describe('Story 5.4: Language Settings', () => {
       await page.waitForLoadState('networkidle');
 
       // Navigate to settings after reload
-      await page.click('button:has(.lucide-settings)');
+      await page.click('button[aria-label="settings"]');
       await expect(page.locator(`text=${t('settings.language', 'ja')}`).first()).toBeVisible({ timeout: 10000 });
 
       // Verify UI is now in Japanese
@@ -60,7 +60,7 @@ test.describe('Story 5.4: Language Settings', () => {
       await page.waitForLoadState('networkidle');
 
       // Navigate to settings
-      await page.click('button:has(.lucide-settings)');
+      await page.click('button[aria-label="settings"]');
       await expect(page.locator(`text=${t('settings.language')}`).first()).toBeVisible({ timeout: 10000 });
 
       // First set to Japanese
@@ -69,7 +69,7 @@ test.describe('Story 5.4: Language Settings', () => {
       await page.waitForLoadState('networkidle');
 
       // Navigate to settings (need to re-open after reload)
-      await page.click('button:has(.lucide-settings)');
+      await page.click('button[aria-label="settings"]');
       await expect(page.locator(`text=${t('settings.language', 'ja')}`).first()).toBeVisible({ timeout: 10000 });
 
       // Verify currently on Japanese
@@ -84,7 +84,7 @@ test.describe('Story 5.4: Language Settings', () => {
       await page.waitForLoadState('networkidle');
 
       // Navigate to settings after reload
-      await page.click('button:has(.lucide-settings)');
+      await page.click('button[aria-label="settings"]');
       await expect(page.locator(`text=${t('settings.language')}`).first()).toBeVisible({ timeout: 10000 });
 
       // Verify UI is now in English
@@ -103,7 +103,7 @@ test.describe('Story 5.4: Language Settings', () => {
       await page.waitForLoadState('networkidle');
 
       // Navigate to settings
-      await page.click('button:has(.lucide-settings)');
+      await page.click('button[aria-label="settings"]');
       await expect(page.locator(`text=${t('settings.language')}`).first()).toBeVisible({ timeout: 10000 });
 
       // Locate translation language selector (shadcn Select with role="combobox")
@@ -133,7 +133,7 @@ test.describe('Story 5.4: Language Settings', () => {
       await page.waitForLoadState('networkidle');
 
       // Navigate to settings
-      await page.click('button:has(.lucide-settings)');
+      await page.click('button[aria-label="settings"]');
       await expect(page.locator(`text=${t('settings.language')}`).first()).toBeVisible({ timeout: 10000 });
 
       // Open translation language selector (shadcn Select with role="combobox")
@@ -163,7 +163,7 @@ test.describe('Story 5.4: Language Settings', () => {
       await page.waitForLoadState('networkidle');
 
       // Navigate to settings
-      await page.click('button:has(.lucide-settings)');
+      await page.click('button[aria-label="settings"]');
       await expect(page.locator(`text=${t('settings.language')}`).first()).toBeVisible({ timeout: 10000 });
 
       // Verify English UI elements using translation keys
@@ -176,7 +176,7 @@ test.describe('Story 5.4: Language Settings', () => {
       await page.waitForLoadState('networkidle');
 
       // Navigate to settings after reload
-      await page.click('button:has(.lucide-settings)');
+      await page.click('button[aria-label="settings"]');
       await expect(page.locator(`text=${t('settings.language', 'ja')}`).first()).toBeVisible({ timeout: 10000 });
 
       // Verify Japanese UI elements using translation keys
@@ -199,7 +199,7 @@ test.describe('Story 5.4: Language Settings', () => {
       await page.waitForLoadState('networkidle');
 
       // Navigate to settings
-      await page.click('button:has(.lucide-settings)');
+      await page.click('button[aria-label="settings"]');
       await expect(page.locator(`text=${t('settings.language')}`).first()).toBeVisible({ timeout: 10000 });
 
       // Switch to Japanese first
@@ -207,7 +207,7 @@ test.describe('Story 5.4: Language Settings', () => {
       await page.waitForLoadState('networkidle');
 
       // Navigate to settings after reload
-      await page.click('button:has(.lucide-settings)');
+      await page.click('button[aria-label="settings"]');
       await expect(page.locator(`text=${t('settings.language', 'ja')}`).first()).toBeVisible({ timeout: 10000 });
 
       // Verify Japanese language is active
@@ -231,7 +231,7 @@ test.describe('Story 5.4: Language Settings', () => {
       await page.waitForLoadState('networkidle');
 
       // Navigate to settings
-      await page.click('button:has(.lucide-settings)');
+      await page.click('button[aria-label="settings"]');
       await expect(page.locator(`text=${t('settings.language')}`).first()).toBeVisible({ timeout: 10000 });
 
       // Set UI language to Japanese
@@ -247,7 +247,7 @@ test.describe('Story 5.4: Language Settings', () => {
       await page.waitForLoadState('networkidle');
 
       // Navigate to settings (should still be Japanese)
-      await page.click('button:has(.lucide-settings)');
+      await page.click('button[aria-label="settings"]');
       await expect(page.locator(`text=${t('settings.appLanguage', 'ja')}`)).toBeVisible();
     } finally {
       await cleanup();
@@ -263,7 +263,7 @@ test.describe('Story 5.4: Language Settings', () => {
       await page.waitForLoadState('networkidle');
 
       // Navigate to settings
-      await page.click('button:has(.lucide-settings)');
+      await page.click('button[aria-label="settings"]');
       await expect(page.locator(`text=${t('settings.language')}`).first()).toBeVisible({ timeout: 10000 });
 
       // Verify App Language help text

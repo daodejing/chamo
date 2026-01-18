@@ -155,11 +155,11 @@ test.describe('Story 1.3: Session Persistence', () => {
       await expect(page.getByText('General')).toBeVisible({ timeout: 10000 });
 
       // Navigate to settings and logout
-      await page.click('button:has(.lucide-settings)');
+      await page.click('button[aria-label="settings"]');
       await expect(page.locator(`text=${t('settings.language')}`).first()).toBeVisible({ timeout: 10000 });
 
-      // AC5: Click logout button (use first() to avoid strict mode violation)
-      await page.getByRole('button', { name: /logout|log out/i }).first().click();
+      // AC5: Click logout button
+      await page.click('button[aria-label="logout"]');
 
       // AC7: Wait for redirect to /login
       await page.waitForURL('**/login', { timeout: 5000 });

@@ -30,7 +30,7 @@ test.describe('Story 5.6: About Screen with Changelog', () => {
       await page.waitForLoadState('networkidle');
 
       // Navigate to settings
-      await page.click('button:has(.lucide-settings)');
+      await page.click('button[aria-label="settings"]');
       await expect(page.locator(`text=${t('settings.language')}`).first()).toBeVisible({ timeout: 10000 });
 
       // Scroll down to find About card
@@ -52,7 +52,7 @@ test.describe('Story 5.6: About Screen with Changelog', () => {
       await page.goto('/chat');
       await page.waitForLoadState('networkidle');
 
-      await page.click('button:has(.lucide-settings)');
+      await page.click('button[aria-label="settings"]');
       await expect(page.locator(`text=${t('settings.language')}`).first()).toBeVisible({ timeout: 10000 });
 
       // Click on About card
@@ -75,7 +75,7 @@ test.describe('Story 5.6: About Screen with Changelog', () => {
       await page.goto('/chat');
       await page.waitForLoadState('networkidle');
 
-      await page.click('button:has(.lucide-settings)');
+      await page.click('button[aria-label="settings"]');
       await expect(page.locator(`text=${t('settings.language')}`).first()).toBeVisible({ timeout: 10000 });
 
       // Navigate to About screen
@@ -102,7 +102,7 @@ test.describe('Story 5.6: About Screen with Changelog', () => {
       await page.goto('/chat');
       await page.waitForLoadState('networkidle');
 
-      await page.click('button:has(.lucide-settings)');
+      await page.click('button[aria-label="settings"]');
       await expect(page.locator(`text=${t('settings.language')}`).first()).toBeVisible({ timeout: 10000 });
 
       // Navigate to About screen
@@ -129,7 +129,7 @@ test.describe('Story 5.6: About Screen with Changelog', () => {
       await page.goto('/chat');
       await page.waitForLoadState('networkidle');
 
-      await page.click('button:has(.lucide-settings)');
+      await page.click('button[aria-label="settings"]');
       await expect(page.locator(`text=${t('settings.language')}`).first()).toBeVisible({ timeout: 10000 });
 
       // Navigate to About screen
@@ -156,7 +156,7 @@ test.describe('Story 5.6: About Screen with Changelog', () => {
       await page.goto('/chat');
       await page.waitForLoadState('networkidle');
 
-      await page.click('button:has(.lucide-settings)');
+      await page.click('button[aria-label="settings"]');
       await expect(page.locator(`text=${t('settings.language')}`).first()).toBeVisible({ timeout: 10000 });
 
       // Navigate to About screen
@@ -183,7 +183,7 @@ test.describe('Story 5.6: About Screen with Changelog', () => {
       await page.goto('/chat');
       await page.waitForLoadState('networkidle');
 
-      await page.click('button:has(.lucide-settings)');
+      await page.click('button[aria-label="settings"]');
       await expect(page.locator(`text=${t('settings.language')}`).first()).toBeVisible({ timeout: 10000 });
 
       // Navigate to About screen
@@ -213,7 +213,7 @@ test.describe('Story 5.6: About Screen with Changelog', () => {
       await page.goto('/chat');
       await page.waitForLoadState('networkidle');
 
-      await page.click('button:has(.lucide-settings)');
+      await page.click('button[aria-label="settings"]');
       await expect(page.locator(`text=${t('settings.language')}`).first()).toBeVisible({ timeout: 10000 });
 
       // Navigate to About screen
@@ -245,7 +245,7 @@ test.describe('Story 5.6: About Screen with Changelog', () => {
       await page.goto('/chat');
       await page.waitForLoadState('networkidle');
 
-      await page.click('button:has(.lucide-settings)');
+      await page.click('button[aria-label="settings"]');
       await expect(page.locator(`text=${t('settings.language')}`).first()).toBeVisible({ timeout: 10000 });
 
       // Verify About card shows version without opening full About screen
@@ -273,7 +273,7 @@ test.describe('Story 5.6: About Screen with Changelog', () => {
       await page.waitForLoadState('networkidle');
 
       // Navigate to settings (in Japanese)
-      await page.click('button:has(.lucide-settings)');
+      await page.click('button[aria-label="settings"]');
       // Verify Japanese text is visible using translation key
       await expect(page.locator(`text=${t('settings.language', 'ja')}`).first()).toBeVisible({ timeout: 10000 });
 
@@ -300,7 +300,7 @@ test.describe('Story 5.6: About Screen with Changelog', () => {
       await page.goto('/chat');
       await page.waitForLoadState('networkidle');
 
-      await page.click('button:has(.lucide-settings)');
+      await page.click('button[aria-label="settings"]');
       await expect(page.locator(`text=${t('settings.language')}`).first()).toBeVisible({ timeout: 10000 });
 
       // Navigate to About screen
