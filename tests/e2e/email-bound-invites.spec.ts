@@ -90,6 +90,7 @@ test.describe('Email-Bound Invites (Story 1.5)', () => {
       await memberPage.locator('#userName').fill(memberName);
       await memberPage.locator('#email').fill(inviteeEmail); // Correct email - matches invite!
       await memberPage.locator('#password').fill(memberPassword);
+      await memberPage.locator('#confirmPassword').fill(memberPassword);
       await memberPage.locator('#inviteCode').fill(inviteCode!);
 
       // Submit the form
@@ -185,6 +186,7 @@ test.describe('Email-Bound Invites (Story 1.5)', () => {
       await memberPage.locator('#userName').fill(memberName);
       await memberPage.locator('#email').fill(wrongEmail); // Wrong email! Does not match invite
       await memberPage.locator('#password').fill(memberPassword);
+      await memberPage.locator('#confirmPassword').fill(memberPassword);
       await memberPage.locator('#inviteCode').fill(inviteCode!);
 
       // Submit the form

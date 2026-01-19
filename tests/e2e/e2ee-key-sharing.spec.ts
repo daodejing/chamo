@@ -45,6 +45,7 @@ test.describe('E2EE Key Sharing via Invite Codes', () => {
     await page.locator('#userName').fill(adminName);
     await page.locator('#email').fill(adminEmail);
     await page.locator('#password').fill(adminPassword);
+    await page.locator('#confirmPassword').fill(adminPassword);
     // Note: familyName field no longer exists on registration - family created separately
 
     await page.locator('button[type="submit"]').click();
@@ -173,6 +174,7 @@ test.describe('E2EE Key Sharing via Invite Codes', () => {
     await page.locator('#userName').fill(memberName);
     await page.locator('#email').fill(memberEmail);
     await page.locator('#password').fill(memberPassword);
+    await page.locator('#confirmPassword').fill(memberPassword);
     await page.locator('#inviteCode').fill(displayedInviteCode);
 
     // Intercept the GraphQL join mutation
@@ -296,6 +298,7 @@ test.describe('E2EE Key Sharing via Invite Codes', () => {
     await page.locator('#userName').fill(`${testId} Format Test Admin`);
     await page.locator('#email').fill(adminEmail);
     await page.locator('#password').fill(adminPassword);
+    await page.locator('#confirmPassword').fill(adminPassword);
     await page.locator('button[type="submit"]').click();
 
     // Wait for redirect to verification-pending page (may include query params)

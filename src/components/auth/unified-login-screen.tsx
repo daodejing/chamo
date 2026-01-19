@@ -40,6 +40,7 @@ export function UnifiedLoginScreen({
   const [authMode, setAuthMode] = useState<AuthMode>(initialMode ?? 'login');
   const [email, setEmail] = useState(initialEmail ?? '');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [userName, setUserName] = useState('');
   const [inviteCode, setInviteCode] = useState(initialInviteCode ?? '');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -81,6 +82,12 @@ export function UnifiedLoginScreen({
 
     if (authMode === 'join' && (!userName || !inviteCode)) {
       toast.error(t('toast.fillAllFields', language));
+      return;
+    }
+
+    // Password confirmation for create and join modes
+    if ((authMode === 'create' || authMode === 'join') && password !== confirmPassword) {
+      toast.error(t('toast.passwordMismatch', language));
       return;
     }
 
@@ -275,6 +282,24 @@ export function UnifiedLoginScreen({
                 className="rounded-xl"
               />
             </div>
+
+            {/* Confirm Password field - for create and join modes */}
+            {(authMode === 'create' || authMode === 'join') && (
+              <div className="space-y-2">
+                <Label htmlFor="confirmPassword">{t('login.confirmPassword', language)}</Label>
+                <Input
+                  id="confirmPassword"
+                  name="confirmPassword"
+                  type="password"
+                  placeholder={t('login.confirmPasswordPlaceholder', language)}
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  required
+                  disabled={isSubmitting || isGeneratingKeys}
+                  className="rounded-xl"
+                />
+              </div>
+            )}
 
             {/* Invite code field - join mode only */}
             {authMode === 'join' && (

@@ -54,6 +54,7 @@ test.describe('Story 1.1: Create Family Account', () => {
     const timestamp = Date.now();
     await emailInput.fill(`test-${timestamp}@example.com`);
     await passwordInput.fill('TestPassword123!');
+    await page.locator('input[name="confirmPassword"]').fill('TestPassword123!');
     await userNameInput.fill('Test User');
 
     // Verify submit button is enabled
@@ -116,6 +117,7 @@ test.describe('Story 1.1: Create Family Account', () => {
 
     await page.locator('input[name="email"]').fill(email);
     await page.locator('input[name="password"]').fill('TestPassword123!');
+    await page.locator('input[name="confirmPassword"]').fill('TestPassword123!');
     await page.locator('input[name="userName"]').fill('E2E Test User');
 
     // Submit form
@@ -161,6 +163,7 @@ test.describe('Story 1.1: Create Family Account', () => {
 
     await page.locator('input[name="email"]').fill(email);
     await page.locator('input[name="password"]').fill(password);
+    await page.locator('input[name="confirmPassword"]').fill(password);
     await page.locator('input[name="userName"]').fill('Toast Test User');
 
     await page.locator('button[type="submit"]').click();
@@ -246,6 +249,7 @@ test.describe('Story 1.1: Create Family Account', () => {
     const timestamp = Date.now();
     await page.locator('input[name="email"]').fill(`perf-${timestamp}@example.com`);
     await page.locator('input[name="password"]').fill('TestPassword123!');
+    await page.locator('input[name="confirmPassword"]').fill('TestPassword123!');
     await page.locator('input[name="userName"]').fill('Perf User');
 
     const startTime = Date.now();
@@ -294,6 +298,7 @@ test.describe('Story 1.2: Join Family via Invite Code', () => {
     await userNameInput.fill('Test Member');
     await emailInput.fill(`member-${timestamp}@example.com`);
     await passwordInput.fill('MemberPassword123!');
+    await page.locator('input[name="confirmPassword"]').fill('MemberPassword123!');
     await inviteCodeInput.fill('FAMILY-TEST1234:dGVzdGtleWV4YW1wbGUxMjM0NTY3ODkw');
 
     // Verify submit button is enabled

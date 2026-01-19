@@ -74,6 +74,7 @@ test.describe('Story 1.2: Join Family via Invite Code', () => {
         await memberPage.locator('#userName').fill(memberName);
         await memberPage.locator('#email').fill(memberEmail);
         await memberPage.locator('#password').fill(memberPassword);
+        await memberPage.locator('#confirmPassword').fill(memberPassword);
         // Use the invite code from fixture (just the code portion, not CODE:KEY format)
         await memberPage.locator('#inviteCode').fill(inviteCode);
 
@@ -181,6 +182,7 @@ test.describe('Story 1.2: Join Family via Invite Code', () => {
     await page.locator('#userName').fill(memberName);
     await page.locator('#email').fill(memberEmail);
     await page.locator('#password').fill(memberPassword);
+    await page.locator('#confirmPassword').fill(memberPassword);
     await page.locator('#inviteCode').fill(invalidInviteCode);
 
     await page.locator('button[type="submit"]').click();
@@ -289,6 +291,7 @@ test.describe('Story 1.2: Join Family via Invite Code', () => {
         await memberPage.locator('#userName').fill(`${testId} Duplicate User`);
         await memberPage.locator('#email').fill(duplicateEmail);
         await memberPage.locator('#password').fill('DifferentPassword123!');
+        await memberPage.locator('#confirmPassword').fill('DifferentPassword123!');
         await memberPage.locator('#inviteCode').fill(fixture.inviteCode);
 
         const errorResponsePromise = memberPage.waitForResponse(

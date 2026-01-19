@@ -56,6 +56,7 @@ test.describe('Story 1.1: Create Family Account', () => {
       await page.locator('#userName').fill(userName);
       await page.locator('#email').fill(email);
       await page.locator('#password').fill(password);
+      await page.locator('#confirmPassword').fill(password);
 
       // Submit registration
       await page.locator('button[type="submit"]').click();
@@ -131,6 +132,7 @@ test.describe('Story 1.1: Create Family Account', () => {
       await page.locator('#userName').fill(`${testId} First`);
       await page.locator('#email').fill(email);
       await page.locator('#password').fill('FirstPassword123!');
+      await page.locator('#confirmPassword').fill('FirstPassword123!');
       await page.locator('button[type="submit"]').click();
 
       // Wait for first registration to complete
@@ -144,6 +146,7 @@ test.describe('Story 1.1: Create Family Account', () => {
       await page.locator('#userName').fill(`${testId} Second`);
       await page.locator('#email').fill(email);
       await page.locator('#password').fill('SecondPassword123!');
+      await page.locator('#confirmPassword').fill('SecondPassword123!');
       await page.locator('button[type="submit"]').click();
 
       // Should show error about duplicate email
@@ -191,6 +194,7 @@ test.describe('Story 1.1: Create Family Account', () => {
     await page.locator('#userName').fill(`${testId} User`);
     await page.locator('#email').fill(`${testId}@example.com`);
     await page.locator('#password').fill('weak'); // Too short/weak
+    await page.locator('#confirmPassword').fill('weak');
 
     await page.locator('button[type="submit"]').click();
 

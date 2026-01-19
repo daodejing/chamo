@@ -134,6 +134,7 @@ async function fillRegistrationForm(page: Page): Promise<RegistrationFormData> {
   await page.locator('#userName').fill(data.userName);
   await page.locator('#email').fill(data.email);
   await page.locator('#password').fill(data.password);
+  await page.locator('#confirmPassword').fill(data.password);
 
   return data;
 }
