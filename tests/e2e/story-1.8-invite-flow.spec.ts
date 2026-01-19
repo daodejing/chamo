@@ -107,6 +107,7 @@ test.describe('Story 1.8: Family Invite Flow', () => {
       await inviteePage.fill('input[name="userName"]', inviteeName);
       await inviteePage.fill('input[name="email"]', inviteeEmail);
       await inviteePage.fill('input[name="password"]', inviteePassword);
+      await inviteePage.fill('input[name="confirmPassword"]', inviteePassword);
 
       // Submit registration
       await inviteePage.click('button[type="submit"]');
@@ -173,7 +174,7 @@ test.describe('Story 1.8: Family Invite Flow', () => {
       // ============================================================
       // PHASE 4: Invitee logs in and accepts invite
       // ============================================================
-      // Login as invitee
+      // Login as invitee (no password confirmation needed - this is login, not registration)
       await inviteePage.goto('/login');
       await inviteePage.fill('input[name="email"]', inviteeEmail);
       await inviteePage.fill('input[name="password"]', inviteePassword);
@@ -308,6 +309,7 @@ test.describe('Story 1.8: Family Invite Flow', () => {
       // Fill remaining fields
       await inviteePage.fill('input[name="userName"]', inviteeName);
       await inviteePage.fill('input[name="password"]', inviteePassword);
+      await inviteePage.fill('input[name="confirmPassword"]', inviteePassword);
 
       // Submit registration
       await inviteePage.click('button[type="submit"]');
@@ -366,7 +368,7 @@ test.describe('Story 1.8: Family Invite Flow', () => {
       const inviteCode = extractInviteCode(inviteEmailMsg);
       expect(inviteCode).toBeTruthy();
 
-      // Login as invitee
+      // Login as invitee (no password confirmation needed - this is login, not registration)
       await inviteePage.goto('/login');
       await inviteePage.fill('input[name="email"]', inviteeEmail);
       await inviteePage.fill('input[name="password"]', inviteePassword);
@@ -457,6 +459,7 @@ test.describe('Story 1.8: Family Invite Flow', () => {
       await expect(inviteePage.locator('input[name="userName"]')).toBeVisible({ timeout: 10000 });
       await inviteePage.fill('input[name="userName"]', inviteeName);
       await inviteePage.fill('input[name="password"]', inviteePassword);
+      await inviteePage.fill('input[name="confirmPassword"]', inviteePassword);
       await inviteePage.click('button[type="submit"]');
 
       // Wait for verification pending
@@ -591,6 +594,7 @@ test.describe('Story 1.8: Family Invite Flow', () => {
       // Fill and submit registration
       await inviteePage.fill('input[name="userName"]', inviteeName);
       await inviteePage.fill('input[name="password"]', inviteePassword);
+      await inviteePage.fill('input[name="confirmPassword"]', inviteePassword);
       await inviteePage.click('button[type="submit"]');
 
       // ============================================================

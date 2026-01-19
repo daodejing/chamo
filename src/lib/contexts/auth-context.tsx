@@ -51,6 +51,7 @@ import {
   markLostKeyModalShown,
   clearLostKeyModalFlag,
 } from '@/components/auth/lost-key-modal';
+import { InviteeGuard } from '@/components/auth/invitee-guard';
 import { getPendingInviteCodeForRegistration } from '@/lib/invite/pending-invite';
 
 const PENDING_FAMILY_KEY_STORAGE_KEY = 'pending_family_key';
@@ -668,7 +669,7 @@ function AuthProviderInner({ children }: { children: React.ReactNode}) {
         updateUserPreferences,
       }}
     >
-      {children}
+      <InviteeGuard>{children}</InviteeGuard>
       <LostKeyModal open={lostKeyModalOpen} onContinue={handleDismissLostKeyModal} />
     </AuthContext.Provider>
   );

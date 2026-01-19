@@ -302,6 +302,27 @@ type Mutation {
   verifyEmail(token: String!): AuthResponse!
 }
 
+type MyPendingInviteType {
+  createdAt: DateTime!
+  expiresAt: DateTime!
+  family: PendingInviteFamilyType!
+  familyId: ID!
+  id: ID!
+  inviter: PendingInviteInviterType!
+  inviterId: ID!
+  status: InviteStatus!
+}
+
+type PendingInviteFamilyType {
+  id: ID!
+  name: String!
+}
+
+type PendingInviteInviterType {
+  id: ID!
+  name: String!
+}
+
 input PromoteToAdminInput {
   familyId: ID!
   userId: ID!
@@ -314,6 +335,7 @@ type Query {
   getFamilyInvites(familyId: String!): [InviteType!]!
   getFamilyMembers(familyId: String!): [FamilyMemberType!]!
   getMessages(input: GetMessagesInput!): [MessageWithUserType!]!
+  getMyPendingInvites: [MyPendingInviteType!]!
   getPendingInvites(familyId: String!): [InviteType!]!
   getUserPublicKey(email: String!): String
   me: UserType!

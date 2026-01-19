@@ -24,7 +24,7 @@ import { RemoveFamilyMemberInput } from './dto/remove-family-member.input';
 import { PromoteToAdminInput } from './dto/promote-to-admin.input';
 import { DeleteFamilyInput } from './dto/delete-family.input';
 import { AuthResponse, UserType, EmailVerificationResponse, GenericResponse, CreateFamilyResponse, AdminStatusResponse } from './types/auth-response.type';
-import { CreateInviteResponse, AcceptInviteResponse, InviteType, InviteResponse } from './types/invite.type';
+import { CreateInviteResponse, AcceptInviteResponse, InviteType, InviteResponse, MyPendingInviteType } from './types/invite.type';
 import { FamilyType } from './types/family.type';
 import { FamilyMembershipType } from './types/family-membership.type';
 import { FamilyMemberType } from './types/family-member.type';
@@ -258,6 +258,18 @@ export class AuthResolver {
     @Args('familyId') familyId: string,
   ): Promise<InviteType[]> {
     return this.authService.getFamilyInvites(user.id, familyId);
+  }
+
+  /**
+   * Get pending invites for the current user by their email
+   * Used to show invitees what families are waiting for them in the waiting-for-invitation view
+   */
+  @Query(() => [MyPendingInviteType])
+  @UseGuards(GqlAuthGuard)
+  async getMyPendingInvites(
+    @CurrentUser() user: User,
+  ): Promise<MyPendingInviteType[]> {
+    return this.authService.getMyPendingInvites(user.id);
   }
 
   @Mutation(() => GenericResponse)

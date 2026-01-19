@@ -431,6 +431,9 @@ export async function injectAuthToken(
 
   await page.evaluate((token) => {
     localStorage.setItem('accessToken', token);
+    // Clear invitee flow flag to prevent InviteeGuard redirects during tests
+    // Tests that need the invitee flow should set this flag explicitly after auth setup
+    localStorage.removeItem('ourchat.inviteeFlowActive');
   }, accessToken);
 }
 

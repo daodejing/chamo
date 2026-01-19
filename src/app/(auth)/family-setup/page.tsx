@@ -29,6 +29,7 @@ import { encryptFamilyKeyForRecipient } from '@/lib/e2ee/invite-encryption';
 import { getFamilyKeyBase64, generateInviteCode } from '@/lib/e2ee/key-management';
 import { isInviteeFlowActive, clearInviteeFlowFlag } from '@/lib/invite/invitee-flow';
 import { InviteLanguageSelector, type InviteLanguageCode } from '@/components/settings/invite-language-selector';
+import { WaitingForInvitation } from '@/components/auth/waiting-for-invitation';
 
 interface MemberInvite {
   email: string;
@@ -46,7 +47,7 @@ export default function FamilySetupPage() {
 
   const [isCreating, setIsCreating] = useState(false);
   const [isJoining, setIsJoining] = useState(false);
-  const [showInviteeNotice, setShowInviteeNotice] = useState(false);
+  const [isWaitingForInvite, setIsWaitingForInvite] = useState(false);
 
   // Default language for invites based on UI language
   const defaultInviteLanguage: InviteLanguageCode = language === 'ja' || language === 'en' ? language : 'en';
@@ -64,7 +65,7 @@ export default function FamilySetupPage() {
 
   useEffect(() => {
     if (isInviteeFlowActive()) {
-      setShowInviteeNotice(true);
+      setIsWaitingForInvite(true);
     }
   }, []);
 
@@ -218,7 +219,7 @@ export default function FamilySetupPage() {
 
       toast.success(t('toast.familyCreated', language));
       clearInviteeFlowFlag();
-      setShowInviteeNotice(false);
+      setIsWaitingForInvite(false);
 
       // Show invite code with encryption key for sharing (AC3: Admin receives invite code)
       if (result?.inviteCodeWithKey) {
@@ -281,11 +282,6 @@ export default function FamilySetupPage() {
     }
   };
 
-  const dismissInviteeNotice = () => {
-    clearInviteeFlowFlag();
-    setShowInviteeNotice(false);
-  };
-
   const handleLogout = async () => {
     try {
       await logout();
@@ -304,6 +300,16 @@ export default function FamilySetupPage() {
 
   if (!user) {
     return null;
+  }
+
+  // Show waiting for invitation view when user came through invite flow
+  // User B can ONLY wait - no other actions available
+  if (isWaitingForInvite) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background p-4">
+        <WaitingForInvitation />
+      </div>
+    );
   }
 
   return (
@@ -330,22 +336,6 @@ export default function FamilySetupPage() {
           </div>
         </CardHeader>
        <CardContent>
-          {showInviteeNotice && (
-            <div className="mb-6 rounded-xl border border-indigo-200 bg-indigo-50 p-4 text-sm text-indigo-900 space-y-3">
-              <div>
-                <p className="font-semibold">{t('familySetup.inviteeNoticeTitle', language)}</p>
-                <p className="text-sm mt-1">{t('familySetup.inviteeNoticeBody', language)}</p>
-              </div>
-              <div className="flex flex-col gap-2">
-                <Button variant="outline" onClick={dismissInviteeNotice}>
-                  {t('familySetup.inviteeNoticeWait', language)}
-                </Button>
-                <Button onClick={dismissInviteeNotice}>
-                  {t('familySetup.inviteeNoticeCreate', language)}
-                </Button>
-              </div>
-            </div>
-          )}
           <Tabs defaultValue="create" className="w-full">
             <TabsList className="grid w-full grid-cols-2">
               <TabsTrigger value="create">{t('familySetup.createTab', language)}</TabsTrigger>

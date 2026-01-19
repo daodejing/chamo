@@ -1941,4 +1941,73 @@ export class AuthService {
       message: 'Your account has been deleted. You can re-register with the same email address.',
     };
   }
+
+  /**
+   * Get pending invites for the current user by their email
+   * Used to show invitees what families are waiting for them
+   */
+  async getMyPendingInvites(userId: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { email: true },
+    });
+
+    if (!user) {
+      throw new UnauthorizedException('User not found');
+    }
+
+    const normalizedEmail = this.normalizeEmail(user.email);
+
+    // Get all pending invites for this user's email
+    const invites = await this.prisma.invite.findMany({
+      where: {
+        inviteeEmail: normalizedEmail,
+        status: {
+          in: ['PENDING_REGISTRATION', 'PENDING'],
+        },
+        expiresAt: {
+          gt: new Date(),
+        },
+      },
+      include: {
+        inviter: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
+        family: {
+          select: {
+            id: true,
+            name: true,
+            deletedAt: true,
+          },
+        },
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+    });
+
+    // Filter out invites from deleted families and map to expected type
+    return invites
+      .filter((invite) => !invite.family.deletedAt)
+      .map((invite) => ({
+        id: invite.id,
+        familyId: invite.familyId,
+        inviterId: invite.inviterId,
+        inviteeEmail: invite.inviteeEmail,
+        encryptedFamilyKey: invite.encryptedFamilyKey,
+        nonce: invite.nonce,
+        inviteCode: invite.inviteCode,
+        status: invite.status,
+        expiresAt: invite.expiresAt,
+        acceptedAt: invite.acceptedAt ?? undefined,
+        createdAt: invite.createdAt,
+        updatedAt: invite.updatedAt,
+        inviter: invite.inviter,
+        family: invite.family,
+      }));
+  }
 }

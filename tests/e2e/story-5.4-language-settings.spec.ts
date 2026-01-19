@@ -37,10 +37,12 @@ test.describe('Story 5.4: Language Settings', () => {
       // Click Japanese button (using translation key)
       await page.click(`button:has-text("${t('settings.japanese')}")`);
 
-      // Wait for page reload
+      // Wait for page reload - page stays on settings after reload
       await page.waitForLoadState('networkidle');
 
-      // Navigate to settings after reload
+      // Navigate to chat first, then back to settings (page stays on /settings after reload)
+      await page.goto('/chat');
+      await page.waitForLoadState('networkidle');
       await page.click('button[aria-label="settings"]');
       await expect(page.locator(`text=${t('settings.language', 'ja')}`).first()).toBeVisible({ timeout: 10000 });
 
@@ -63,12 +65,12 @@ test.describe('Story 5.4: Language Settings', () => {
       await page.click('button[aria-label="settings"]');
       await expect(page.locator(`text=${t('settings.language')}`).first()).toBeVisible({ timeout: 10000 });
 
-      // First set to Japanese
+      // First set to Japanese and go to chat, then back to settings
       await page.evaluate(() => localStorage.setItem('appLanguage', 'ja'));
-      await page.reload();
+      await page.goto('/chat');
       await page.waitForLoadState('networkidle');
 
-      // Navigate to settings (need to re-open after reload)
+      // Navigate to settings (need to re-open after language change)
       await page.click('button[aria-label="settings"]');
       await expect(page.locator(`text=${t('settings.language', 'ja')}`).first()).toBeVisible({ timeout: 10000 });
 
@@ -78,12 +80,12 @@ test.describe('Story 5.4: Language Settings', () => {
       // Click English button (using translation key)
       await page.click(`button:has-text("${t('settings.english')}")`);
 
-      // Wait for reload to complete (toast may disappear quickly)
-
-      // Wait for page reload
+      // Wait for page reload - page stays on settings after reload
       await page.waitForLoadState('networkidle');
 
-      // Navigate to settings after reload
+      // Navigate to chat first, then back to settings (page stays on /settings after reload)
+      await page.goto('/chat');
+      await page.waitForLoadState('networkidle');
       await page.click('button[aria-label="settings"]');
       await expect(page.locator(`text=${t('settings.language')}`).first()).toBeVisible({ timeout: 10000 });
 
@@ -175,7 +177,9 @@ test.describe('Story 5.4: Language Settings', () => {
       await page.click(`button:has-text("${t('settings.japanese')}")`);
       await page.waitForLoadState('networkidle');
 
-      // Navigate to settings after reload
+      // Navigate to chat first, then back to settings (page stays on /settings after reload)
+      await page.goto('/chat');
+      await page.waitForLoadState('networkidle');
       await page.click('button[aria-label="settings"]');
       await expect(page.locator(`text=${t('settings.language', 'ja')}`).first()).toBeVisible({ timeout: 10000 });
 
@@ -206,7 +210,9 @@ test.describe('Story 5.4: Language Settings', () => {
       await page.click(`button:has-text("${t('settings.japanese')}")`);
       await page.waitForLoadState('networkidle');
 
-      // Navigate to settings after reload
+      // Navigate to chat first, then back to settings (page stays on /settings after reload)
+      await page.goto('/chat');
+      await page.waitForLoadState('networkidle');
       await page.click('button[aria-label="settings"]');
       await expect(page.locator(`text=${t('settings.language', 'ja')}`).first()).toBeVisible({ timeout: 10000 });
 
@@ -242,8 +248,8 @@ test.describe('Story 5.4: Language Settings', () => {
       const storedLanguage = await page.evaluate(() => localStorage.getItem('appLanguage'));
       expect(storedLanguage).toBe('ja');
 
-      // Verify UI is in Japanese after reload
-      await page.reload();
+      // Verify UI is in Japanese after reload - navigate to chat first since reload keeps us on /settings
+      await page.goto('/chat');
       await page.waitForLoadState('networkidle');
 
       // Navigate to settings (should still be Japanese)

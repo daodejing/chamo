@@ -257,6 +257,31 @@ export const GET_FAMILY_INVITES_QUERY = gql`
   }
 `;
 
+/**
+ * Get pending invites for the current user by their email
+ * Used to show invitees what families are waiting for them
+ */
+export const GET_MY_PENDING_INVITES_QUERY = gql`
+  query GetMyPendingInvites {
+    getMyPendingInvites {
+      id
+      familyId
+      family {
+        id
+        name
+      }
+      inviterId
+      inviter {
+        id
+        name
+      }
+      status
+      expiresAt
+      createdAt
+    }
+  }
+`;
+
 export const GET_FAMILY_MEMBERS_QUERY = gql`
   query GetFamilyMembers($familyId: String!) {
     getFamilyMembers(familyId: $familyId) {

@@ -26,6 +26,11 @@ bash .claude/skills/manage-local-dev-env/scripts/manage-dev.sh stop --env test
 bash .claude/skills/manage-local-dev-env/scripts/manage-dev.sh restart frontend
 bash .claude/skills/manage-local-dev-env/scripts/manage-dev.sh restart backend --env test
 bash .claude/skills/manage-local-dev-env/scripts/manage-dev.sh restart api
+
+# Reset database (delete all data)
+bash .claude/skills/manage-local-dev-env/scripts/reset-db.sh           # Dev DB (interactive)
+bash .claude/skills/manage-local-dev-env/scripts/reset-db.sh -y        # Dev DB (skip confirmation)
+bash .claude/skills/manage-local-dev-env/scripts/reset-db.sh --env test -y  # Test DB
 ```
 
 ## Script Usage
@@ -51,6 +56,21 @@ Components:
 Options:
   --env dev   Development environment (default)
   --env test  Test environment for E2E/Playwright testing
+```
+
+### reset-db.sh
+
+```
+reset-db.sh [--env dev|test] [-y|--yes]
+
+Options:
+  --env dev|test  Environment to reset (default: dev)
+  -y, --yes       Skip confirmation prompt
+
+This script will:
+  - Drop and recreate the database
+  - Run all Prisma migrations
+  - Clear all MailHog emails
 ```
 
 ## Environments

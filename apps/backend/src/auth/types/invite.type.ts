@@ -101,3 +101,57 @@ export class InviteResponse {
   @Field()
   expiresAt: Date;
 }
+
+/**
+ * Family info for pending invites displayed to invitees
+ */
+@ObjectType()
+export class PendingInviteFamilyType {
+  @Field(() => ID)
+  id: string;
+
+  @Field()
+  name: string;
+}
+
+/**
+ * Inviter info for pending invites displayed to invitees
+ */
+@ObjectType()
+export class PendingInviteInviterType {
+  @Field(() => ID)
+  id: string;
+
+  @Field()
+  name: string;
+}
+
+/**
+ * Pending invite with family info - for invitees to see what families invited them
+ */
+@ObjectType()
+export class MyPendingInviteType {
+  @Field(() => ID)
+  id: string;
+
+  @Field(() => ID)
+  familyId: string;
+
+  @Field(() => PendingInviteFamilyType)
+  family: PendingInviteFamilyType;
+
+  @Field(() => ID)
+  inviterId: string;
+
+  @Field(() => PendingInviteInviterType)
+  inviter: PendingInviteInviterType;
+
+  @Field(() => InviteStatus)
+  status: InviteStatus;
+
+  @Field()
+  expiresAt: Date;
+
+  @Field()
+  createdAt: Date;
+}

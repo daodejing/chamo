@@ -154,11 +154,16 @@ test.describe('Story 1.3: Session Persistence', () => {
       // Verify we're logged in
       await expect(page.getByText('General')).toBeVisible({ timeout: 10000 });
 
-      // Navigate to settings and logout
+      // Navigate to settings to verify it works, then go back to chat to logout
       await page.click('button[aria-label="settings"]');
       await expect(page.locator(`text=${t('settings.language')}`).first()).toBeVisible({ timeout: 10000 });
 
-      // AC5: Click logout button
+      // Go back to chat (settings screen has its own header without logout button)
+      await page.goto('/chat');
+      await page.waitForLoadState('networkidle');
+      await expect(page.getByText('General')).toBeVisible({ timeout: 10000 });
+
+      // AC5: Click logout button (on main header)
       await page.click('button[aria-label="logout"]');
 
       // AC7: Wait for redirect to /login

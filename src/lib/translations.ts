@@ -184,6 +184,18 @@ export const translations = {
     "familySetup.accountSettings": "アカウント設定",
     "familySetup.logout": "ログアウト",
 
+    // Waiting for Invitation Screen
+    "waitingInvite.title": "招待をお待ちください",
+    "waitingInvite.description": "家族の管理者が暗号化招待を作成するのをお待ちください",
+    "waitingInvite.loading": "読み込み中...",
+    "waitingInvite.waitingFrom": "以下の家族から招待されています：",
+    "waitingInvite.invitedBy": "{name}さんから招待",
+    "waitingInvite.noInvites": "現在保留中の招待はありません",
+    "waitingInvite.statusMessage": "管理者が招待を完了するとすぐに家族に参加できます。このページは自動的に更新されます。",
+    "waitingInvite.checkStatus": "ステータスを確認",
+    "waitingInvite.createOwn": "自分の家族を作成する",
+    "waitingInvite.logout": "ログアウト",
+
     // Invitation List
     "invitesList.title": "招待状一覧",
     "invitesList.description": "保留中・登録待ち・参加済みのステータスを確認できます",
@@ -640,6 +652,18 @@ export const translations = {
     "familySetup.accountMenu": "Account",
     "familySetup.accountSettings": "Account Settings",
     "familySetup.logout": "Log Out",
+
+    // Waiting for Invitation Screen
+    "waitingInvite.title": "Waiting for Invitation",
+    "waitingInvite.description": "Please wait for your family admin to complete your invite",
+    "waitingInvite.loading": "Loading...",
+    "waitingInvite.waitingFrom": "You have been invited to:",
+    "waitingInvite.invitedBy": "Invited by {name}",
+    "waitingInvite.noInvites": "No pending invites at this time",
+    "waitingInvite.statusMessage": "You'll be able to join as soon as the admin completes your invitation. This page auto-refreshes.",
+    "waitingInvite.checkStatus": "Check Status",
+    "waitingInvite.createOwn": "Create my own family instead",
+    "waitingInvite.logout": "Log Out",
 
     // Invitation List
     "invitesList.title": "Invitations",
