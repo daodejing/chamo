@@ -17,6 +17,7 @@ resources:
   # Oracle-specific resources
   - namespaces.yaml
   - postgres.yaml
+  - postgres-backup.yaml
   # Gateway API + TLS (must be in order: service -> gateway -> routes)
   - gateway-service.yaml
   - cert-manager.yaml
