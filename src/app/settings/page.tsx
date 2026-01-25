@@ -268,6 +268,7 @@ export default function SettingsPage() {
       userName={user.name}
       userEmail={user.email}
       userAvatar={user.avatar ?? ''}
+      userId={user.id}
       // Family props - optional, passed only when user has a family
       familyName={hasFamily ? settingsFamilyName : undefined}
       familyAvatar={hasFamily ? settingsFamilyAvatar : undefined}

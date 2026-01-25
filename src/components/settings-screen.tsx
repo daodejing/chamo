@@ -1,7 +1,10 @@
 "use client";
 
-import { useState } from "react";
-import { ArrowLeft, Globe, Shield, Bell, Moon, Sun, Camera, Type, Users, UserMinus, Crown, Clock, Hash, Plus, Trash, Languages, Calendar as CalendarIcon, RefreshCw, Check, Info } from "lucide-react";
+import { useState, useEffect } from "react";
+import { ArrowLeft, Globe, Shield, Bell, Moon, Sun, Camera, Type, Users, UserMinus, Crown, Clock, Hash, Plus, Trash, Languages, Calendar as CalendarIcon, RefreshCw, Check, Info, Smartphone, Download } from "lucide-react";
+import { KeyTransferExport } from "@/components/settings/KeyTransferExport";
+import { KeyTransferImport } from "@/components/settings/KeyTransferImport";
+import { hasPrivateKey } from "@/lib/crypto/secure-storage";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -40,6 +43,7 @@ interface SettingsScreenProps {
   userName: string;
   userEmail: string;
   userAvatar: string;
+  userId?: string;
   // Family props - optional, only present when user has a family
   familyName?: string;
   familyAvatar?: string;
@@ -92,8 +96,23 @@ interface SettingsScreenProps {
 }
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-export function SettingsScreen({ userName, userEmail, userAvatar, familyName, familyAvatar, familyMembers = [], maxMembers = 10, channels = [], inviteCode, isDarkMode, fontSize, language, quietHoursEnabled, quietHoursStart, quietHoursEnd, googleConnected, googleEmail, lastSyncTime, autoSync, onBack, onDeleteAccount, onThemeToggle, onFontSizeChange, onFamilyNameChange, /* onFamilyAvatarChange - reserved for future */ onMaxMembersChange, onQuietHoursToggle, onQuietHoursStartChange, onQuietHoursEndChange, onRemoveMember, onPromoteMember, onDeleteFamily, currentUserRole = "member", familyId, onCreateChannel, onDeleteChannel, onConnectGoogle, onDisconnectGoogle, onSyncGoogle, onAutoSyncToggle, preferredTranslationLanguage = "en", onPreferredTranslationLanguageChange, hideHeader = false, showAbout: propShowAbout, onAboutOpen, onAboutClose }: SettingsScreenProps) {
+export function SettingsScreen({ userName, userEmail, userAvatar, userId, familyName, familyAvatar, familyMembers = [], maxMembers = 10, channels = [], inviteCode, isDarkMode, fontSize, language, quietHoursEnabled, quietHoursStart, quietHoursEnd, googleConnected, googleEmail, lastSyncTime, autoSync, onBack, onDeleteAccount, onThemeToggle, onFontSizeChange, onFamilyNameChange, /* onFamilyAvatarChange - reserved for future */ onMaxMembersChange, onQuietHoursToggle, onQuietHoursStartChange, onQuietHoursEndChange, onRemoveMember, onPromoteMember, onDeleteFamily, currentUserRole = "member", familyId, onCreateChannel, onDeleteChannel, onConnectGoogle, onDisconnectGoogle, onSyncGoogle, onAutoSyncToggle, preferredTranslationLanguage = "en", onPreferredTranslationLanguageChange, hideHeader = false, showAbout: propShowAbout, onAboutOpen, onAboutClose }: SettingsScreenProps) {
   const [internalShowAbout, setInternalShowAbout] = useState(false);
+  const [showKeyExport, setShowKeyExport] = useState(false);
+  const [showKeyImport, setShowKeyImport] = useState(false);
+  const [hasEncryptionKey, setHasEncryptionKey] = useState<boolean | null>(null);
+
+  // Check if user has a private key
+  useEffect(() => {
+    if (!userId) return;
+
+    async function checkKey() {
+      const exists = await hasPrivateKey(userId!);
+      setHasEncryptionKey(exists);
+    }
+
+    checkKey();
+  }, [userId]);
 
   // Use prop if provided (for lifted state), otherwise use internal state
   const showAbout = propShowAbout ?? internalShowAbout;
@@ -793,8 +812,49 @@ export function SettingsScreen({ userName, userEmail, userAvatar, familyName, fa
               <Button variant="outline" className="w-full rounded-xl">
                 {t("settings.setBiometrics", language)}
               </Button>
+
+              {/* Key Transfer Section */}
+              <Separator />
+              <div className="space-y-2">
+                <Label>{t("keyTransfer.securitySection", language)}</Label>
+                <div className="space-y-2">
+                  <Button
+                    variant="outline"
+                    className="w-full rounded-xl"
+                    onClick={() => setShowKeyExport(true)}
+                    disabled={hasEncryptionKey === false}
+                  >
+                    <Smartphone className="w-4 h-4 mr-2" />
+                    {t("keyTransfer.transferToDevice", language)}
+                  </Button>
+                  {hasEncryptionKey === false && (
+                    <Button
+                      variant="outline"
+                      className="w-full rounded-xl"
+                      onClick={() => setShowKeyImport(true)}
+                    >
+                      <Download className="w-4 h-4 mr-2" />
+                      {t("keyTransfer.importFromDevice", language)}
+                    </Button>
+                  )}
+                </div>
+              </div>
             </CardContent>
           </Card>
+
+          {/* Key Transfer Modals */}
+          <KeyTransferExport
+            open={showKeyExport}
+            onClose={() => setShowKeyExport(false)}
+          />
+          <KeyTransferImport
+            open={showKeyImport}
+            onClose={() => setShowKeyImport(false)}
+            onSuccess={() => {
+              setShowKeyImport(false);
+              setHasEncryptionKey(true);
+            }}
+          />
 
           {/* About */}
           <Card

@@ -80,63 +80,63 @@ Story 1.9 established per-user keypairs stored in browser IndexedDB. By design, 
 
 ### Task 1: Crypto Utilities for Key Transfer (AC: 2, 3, 5)
 
-- [ ] Create `/src/lib/crypto/key-transfer.ts` module
-- [ ] Implement `generateTransferPIN(): string` - 6 random digits
-- [ ] Implement `deriveKeyFromPIN(pin: string, salt: Uint8Array): Promise<CryptoKey>`
+- [x] Create `/src/lib/crypto/key-transfer.ts` module
+- [x] Implement `generateTransferPIN(): string` - 6 random digits
+- [x] Implement `deriveKeyFromPIN(pin: string, salt: Uint8Array): Promise<CryptoKey>`
   - PBKDF2 with 100k iterations
   - Salt: 16 random bytes (included in QR payload)
-- [ ] Implement `encryptKeyForTransfer(privateKey: Uint8Array, publicKey: Uint8Array, pin: string): Promise<TransferPayload>`
+- [x] Implement `encryptKeyForTransfer(privateKey: Uint8Array, publicKey: Uint8Array, pin: string): Promise<TransferPayload>`
   - Returns: `{ encryptedKey, iv, salt, publicKey, version }`
-- [ ] Implement `decryptKeyFromTransfer(payload: TransferPayload, pin: string): Promise<Uint8Array>`
+- [x] Implement `decryptKeyFromTransfer(payload: TransferPayload, pin: string): Promise<Uint8Array>`
   - Decrypts private key using PIN
-- [ ] Implement `verifyKeyPair(privateKey: Uint8Array, publicKey: Uint8Array): boolean`
+- [x] Implement `verifyKeyPair(privateKey: Uint8Array, publicKey: Uint8Array): boolean`
   - Derive public from private, compare
-- [ ] Unit tests: Round-trip encryption/decryption
-- [ ] Unit tests: Wrong PIN returns error
-- [ ] Unit tests: Payload format validation
+- [x] Unit tests: Round-trip encryption/decryption
+- [x] Unit tests: Wrong PIN returns error
+- [x] Unit tests: Payload format validation
 
 ### Task 2: QR Code Generation Component (AC: 1, 2, 3, 6)
 
-- [ ] Install QR code library: `pnpm add qrcode.react`
-- [ ] Create `/src/components/settings/KeyTransferExport.tsx`
-- [ ] State management:
+- [x] Install QR code library: `pnpm add qrcode.react`
+- [x] Create `/src/components/settings/KeyTransferExport.tsx`
+- [x] State management:
   - `pin: string | null`
   - `qrPayload: string | null`
   - `expiresAt: Date | null`
   - `isExpired: boolean`
-- [ ] Generate flow:
+- [x] Generate flow:
   1. User taps "Transfer Keys"
   2. Generate PIN + encrypt key + create QR payload
   3. Display QR code + PIN + countdown timer
   4. Auto-invalidate after 5 minutes
-- [ ] Regenerate button for new PIN/QR after expiry
-- [ ] Security: Clear QR data from memory on unmount
+- [x] Regenerate button for new PIN/QR after expiry
+- [x] Security: Clear QR data from memory on unmount
 - [ ] Unit tests: QR payload format
 - [ ] Unit tests: Expiration logic
 
 ### Task 3: QR Code Scanner Component (AC: 4, 7, 8)
 
-- [ ] Install QR scanner library: `pnpm add @yudiel/react-qr-scanner` or similar
-- [ ] Create `/src/components/settings/KeyTransferImport.tsx`
-- [ ] Camera permission request with fallback UI
-- [ ] QR scan detection and validation:
+- [x] Install QR scanner library: `pnpm add @yudiel/react-qr-scanner` or similar
+- [x] Create `/src/components/settings/KeyTransferImport.tsx`
+- [x] Camera permission request with fallback UI
+- [x] QR scan detection and validation:
   - Validate payload structure (version, required fields)
   - Show "Invalid QR code" for non-Chamo codes
-- [ ] PIN entry dialog after valid scan
-- [ ] PIN attempt tracking (max 3)
-- [ ] Manual entry fallback (text input for base64 payload)
+- [x] PIN entry dialog after valid scan
+- [x] PIN attempt tracking (max 3)
+- [x] Manual entry fallback (text input for base64 payload)
 - [ ] E2E test: Scan → PIN → success flow
 - [ ] E2E test: Wrong PIN → retry → lockout
 
 ### Task 4: Key Import & Verification Logic (AC: 5, 7)
 
-- [ ] Implement `importTransferredKey(payload: TransferPayload, pin: string, userId: string): Promise<ImportResult>`
+- [x] Implement `importTransferredKey(payload: TransferPayload, pin: string, userId: string): Promise<ImportResult>`
   - Decrypt private key
   - Verify key pair integrity
   - Fetch server public key via `getUserPublicKey(email)` query
   - Compare all three public keys
   - Store in IndexedDB if valid
-- [ ] Return detailed error codes:
+- [x] Return detailed error codes:
   - `INVALID_PIN`
   - `KEY_MISMATCH`
   - `STORAGE_FAILED`
@@ -145,20 +145,20 @@ Story 1.9 established per-user keypairs stored in browser IndexedDB. By design, 
 
 ### Task 5: Settings UI Integration (AC: 1)
 
-- [ ] Add "Security" section to Settings screen
-- [ ] Add "Transfer Keys to Another Device" button
+- [x] Add "Security" section to Settings screen
+- [x] Add "Transfer Keys to Another Device" button
   - Disabled with tooltip if no private key exists
   - Opens `KeyTransferExport` modal/screen
-- [ ] Add "Import Keys from Another Device" button
+- [x] Add "Import Keys from Another Device" button
   - Visible when private key missing
   - Opens `KeyTransferImport` modal/screen
-- [ ] Update Lost Key Modal (`LostKeyModal.tsx`):
+- [x] Update Lost Key Modal (`LostKeyModal.tsx`):
   - Add "Transfer from another device" option alongside "Continue"
   - Link to `KeyTransferImport` flow
 
 ### Task 6: Translation Keys (AC: all)
 
-- [ ] Add translation keys to `src/lib/translations.ts`:
+- [x] Add translation keys to `src/lib/translations.ts`:
   ```
   keyTransfer.exportTitle: "Transfer Keys to Another Device"
   keyTransfer.exportDescription: "Scan this QR code with your other device..."

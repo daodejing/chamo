@@ -30,20 +30,25 @@ E2E tests use an isolated test environment (services auto-start via Playwright):
 
 ```bash
 # Run all E2E tests (auto-starts backend + frontend)
-pnpm exec playwright test
+./scripts/run-e2e.sh
 
 # Run specific test file
-pnpm exec playwright test tests/e2e/invite-language-selection.spec.ts
+./scripts/run-e2e.sh tests/e2e/invite-language-selection.spec.ts
 
 # Run with visible browser
-pnpm exec playwright test --headed
+./scripts/run-e2e.sh --headed
 
 # Run with UI mode for debugging
-pnpm exec playwright test --ui
+./scripts/run-e2e.sh --ui
+
+# Generate HTML report (useful for debugging failures)
+./scripts/run-e2e.sh --reporter=html
 
 # View captured emails during debugging
 open http://localhost:8025
 ```
+
+**Important:** Always run tests via `./scripts/run-e2e.sh` which manages the test Docker containers. Do NOT pipe output to `tail` or other commands - this can cause the process to hang due to output buffering.
 
 ### Backend Unit Tests
 ```bash

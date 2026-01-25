@@ -97,3 +97,17 @@ export function generateKeypair(): GeneratedKeypair {
     secretKey,
   };
 }
+
+/**
+ * Derive public key from a secret key.
+ * NaCl box keypairs allow deriving the public key from the secret key.
+ */
+export function derivePublicKeyFromSecretKey(secretKey: Uint8Array): Uint8Array {
+  if (secretKey.length !== SECRET_KEY_BYTE_LENGTH) {
+    throw new Error(
+      `Secret key must be ${SECRET_KEY_BYTE_LENGTH} bytes.`
+    );
+  }
+  const keypair = nacl.box.keyPair.fromSecretKey(secretKey);
+  return keypair.publicKey;
+}

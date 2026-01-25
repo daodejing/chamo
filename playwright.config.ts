@@ -11,7 +11,9 @@ export default defineConfig({
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
   workers: 1, // Force single worker to prevent database race conditions
-  reporter: 'html',
+  // Use 'list' reporter for CLI-friendly output; 'html' for detailed reports
+  // Override with --reporter=html when you need the full HTML report
+  reporter: process.env.CI ? 'github' : 'list',
   timeout: 30000, // 30 seconds per test
   expect: {
     timeout: 5000, // 5 seconds for expect assertions
