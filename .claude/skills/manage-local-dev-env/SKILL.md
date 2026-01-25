@@ -7,7 +7,7 @@ description: Manage the OurChat local development environment. This skill should
 
 ## Overview
 
-Manage the OurChat local development and test environments including starting, stopping, and restarting backend docker services and the Next.js frontend dev server.
+Manage the OurChat local development and test environments. All services run via Docker Compose from the project root `docker-compose.yml`.
 
 ## Quick Reference
 
@@ -46,11 +46,10 @@ Actions:
 
 Components:
   all       All services (default)
-  frontend  Next.js dev server
-  backend   All backend docker services
-  mysql     MySQL database
+  frontend  Next.js dev server (Docker)
+  backend   Backend services (postgres, mailhog, api)
   postgres  PostgreSQL database
-  minio     MinIO object storage
+  mailhog   MailHog email server
   api       Backend GraphQL API
 
 Options:
@@ -79,11 +78,10 @@ This script will:
 
 | Service | URL | Description |
 |---------|-----|-------------|
-| Frontend | http://localhost:3002 | Next.js dev server |
+| Frontend | http://localhost:3002 | Next.js dev server (Docker) |
 | Backend GraphQL | http://localhost:4000/graphql | GraphQL API |
 | PostgreSQL | localhost:5432 | Primary database |
-| MySQL | localhost:3306 | Legacy database |
-| MinIO | localhost:9000-9001 | Object storage |
+| MailHog Web UI | http://localhost:8025 | Email capture interface |
 
 ### Test Environment (`--env test`)
 
@@ -99,49 +97,46 @@ Used for E2E testing with Playwright MCP dual browser testing.
 
 ## Logs
 
-### Development
-- Frontend logs: `/tmp/ourchat-frontend.log`
-- View frontend logs live: `tail -f /tmp/ourchat-frontend.log`
-- Backend logs: `docker-compose -f apps/backend/docker-compose.yml logs -f`
+All services run in Docker, so logs are accessed via docker-compose:
 
-### Test
-- Frontend logs: `/tmp/ourchat-frontend-test.log`
-- View frontend logs live: `tail -f /tmp/ourchat-frontend-test.log`
-- Backend logs: `docker-compose -f apps/backend/docker-compose.yml --profile test logs -f backend-test`
+```bash
+# View all logs
+docker-compose logs -f
+
+# View specific service logs
+docker-compose logs -f frontend
+docker-compose logs -f backend
+docker-compose logs -f postgres
+
+# Test environment logs
+docker-compose --profile test logs -f frontend-test
+docker-compose --profile test logs -f backend-test
+```
 
 ## Manual Commands
 
-If the script is unavailable:
+If the script is unavailable, use docker-compose directly:
 
 ### Development Environment
 ```bash
-# Start backend
-docker-compose -f apps/backend/docker-compose.yml up -d
+# Start all dev services
+docker-compose up -d postgres mailhog backend frontend
 
-# Start frontend with log redirection
-pnpm dev > /tmp/ourchat-frontend.log 2>&1 &
+# Stop all services (never use -v flag - will delete data)
+docker-compose stop
 
-# Stop frontend
-pkill -f "next dev"
-
-# Stop backend (never use -v flag - will delete data)
-docker-compose -f apps/backend/docker-compose.yml stop
+# View status
+docker-compose ps
 ```
 
 ### Test Environment
 ```bash
-# Start test backend (includes postgres-test, mailhog, backend-test)
-docker-compose -f apps/backend/docker-compose.yml --profile test up -d
+# Start all test services
+docker-compose --profile test up -d
 
-# Start test frontend
-E2E_TEST=true \
-NEXT_PUBLIC_GRAPHQL_HTTP_URL=http://localhost:4001/graphql \
-NEXT_PUBLIC_GRAPHQL_WS_URL=ws://localhost:4001/graphql \
-pnpm next dev --port 3003 > /tmp/ourchat-frontend-test.log 2>&1 &
+# Stop test services
+docker-compose --profile test stop
 
-# Stop test frontend
-lsof -i :3003 -t | xargs kill -9
-
-# Stop test backend
-docker-compose -f apps/backend/docker-compose.yml --profile test stop
+# View status
+docker-compose --profile test ps
 ```

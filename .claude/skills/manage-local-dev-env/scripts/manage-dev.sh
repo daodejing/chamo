@@ -5,9 +5,7 @@ set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/../../../.." && pwd)"
-DEV_LOG_FILE="/tmp/ourchat-frontend.log"
-TEST_LOG_FILE="/tmp/ourchat-frontend-test.log"
-DOCKER_COMPOSE="docker-compose -f $PROJECT_ROOT/apps/backend/docker-compose.yml"
+DOCKER_COMPOSE="docker-compose -f $PROJECT_ROOT/docker-compose.yml"
 
 # Default values
 ENV="dev"
@@ -25,11 +23,10 @@ usage() {
     echo ""
     echo "Components:"
     echo "  all       All services (default)"
-    echo "  frontend  Next.js dev server"
-    echo "  backend   All backend docker services"
-    echo "  mysql     MySQL database"
+    echo "  frontend  Next.js dev server (Docker)"
+    echo "  backend   Backend services (postgres, mailhog, api)"
     echo "  postgres  PostgreSQL database"
-    echo "  minio     MinIO object storage"
+    echo "  mailhog   MailHog email server"
     echo "  api       Backend GraphQL API"
     echo ""
     echo "Options:"
@@ -58,7 +55,7 @@ while [[ $# -gt 0 ]]; do
             ACTION="$1"
             shift
             ;;
-        all|frontend|backend|mysql|postgres|minio|api|seo-api)
+        all|frontend|backend|postgres|mailhog|api)
             COMPONENT="$1"
             shift
             ;;
@@ -82,55 +79,36 @@ fi
 if [[ "$ENV" == "test" ]]; then
     FRONTEND_PORT=3003
     BACKEND_PORT=4001
-    LOG_FILE="$TEST_LOG_FILE"
     DOCKER_PROFILE="--profile test"
-    GRAPHQL_HTTP_URL="http://localhost:4001/graphql"
-    GRAPHQL_WS_URL="ws://localhost:4001/graphql"
+    FRONTEND_SERVICE="frontend-test"
     BACKEND_SERVICE="backend-test"
 else
     FRONTEND_PORT=3002
     BACKEND_PORT=4000
-    LOG_FILE="$DEV_LOG_FILE"
     DOCKER_PROFILE=""
-    GRAPHQL_HTTP_URL=""
-    GRAPHQL_WS_URL=""
+    FRONTEND_SERVICE="frontend"
     BACKEND_SERVICE="backend"
 fi
 
 start_frontend() {
-    if lsof -i :$FRONTEND_PORT -t >/dev/null 2>&1; then
-        echo "[$ENV] Frontend already running on port $FRONTEND_PORT"
+    echo "[$ENV] Starting frontend dev server on port $FRONTEND_PORT..."
+    if [[ "$ENV" == "test" ]]; then
+        $DOCKER_COMPOSE $DOCKER_PROFILE up -d frontend-test
     else
-        echo "[$ENV] Starting frontend dev server on port $FRONTEND_PORT..."
-        cd "$PROJECT_ROOT"
-        if [[ "$ENV" == "test" ]]; then
-            E2E_TEST=true \
-            NEXT_PUBLIC_GRAPHQL_HTTP_URL="$GRAPHQL_HTTP_URL" \
-            NEXT_PUBLIC_GRAPHQL_WS_URL="$GRAPHQL_WS_URL" \
-            pnpm next dev --port $FRONTEND_PORT > "$LOG_FILE" 2>&1 &
-        else
-            pnpm dev > "$LOG_FILE" 2>&1 &
-        fi
-        sleep 3
-        if lsof -i :$FRONTEND_PORT -t >/dev/null 2>&1; then
-            echo "[$ENV] Frontend started: http://localhost:$FRONTEND_PORT"
-            echo "[$ENV] Logs: $LOG_FILE"
-        else
-            echo "[$ENV] Warning: Frontend may still be starting. Check $LOG_FILE"
-        fi
+        $DOCKER_COMPOSE up -d frontend
     fi
+    echo "[$ENV] Frontend started: http://localhost:$FRONTEND_PORT"
+    echo "[$ENV] Logs: docker-compose logs -f $FRONTEND_SERVICE"
 }
 
 stop_frontend() {
-    if lsof -i :$FRONTEND_PORT -t >/dev/null 2>&1; then
-        echo "[$ENV] Stopping frontend on port $FRONTEND_PORT..."
-        # Kill process on specific port
-        lsof -i :$FRONTEND_PORT -t | xargs kill -9 2>/dev/null || true
-        sleep 1
-        echo "[$ENV] Frontend stopped"
+    echo "[$ENV] Stopping frontend..."
+    if [[ "$ENV" == "test" ]]; then
+        $DOCKER_COMPOSE $DOCKER_PROFILE stop frontend-test
     else
-        echo "[$ENV] Frontend not running on port $FRONTEND_PORT"
+        $DOCKER_COMPOSE stop frontend
     fi
+    echo "[$ENV] Frontend stopped"
 }
 
 start_backend() {
@@ -138,7 +116,7 @@ start_backend() {
     if [[ "$ENV" == "test" ]]; then
         $DOCKER_COMPOSE $DOCKER_PROFILE up -d postgres-test mailhog backend-test
     else
-        $DOCKER_COMPOSE up -d
+        $DOCKER_COMPOSE up -d postgres mailhog backend
     fi
     echo "[$ENV] Backend services started"
 }
@@ -148,9 +126,29 @@ stop_backend() {
     if [[ "$ENV" == "test" ]]; then
         $DOCKER_COMPOSE $DOCKER_PROFILE stop postgres-test mailhog backend-test
     else
-        $DOCKER_COMPOSE stop
+        $DOCKER_COMPOSE stop postgres mailhog backend
     fi
     echo "[$ENV] Backend services stopped"
+}
+
+start_all() {
+    echo "[$ENV] Starting all services..."
+    if [[ "$ENV" == "test" ]]; then
+        $DOCKER_COMPOSE $DOCKER_PROFILE up -d
+    else
+        $DOCKER_COMPOSE up -d postgres mailhog backend frontend
+    fi
+    echo "[$ENV] All services started"
+}
+
+stop_all() {
+    echo "[$ENV] Stopping all services..."
+    if [[ "$ENV" == "test" ]]; then
+        $DOCKER_COMPOSE $DOCKER_PROFILE stop
+    else
+        $DOCKER_COMPOSE stop
+    fi
+    echo "[$ENV] All services stopped"
 }
 
 restart_service() {
@@ -162,16 +160,9 @@ restart_service() {
 }
 
 status() {
-    echo "=== [$ENV] Frontend ==="
-    if lsof -i :$FRONTEND_PORT -t >/dev/null 2>&1; then
-        echo "Running: http://localhost:$FRONTEND_PORT"
-    else
-        echo "Not running"
-    fi
-    echo ""
-    echo "=== [$ENV] Backend Services ==="
+    echo "=== [$ENV] Services ==="
     if [[ "$ENV" == "test" ]]; then
-        $DOCKER_COMPOSE $DOCKER_PROFILE ps postgres-test mailhog backend-test 2>/dev/null || echo "Test services not running"
+        $DOCKER_COMPOSE $DOCKER_PROFILE ps 2>/dev/null || echo "Services not running"
         echo ""
         echo "=== Test Environment URLs ==="
         echo "Frontend:     http://localhost:3003"
@@ -183,6 +174,7 @@ status() {
         echo "=== Dev Environment URLs ==="
         echo "Frontend:     http://localhost:3002"
         echo "GraphQL API:  http://localhost:4000/graphql"
+        echo "MailHog UI:   http://localhost:8025"
     fi
 }
 
@@ -190,8 +182,7 @@ case "$ACTION" in
     start)
         case "$COMPONENT" in
             all)
-                start_backend
-                start_frontend
+                start_all
                 ;;
             frontend)
                 start_frontend
@@ -199,7 +190,7 @@ case "$ACTION" in
             backend)
                 start_backend
                 ;;
-            mysql|postgres|minio|seo-api)
+            postgres|mailhog)
                 $DOCKER_COMPOSE $DOCKER_PROFILE up -d "$COMPONENT"
                 ;;
             api)
@@ -216,8 +207,7 @@ case "$ACTION" in
     stop)
         case "$COMPONENT" in
             all)
-                stop_frontend
-                stop_backend
+                stop_all
                 ;;
             frontend)
                 stop_frontend
@@ -225,7 +215,7 @@ case "$ACTION" in
             backend)
                 stop_backend
                 ;;
-            mysql|postgres|minio|seo-api)
+            postgres|mailhog)
                 $DOCKER_COMPOSE $DOCKER_PROFILE stop "$COMPONENT"
                 ;;
             api)
@@ -240,28 +230,16 @@ case "$ACTION" in
     restart)
         case "$COMPONENT" in
             all)
-                stop_frontend
-                if [[ "$ENV" == "test" ]]; then
-                    $DOCKER_COMPOSE $DOCKER_PROFILE restart postgres-test mailhog backend-test 2>&1
-                else
-                    $DOCKER_COMPOSE restart 2>&1
-                fi
-                sleep 2
-                start_frontend
+                stop_all
+                start_all
                 ;;
             frontend)
-                stop_frontend
-                start_frontend
+                $DOCKER_COMPOSE $DOCKER_PROFILE restart $FRONTEND_SERVICE
                 ;;
             backend)
-                if [[ "$ENV" == "test" ]]; then
-                    $DOCKER_COMPOSE $DOCKER_PROFILE restart postgres-test mailhog backend-test 2>&1
-                else
-                    $DOCKER_COMPOSE restart 2>&1
-                fi
-                sleep 2
+                $DOCKER_COMPOSE $DOCKER_PROFILE restart $BACKEND_SERVICE
                 ;;
-            mysql|postgres|minio|seo-api)
+            postgres|mailhog)
                 restart_service "$COMPONENT"
                 ;;
             api)

@@ -38,10 +38,12 @@ services:
       retries: 5
     networks:
       - ourchat_network
+    profiles:
+      - test
 
   backend:
     build:
-      context: .
+      context: ./apps/backend
       dockerfile: Dockerfile.dev
     container_name: ourchat_backend
     restart: unless-stopped
@@ -63,7 +65,7 @@ services:
       EMAIL_FROM_NAME: "${EMAIL_FROM_NAME:-Chamo}"
       EMAIL_VERIFICATION_URL: "${EMAIL_VERIFICATION_URL:-http://localhost:3002/verify-email}"
     volumes:
-      - ../../:/app
+      - .:/app
     command: sh -c "cd /app/apps/backend && pnpm prisma generate && pnpm prisma migrate deploy && pnpm start:dev"
     depends_on:
       postgres:
@@ -90,10 +92,31 @@ services:
     networks:
       - ourchat_network
 
+  # Frontend dev server
+  frontend:
+    image: node:20-alpine
+    container_name: ourchat_frontend
+    restart: unless-stopped
+    working_dir: /app
+    ports:
+      - "3002:3002"
+    environment:
+      NODE_ENV: development
+      NEXT_PUBLIC_GRAPHQL_HTTP_URL: http://localhost:4000/graphql
+      NEXT_PUBLIC_GRAPHQL_WS_URL: ws://localhost:4000/graphql
+    volumes:
+      - .:/app
+      - frontend_node_modules:/app/node_modules
+    command: sh -c "npm install -g pnpm && pnpm install && pnpm dev --port 3002 --hostname 0.0.0.0"
+    depends_on:
+      - backend
+    networks:
+      - ourchat_network
+
   # Test backend for E2E tests - uses test database on port 4001
   backend-test:
     build:
-      context: .
+      context: ./apps/backend
       dockerfile: Dockerfile.dev
     container_name: ourchat_backend_test
     restart: unless-stopped
@@ -115,7 +138,7 @@ services:
       EMAIL_VERIFICATION_URL: "http://localhost:3003/verify-email"
       APP_BASE_URL: "http://localhost:3003"
     volumes:
-      - ../../:/app
+      - .:/app
     command: sh -c "cd /app/apps/backend && pnpm prisma generate && pnpm prisma migrate deploy && pnpm start:dev"
     depends_on:
       postgres-test:
@@ -133,10 +156,38 @@ services:
     profiles:
       - test
 
+  # Test frontend for E2E tests
+  frontend-test:
+    image: node:20-alpine
+    container_name: ourchat_frontend_test
+    restart: unless-stopped
+    working_dir: /app
+    ports:
+      - "3003:3003"
+    environment:
+      NODE_ENV: test
+      E2E_TEST: "true"
+      NEXT_PUBLIC_GRAPHQL_HTTP_URL: http://localhost:4001/graphql
+      NEXT_PUBLIC_GRAPHQL_WS_URL: ws://localhost:4001/graphql
+    volumes:
+      - .:/app
+      - frontend_test_node_modules:/app/node_modules
+    command: sh -c "npm install -g pnpm && pnpm install && pnpm next dev --port 3003 --hostname 0.0.0.0"
+    depends_on:
+      - backend-test
+    networks:
+      - ourchat_network
+    profiles:
+      - test
+
 volumes:
   postgres_data:
     driver: local
   postgres_test_data:
+    driver: local
+  frontend_node_modules:
+    driver: local
+  frontend_test_node_modules:
     driver: local
 
 networks:
