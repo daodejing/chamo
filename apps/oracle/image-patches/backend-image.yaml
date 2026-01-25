@@ -16,7 +16,7 @@ spec:
   values:
     image:
       repository: ap-osaka-1.ocir.io/axeavx1flryv/ourchat/backend # {"$imagepolicy": "flux-system:ourchat-backend:name"}
-      tag: 2ec4aba-1769329373 # {"$imagepolicy": "flux-system:ourchat-backend:tag"}
+      tag: 2177a1f-1769344919 # {"$imagepolicy": "flux-system:ourchat-backend:tag"}
     imagePullSecrets:
       - name: ocir-secret
     # Increase memory for NestJS + Prisma + GraphQL
