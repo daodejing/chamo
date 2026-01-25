@@ -9,11 +9,18 @@ PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
 cd "$PROJECT_ROOT"
 
+# Use docker compose v2 if available, otherwise fall back to docker-compose v1
+if docker compose version &>/dev/null; then
+    DC="docker compose"
+else
+    DC="docker-compose"
+fi
+
 # Cleanup function to stop test environment
 cleanup() {
     echo ""
     echo "Stopping test environment..."
-    docker-compose --profile test stop postgres-test backend-test frontend-test 2>/dev/null || true
+    $DC --profile test stop postgres-test backend-test frontend-test 2>/dev/null || true
     echo "Test environment stopped"
 }
 
@@ -21,7 +28,7 @@ cleanup() {
 trap cleanup EXIT
 
 echo "Starting test environment..."
-docker-compose --profile test up -d postgres-test mailhog backend-test frontend-test
+$DC --profile test up -d postgres-test mailhog backend-test frontend-test
 
 echo "Waiting for services to be ready..."
 
@@ -35,7 +42,7 @@ for i in {1..120}; do
     if [ $i -eq 120 ]; then
         echo "timeout"
         echo "Error: Backend failed to start"
-        docker-compose --profile test logs --tail=50 backend-test
+        $DC --profile test logs --tail=50 backend-test
         exit 1
     fi
     sleep 1
@@ -51,7 +58,7 @@ for i in {1..120}; do
     if [ $i -eq 120 ]; then
         echo "timeout"
         echo "Error: Frontend failed to start"
-        docker-compose --profile test logs --tail=50 frontend-test
+        $DC --profile test logs --tail=50 frontend-test
         exit 1
     fi
     sleep 1
