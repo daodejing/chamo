@@ -106,18 +106,10 @@ export function KeyTransferImport({ open, onClose, onSuccess }: KeyTransferImpor
       // Decrypt the private key
       const privateKey = await decryptKeyFromTransfer(payload, pin);
 
-      // Verify the keypair matches
+      // Verify the decrypted private key matches the public key in the payload
       const payloadPublicKey = decodePublicKey(payload.publicKey);
       if (!verifyKeyPair(privateKey, payloadPublicKey)) {
         throw new KeyTransferError('KEY_MISMATCH', t('keyTransfer.error.mismatch', language));
-      }
-
-      // Verify against server public key if available
-      if (user.publicKey) {
-        const serverPublicKey = decodePublicKey(user.publicKey);
-        if (!verifyKeyPair(privateKey, serverPublicKey)) {
-          throw new KeyTransferError('KEY_MISMATCH', t('keyTransfer.error.mismatch', language));
-        }
       }
 
       // Store the private key
@@ -214,8 +206,8 @@ export function KeyTransferImport({ open, onClose, onSuccess }: KeyTransferImpor
                       video: { width: '100%', height: '100%', objectFit: 'cover' },
                     }}
                     components={{
-                      audio: false,
                       torch: false,
+                      finder: true,
                     }}
                   />
                 </div>

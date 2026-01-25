@@ -158,7 +158,7 @@ export async function deriveKeyFromPIN(
   return globalThis.crypto.subtle.deriveKey(
     {
       name: 'PBKDF2',
-      salt,
+      salt: salt.buffer.slice(salt.byteOffset, salt.byteOffset + salt.byteLength) as ArrayBuffer,
       iterations: PBKDF2_ITERATIONS,
       hash: 'SHA-256',
     },
@@ -203,9 +203,9 @@ export async function encryptKeyForTransfer(
 
   // Encrypt the private key
   const encryptedBuffer = await globalThis.crypto.subtle.encrypt(
-    { name: 'AES-GCM', iv },
+    { name: 'AES-GCM', iv: iv.buffer.slice(iv.byteOffset, iv.byteOffset + iv.byteLength) as ArrayBuffer },
     aesKey,
-    privateKey
+    privateKey.buffer.slice(privateKey.byteOffset, privateKey.byteOffset + privateKey.byteLength) as ArrayBuffer
   );
 
   return {
@@ -292,9 +292,9 @@ export async function decryptKeyFromTransfer(
 
   try {
     const decryptedBuffer = await globalThis.crypto.subtle.decrypt(
-      { name: 'AES-GCM', iv },
+      { name: 'AES-GCM', iv: iv.buffer.slice(iv.byteOffset, iv.byteOffset + iv.byteLength) as ArrayBuffer },
       aesKey,
-      encryptedKey
+      encryptedKey.buffer.slice(encryptedKey.byteOffset, encryptedKey.byteOffset + encryptedKey.byteLength) as ArrayBuffer
     );
 
     const privateKey = new Uint8Array(decryptedBuffer);

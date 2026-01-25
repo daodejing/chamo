@@ -8,7 +8,7 @@ import { useLanguage } from '@/lib/contexts/language-context';
 import { t } from '@/lib/translations';
 import { useAuth } from '@/lib/contexts/auth-context';
 import { getPrivateKey, hasPrivateKey } from '@/lib/crypto/secure-storage';
-import { decodePublicKey } from '@/lib/crypto/keypair';
+import { derivePublicKeyFromSecretKey } from '@/lib/crypto/keypair';
 import {
   generateTransferPIN,
   encryptKeyForTransfer,
@@ -66,15 +66,8 @@ export function KeyTransferExport({ open, onClose }: KeyTransferExportProps) {
         return;
       }
 
-      // Get public key (from user's server-stored public key)
-      const publicKeyStr = user.publicKey;
-      if (!publicKeyStr) {
-        setError('Public key not found');
-        setIsLoading(false);
-        return;
-      }
-
-      const publicKey = decodePublicKey(publicKeyStr);
+      // Derive public key from the private key
+      const publicKey = derivePublicKeyFromSecretKey(privateKey);
 
       // Generate PIN and encrypt
       const pin = generateTransferPIN();
