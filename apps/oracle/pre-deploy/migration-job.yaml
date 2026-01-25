@@ -36,7 +36,7 @@ spec:
       containers:
         - name: migrate
           # Image policy marker for Flux automation - stays in sync with backend
-          image: ap-osaka-1.ocir.io/axeavx1flryv/ourchat/backend:2177a1f-1769344919 # {"$imagepolicy": "flux-system:ourchat-backend"}
+          image: ap-osaka-1.ocir.io/axeavx1flryv/ourchat/backend:ee66222-1769346272 # {"$imagepolicy": "flux-system:ourchat-backend"}
           command:
             - sh
             - -c
