@@ -33,30 +33,7 @@ export default defineConfig({
     },
   ],
 
-  // Web servers for E2E tests - both backend and frontend
-  // Backend starts docker-compose with test profile (port 4001 + MailHog)
-  // Frontend starts Next.js dev server on port 3003
-  webServer: [
-    {
-      // Backend services (docker compose with test profile)
-      // Includes: backend (4001), postgres (5433), MailHog (8025/1025)
-      // Try "docker compose" (v2) first, fall back to "docker-compose" (v1) for local dev
-      command: 'docker compose --profile test up 2>/dev/null || docker-compose --profile test up',
-      url: 'http://localhost:4001/health',
-      reuseExistingServer: !process.env.CI,
-      timeout: 120000, // 2 min for docker startup
-      cwd: './apps/backend',
-      stdout: 'ignore',
-      stderr: 'pipe',
-    },
-    {
-      // Frontend dev server on port 3003
-      command: 'E2E_TEST=true NEXT_PUBLIC_GRAPHQL_HTTP_URL=http://localhost:4001/graphql NEXT_PUBLIC_GRAPHQL_WS_URL=ws://localhost:4001/graphql pnpm next dev --port 3003',
-      url: 'http://localhost:3003',
-      reuseExistingServer: !process.env.CI,
-      timeout: 120000, // 2 min for first-time compilation
-      stdout: 'ignore',
-      stderr: 'pipe',
-    },
-  ],
+  // Test environment is managed by scripts/run-e2e.sh
+  // which starts docker-compose --profile test before running tests
+  // and stops it on exit (success or failure)
 });

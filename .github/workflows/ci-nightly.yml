@@ -37,8 +37,8 @@ jobs:
       - name: Install Playwright browsers
         run: pnpm exec playwright install --with-deps firefox
 
-      # NOTE: Playwright's webServer config handles docker-compose startup automatically
-      # See playwright.config.ts - it uses --profile test (port 4001) with health check
+      # NOTE: scripts/run-e2e.sh handles docker-compose startup/shutdown automatically
+      # It starts test services, waits for health checks, runs tests, and cleans up on exit
 
       - name: Run full E2E test suite
         run: pnpm test:e2e

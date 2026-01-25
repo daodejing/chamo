@@ -1,18 +1,13 @@
 /**
  * Global teardown for Playwright E2E tests
- * Ensures the test server is properly stopped after all tests complete
+ *
+ * Note: Docker services are stopped by scripts/run-e2e.sh via trap on exit.
+ * This file is kept for any additional test-specific cleanup if needed.
  */
 
 async function globalTeardown() {
-  console.log('Global teardown: Cleaning up test server...');
-
-  // The webServer in playwright.config.ts will automatically be stopped
-  // when Playwright exits, but we can add additional cleanup here if needed
-
-  // Wait a moment to ensure all processes are cleaned up
-  await new Promise(resolve => setTimeout(resolve, 1000));
-
-  console.log('Global teardown: Complete');
+  // Docker cleanup is handled by run-e2e.sh trap
+  // Add any test-specific cleanup here if needed
 }
 
 export default globalTeardown;
