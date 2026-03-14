@@ -31,6 +31,14 @@ spec:
       allowedRoutes:
         namespaces:
           from: All
+    # HTTP listener for line-llm (shared cluster)
+    - name: http-line-llm
+      port: 80
+      protocol: HTTP
+      hostname: "line-llm.138-2-48-165.nip.io"
+      allowedRoutes:
+        namespaces:
+          from: All
     # HTTPS listener for frontend
     - name: https-frontend
       port: 443
