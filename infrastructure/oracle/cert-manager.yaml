@@ -31,7 +31,7 @@ spec:
       allowedRoutes:
         namespaces:
           from: All
-    # HTTP listener for line-llm (shared cluster)
+    # HTTP listener for line-llm (shared cluster, also for ACME challenges)
     - name: http-line-llm
       port: 80
       protocol: HTTP
@@ -39,6 +39,19 @@ spec:
       allowedRoutes:
         namespaces:
           from: All
+    # HTTPS listener for line-llm
+    - name: https-line-llm
+      port: 443
+      protocol: HTTPS
+      hostname: "line-llm.138-2-48-165.nip.io"
+      allowedRoutes:
+        namespaces:
+          from: All
+      tls:
+        mode: Terminate
+        certificateRefs:
+          - name: line-llm-tls
+            kind: Secret
     # HTTPS listener for frontend
     - name: https-frontend
       port: 443
@@ -120,3 +133,18 @@ spec:
   dnsNames:
     - "ourchat.138-2-48-165.nip.io"
     - "api.ourchat.138-2-48-165.nip.io"
+
+---
+# Certificate for line-llm nip.io domain (shared cluster)
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: line-llm-tls
+  namespace: istio-ingress
+spec:
+  secretName: line-llm-tls
+  issuerRef:
+    name: letsencrypt-prod
+    kind: ClusterIssuer
+  dnsNames:
+    - "line-llm.138-2-48-165.nip.io"
