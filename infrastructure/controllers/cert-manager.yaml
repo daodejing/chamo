@@ -28,6 +28,8 @@ spec:
     crds: CreateReplace
   values:
     installCRDs: true
+    config:
+      enableGatewayAPI: true
     resources:
       requests:
         cpu: 10m
